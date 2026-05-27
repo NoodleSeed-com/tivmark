@@ -1,0 +1,29 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(wrangler --version)",
+      "Bash(wrangler whoami:*)",
+      "mcp__perplexity-mcp__perplexity_ask",
+      "mcp__codex-subagent__spawn_agent",
+      "Bash(wrangler pages:*)",
+      "Read(//Users/fahdrafi/.wrangler/config/**)",
+      "Bash(curl -s -X GET 'https://api.cloudflare.com/client/v4/zones?name=tivmark.com&account.id=aea8e204d9a5d2810a7d94fc8d00dfa1' -H 'Authorization: Bearer __CMDSUB_OUTPUT__')",
+      "Bash(python3 -m json.tool)",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); [print\\(f'{r[\\\\\"type\\\\\"]:6} {r[\\\\\"name\\\\\"]:30} → {r[\\\\\"content\\\\\"]}'\\) for r in d.get\\('result',[]\\)]\")",
+      "Bash(export CF_API_TOKEN=$\\(grep oauth_token ~/Library/Preferences/.wrangler/config/default.toml)",
+      "Bash(python3 -c \"import json,sys; data=json.load\\(sys.stdin\\); [print\\(f'{d[\\\\\"name\\\\\"]:25} status={d[\\\\\"status\\\\\"]:15} cert={d[\\\\\"validation_data\\\\\"][\\\\\"status\\\\\"]}'\\) for d in data['result']]\")",
+      "Bash(curl -sI https://tivmark.com)",
+      "Bash(curl -s https://tivmark.com)",
+      "Bash(gh auth:*)",
+      "Bash(gh api:*)",
+      "Bash(git init:*)",
+      "Bash(git branch:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(gh repo:*)",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\(f'Environment: {d.get\\(\\\\\"name\\\\\"\\)}, protection_rules: {d.get\\(\\\\\"protection_rules\\\\\",[]\\)}'\\);\")",
+      "Bash(git push:*)",
+      "Bash(gh run:*)"
+    ]
+  }
+}

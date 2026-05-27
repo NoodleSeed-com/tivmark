@@ -9,15 +9,24 @@
 <meta property="og:description" content="Bay Area accounting, tax, and advisory services for startups and growing businesses. Clear numbers. Clear direction.">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://tivmark.com">
-<meta name="twitter:card" content="summary">
+<meta property="og:image" content="https://tivmark.com/images/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Tivmark Advisory">
 <meta name="twitter:description" content="Accounting, tax, and advisory services built for startups and growing businesses in the Bay Area.">
+<meta name="twitter:image" content="https://tivmark.com/images/twitter-card.png">
 <link rel="canonical" href="https://tivmark.com">
+<link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16.png">
+<link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32.png">
+<link rel="apple-touch-icon" href="/images/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="/images/app-icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
   :root {
-    --navy: #1a2744;
+    --secondary-blue: #1a2744;
+    --navy: var(--secondary-blue);
     --navy-deep: #111c33;
     --slate: #3d4f6b;
     --cream: #f7f5f0;
@@ -61,12 +70,16 @@
     border-bottom: 2px solid var(--accent);
   }
   .logo {
-    font-family: 'Libre Baskerville', serif;
-    color: var(--white);
-    font-size: 1.25rem;
-    letter-spacing: 0.02em;
+    display: inline-flex;
+    align-items: center;
+    width: 148px;
+    height: 52px;
   }
-  .logo span { color: var(--accent); }
+  .logo img {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
   nav ul {
     list-style: none;
     display: flex;
@@ -111,9 +124,15 @@
 
   /* ── HERO ── */
   .hero {
-    background: var(--navy);
+    min-height: clamp(560px, calc(100svh - 74px), 760px);
+    display: flex;
+    align-items: center;
+    background:
+      linear-gradient(90deg, rgba(17,28,51,0.28) 0%, rgba(17,28,51,0.78) 50%, rgba(17,28,51,0.92) 100%),
+      url('/images/hero-office-wide.png') center / cover no-repeat,
+      var(--navy);
     color: var(--white);
-    padding: 6rem 3rem 5.5rem;
+    padding: 5.5rem 3rem 5rem;
     position: relative;
     overflow: hidden;
   }
@@ -125,11 +144,14 @@
     width: 600px;
     height: 600px;
     border-radius: 50%;
-    background: radial-gradient(circle, rgba(176,141,87,0.08) 0%, transparent 70%);
+    background: radial-gradient(circle, rgba(176,141,87,0.10) 0%, transparent 70%);
     pointer-events: none;
   }
   .hero-inner {
-    max-width: 720px;
+    max-width: 540px;
+    margin-left: auto;
+    position: relative;
+    z-index: 1;
   }
   .hero h1 {
     font-size: 2.9rem;
@@ -159,6 +181,13 @@
     transition: background 0.2s;
   }
   .hero-cta:hover { background: var(--accent-light); }
+
+  .brand-mark {
+    display: block;
+    width: 72px;
+    height: auto;
+    margin-bottom: 1.2rem;
+  }
 
   /* ── SECTIONS ── */
   section {
@@ -350,12 +379,30 @@
     padding: 2rem 3rem;
     font-size: 0.8rem;
   }
+  .footer-logo {
+    display: block;
+    width: 164px;
+    height: auto;
+    margin: 0 auto 1rem;
+  }
 
   /* ── RESPONSIVE ── */
   @media (max-width: 768px) {
     nav { padding: 1rem 1.5rem; }
+    .logo { width: 132px; height: 46px; }
     nav ul { gap: 1.2rem; }
-    .hero { padding: 4rem 1.5rem 3.5rem; }
+    .hero {
+      min-height: 620px;
+      padding: 4rem 1.5rem 3.5rem;
+      background:
+        linear-gradient(180deg, rgba(17,28,51,0.22) 0%, rgba(17,28,51,0.72) 48%, rgba(17,28,51,0.94) 100%),
+        url('/images/hero-office-wide.png') 68% center / cover no-repeat,
+        var(--navy);
+    }
+    .hero-inner {
+      align-self: flex-end;
+      margin-left: 0;
+    }
     .hero h1 { font-size: 2rem; }
     section { padding: 3.5rem 1.5rem; }
     .contact-grid {
@@ -365,6 +412,7 @@
   }
   @media (max-width: 480px) {
     .nav-toggle { display: block; }
+    .logo { width: 122px; height: 42px; }
     nav ul {
       display: none;
       position: absolute;
@@ -378,7 +426,9 @@
       border-bottom: 2px solid var(--accent);
     }
     nav ul.open { display: flex; }
+    .hero { min-height: 590px; }
     .hero h1 { font-size: 1.7rem; }
+    .brand-mark { width: 58px; }
     section h2 { font-size: 1.6rem; }
   }
 </style>
@@ -386,7 +436,9 @@
 <body>
 
 <nav>
-  <div class="logo">Tivmark<span>.</span></div>
+  <a class="logo" href="/" aria-label="Tivmark Advisory home">
+    <img src="/images/logo-horizontal-dark.png" alt="Tivmark Advisory" width="1997" height="703">
+  </a>
   <button class="nav-toggle" aria-label="Toggle navigation" aria-expanded="false" onclick="const ul=this.nextElementSibling;const open=ul.classList.toggle('open');this.setAttribute('aria-expanded',open)">
     <span></span><span></span><span></span>
   </button>
@@ -483,6 +535,7 @@
   <p class="section-intro">Whether you are raising your first round or just need someone to untangle your books, we are happy to chat.</p>
   <div class="contact-grid">
     <div class="contact-info">
+      <img class="brand-mark" src="/images/logo-mark-transparent.png" alt="" width="708" height="663" loading="lazy">
       <h3>Tivmark Advisory</h3>
       <p>1900 Embarcadero Road, Suite 210<br>Palo Alto, CA 94303</p>
       <p><a href="tel:6505550283">(650) 555-0283</a></p>
@@ -504,6 +557,7 @@
 </section>
 
 <footer>
+  <img class="footer-logo" src="/images/logo-horizontal-dark.png" alt="Tivmark Advisory" width="1997" height="703" loading="lazy">
   &copy; 2026 Tivmark Advisory. All rights reserved.
   <br><span style="opacity:0.7">This is a fictional sample business and website created by <a href="https://noodleseed.com" style="color:var(--accent);text-decoration:none">Noodle Seed</a>.</span>
 </footer>
