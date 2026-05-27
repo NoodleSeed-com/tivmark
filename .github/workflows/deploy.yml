@@ -3,6 +3,7 @@ name: Deploy to Cloudflare Pages
 on:
   push:
     branches: [main]
+  workflow_dispatch:
 
 jobs:
   deploy:
@@ -19,4 +20,6 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy . --project-name tivmark --branch main
+          wranglerVersion: "4"
+          command: pages deploy . --project-name=tivmark --branch=main
+          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
