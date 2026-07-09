@@ -8,8 +8,9 @@
   "scripts": {
     "release": "git checkout release && git merge origin/main && release-it && git checkout main && git merge origin/release && git push origin main",
     "dev": "next dev --port 4002",
-    "build": "prisma generate && prisma db push && next build",
-    "start": "next start --port 4002",
+    "build": "prisma generate && next build",
+    "db:push": "prisma db push",
+    "start": "next start -p ${PORT:-4002}",
     "check-types": "tsc --pretty --noEmit",
     "check-format": "prettier --check .",
     "check-lint": "eslint -c eslint.config.cjs ./",

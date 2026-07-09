@@ -1,1 +1,1 @@
-web: ./node_modules/.bin/next start
+web: npm start
