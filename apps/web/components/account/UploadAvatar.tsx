@@ -66,7 +66,7 @@ const UploadAvatar = ({ user }: { user: Partial<User> }) => {
     e.preventDefault();
     setLoading(true);
 
-    const response = await fetch('/api/users', {
+    const response = await fetch('/api/v1/me', {
       method: 'PUT',
       headers: defaultHeaders,
       body: JSON.stringify({ image }),
@@ -97,7 +97,7 @@ const UploadAvatar = ({ user }: { user: Partial<User> }) => {
           <div>
             <label
               htmlFor="image"
-              className="group relative mt-1 flex h-24 w-24 cursor-pointer flex-col items-center justify-center rounded-full border border-gray-300 bg-white transition-all hover:bg-gray-50"
+              className="group relative mt-1 flex h-24 w-24 cursor-pointer flex-col items-center justify-center rounded-full border border-ui-border bg-ui-surface transition-all hover:bg-ui-surface-muted"
             >
               <div
                 className="absolute z-[5] h-full w-full rounded-full"
@@ -121,18 +121,18 @@ const UploadAvatar = ({ user }: { user: Partial<User> }) => {
               <div
                 className={`${
                   dragActive
-                    ? 'cursor-copy border-2 border-black bg-gray-50 opacity-100'
+                    ? 'cursor-copy border-2 border-ui-heading bg-ui-surface-muted opacity-100'
                     : ''
-                } absolute z-[3] flex h-full w-full flex-col items-center justify-center rounded-full bg-white transition-all ${
+                } absolute z-[3] flex h-full w-full flex-col items-center justify-center rounded-full bg-ui-surface transition-all ${
                   image
                     ? 'opacity-0 group-hover:opacity-100'
-                    : 'group-hover:bg-gray-50'
+                    : 'group-hover:bg-ui-surface-muted'
                 }`}
               >
                 <ArrowUpCircleIcon
                   className={`${
                     dragActive ? 'scale-110' : 'scale-100'
-                  } h-50 w-50 text-gray-500 transition-all duration-75 group-hover:scale-110 group-active:scale-95`}
+                  } h-50 w-50 text-ui-muted transition-all duration-75 group-hover:scale-110 group-active:scale-95`}
                 />
               </div>
               {image && (

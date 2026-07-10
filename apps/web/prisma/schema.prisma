@@ -13,6 +13,30 @@ enum Role {
   MEMBER
 }
 
+enum TimeOffType {
+  VACATION
+  SICK
+  PERSONAL
+  UNPAID
+}
+
+enum TimeOffStatus {
+  PENDING
+  APPROVED
+  DECLINED
+  CANCELED
+}
+
+enum TimeOffDuration {
+  FULL_DAY
+  HALF_DAY
+}
+
+enum HalfDayPeriod {
+  MORNING
+  AFTERNOON
+}
+
 model Account {
   id                String  @id @default(uuid())
   userId            String
@@ -63,27 +87,74 @@ model User {
   invalid_login_attempts Int       @default(0)
   lockedAt               DateTime?
 
-  teamMembers TeamMember[]
-  accounts    Account[]
-  sessions    Session[]
-  invitations Invitation[]
+  teamMembers             TeamMember[]
+  accounts                Account[]
+  sessions                Session[]
+  invitations             Invitation[]
+  createdApiKeys          ApiKey[]         @relation("ApiKeyCreator")
+  timeOffRequests         TimeOffRequest[] @relation("TimeOffRequester")
+  reviewedTimeOffRequests TimeOffRequest[] @relation("TimeOffReviewer")
 }
 
 model Team {
-  id              String       @id @default(uuid())
+  id              String           @id @default(uuid())
   name            String
-  slug            String       @unique
-  domain          String?      @unique
-  defaultRole     Role         @default(MEMBER)
+  slug            String           @unique
+  domain          String?          @unique
+  defaultRole     Role             @default(MEMBER)
   billingId       String?
   billingProvider String?
-  createdAt       DateTime     @default(now())
-  updatedAt       DateTime     @default(now())
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @default(now())
   members         TeamMember[]
   invitations     Invitation[]
   apiKeys         ApiKey[]
+  timeOffPolicies TimeOffPolicy[]
+  timeOffRequests TimeOffRequest[]
+  oauthClients    OAuthClient[]
 
   @@index([billingId])
+}
+
+model TimeOffPolicy {
+  id                      String      @id @default(uuid())
+  teamId                  String
+  type                    TimeOffType
+  annualAllowanceHalfDays Int?
+  createdAt               DateTime    @default(now())
+  updatedAt               DateTime    @updatedAt
+
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, type])
+  @@index([teamId])
+}
+
+model TimeOffRequest {
+  id                String          @id @default(uuid())
+  teamId            String
+  requesterId       String
+  reviewerId        String?
+  type              TimeOffType
+  status            TimeOffStatus   @default(PENDING)
+  startDate         DateTime        @db.Date
+  endDate           DateTime        @db.Date
+  duration          TimeOffDuration @default(FULL_DAY)
+  halfDayPeriod     HalfDayPeriod?
+  requestedHalfDays Int
+  reason            String?         @db.VarChar(500)
+  reviewNote        String?         @db.VarChar(500)
+  reviewedAt        DateTime?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  team      Team  @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  requester User  @relation("TimeOffRequester", fields: [requesterId], references: [id], onDelete: Cascade)
+  reviewer  User? @relation("TimeOffReviewer", fields: [reviewerId], references: [id], onDelete: SetNull)
+
+  @@index([teamId, startDate])
+  @@index([teamId, status])
+  @@index([teamId, requesterId])
 }
 
 model TeamMember {
@@ -131,18 +202,84 @@ model PasswordReset {
 }
 
 model ApiKey {
-  id         String    @id @default(uuid())
-  name       String
-  teamId     String
-  hashedKey  String    @unique
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @default(now())
-  expiresAt  DateTime?
-  lastUsedAt DateTime?
+  id          String    @id @default(uuid())
+  name        String
+  teamId      String
+  hashedKey   String    @unique
+  prefix      String?
+  scopes      String[]  @default([])
+  createdById String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @default(now())
+  expiresAt   DateTime?
+  lastUsedAt  DateTime?
+
+  team      Team  @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  createdBy User? @relation("ApiKeyCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([teamId])
+  @@index([createdById])
+}
+
+model OAuthClient {
+  id             String   @id @default(uuid())
+  clientId       String   @unique
+  name           String
+  teamId         String
+  redirectUris   String[]
+  allowedOrigins String[]
+  scopes         String[]
+  trusted        Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
 
   @@index([teamId])
+}
+
+model OAuthPayload {
+  id        String    @id
+  model     String
+  payload   Json
+  grantId   String?
+  userCode  String?
+  uid       String?
+  expiresAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@unique([model, id])
+  @@index([grantId])
+  @@index([userCode])
+  @@index([uid])
+  @@index([expiresAt])
+}
+
+model ApiRateLimit {
+  id        String   @id
+  count     Int      @default(1)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([expiresAt])
+}
+
+model ApiIdempotencyRecord {
+  id           String   @id
+  principalId  String
+  method       String
+  path         String
+  requestHash  String
+  statusCode   Int?
+  responseBody Json?
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([principalId])
+  @@index([expiresAt])
 }
 
 model Subscription {

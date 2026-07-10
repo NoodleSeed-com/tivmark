@@ -30,7 +30,7 @@ const UpdateName = ({ user }: { user: Partial<User> }) => {
       }
     },
     onSubmit: async (values) => {
-      const response = await fetch('/api/users', {
+      const response = await fetch('/api/v1/me', {
         method: 'PUT',
         headers: defaultHeaders,
         body: JSON.stringify(values),

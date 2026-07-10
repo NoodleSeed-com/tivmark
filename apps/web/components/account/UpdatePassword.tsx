@@ -26,7 +26,7 @@ const UpdatePassword = () => {
     },
     validationSchema: schema,
     onSubmit: async (values) => {
-      const response = await fetch('/api/password', {
+      const response = await fetch('/api/v1/me/password', {
         method: 'PUT',
         headers: defaultHeaders,
         body: JSON.stringify(values),

@@ -37,7 +37,7 @@ const InviteViaEmail = ({ setVisible, team }: InviteViaEmailProps) => {
     },
     validationSchema: FormValidationSchema,
     onSubmit: async (values) => {
-      const response = await fetch(`/api/teams/${team.slug}/invitations`, {
+      const response = await fetch(`/api/v1/teams/${team.slug}/invitations`, {
         method: 'POST',
         headers: defaultHeaders,
         body: JSON.stringify(values),
@@ -50,7 +50,7 @@ const InviteViaEmail = ({ setVisible, team }: InviteViaEmailProps) => {
       }
 
       toast.success(t('invitation-sent'));
-      mutate(`/api/teams/${team.slug}/invitations?sentViaEmail=true`);
+      mutate(`/api/v1/teams/${team.slug}/invitations?sentViaEmail=true`);
       setVisible(false);
       formik.resetForm();
     },
@@ -64,7 +64,7 @@ const InviteViaEmail = ({ setVisible, team }: InviteViaEmailProps) => {
           name="email"
           onChange={formik.handleChange}
           value={formik.values.email}
-          placeholder="jackson@boxyhq.com"
+          placeholder="name@company.com"
           required
           className="text-sm w-1/2"
           type="email"

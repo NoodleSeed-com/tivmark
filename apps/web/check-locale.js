@@ -22,23 +22,34 @@ const allStrings = {};
 
 const localeFile = require('./locales/en/common.json');
 
-const files = fs.readdirSync('./', { recursive: true, withFileTypes: true });
+const ignoredDirs = new Set([
+  '.git',
+  '.next',
+  'coverage',
+  'node_modules',
+  'playwright-report',
+  'test-results',
+]);
+
+function listFiles(dir) {
+  return fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+    const fullPath = path.join(dir, entry.name);
+
+    if (entry.isDirectory()) {
+      return ignoredDirs.has(entry.name) ? [] : listFiles(fullPath);
+    }
+
+    return fullPath;
+  });
+}
+
+const files = listFiles('.');
 
 let error = false;
 
 files.forEach((file) => {
-  if (file.isDirectory()) {
-    return;
-  }
-  if (file.path.includes('node_modules')) {
-    return;
-  }
-
-  if (['.ts', '.tsx'].includes(path.extname(file.name).toLowerCase())) {
-    const fileContent = fs.readFileSync(
-      path.join(file.path, file.name),
-      'utf8'
-    );
+  if (['.ts', '.tsx'].includes(path.extname(file).toLowerCase())) {
+    const fileContent = fs.readFileSync(file, 'utf8');
 
     (fileContent.match(regExp) || []).forEach((match) => {
       const id = match.replace("t('", '').replace("'", '');
@@ -46,7 +57,7 @@ files.forEach((file) => {
       if (!localeFile[id]) {
         error = true;
         console.error(
-          `Missing key: ${path.join(file.path, file.name)} - ${id}`
+          `Missing key: ${file} - ${id}`
         );
       }
     });
@@ -57,7 +68,7 @@ files.forEach((file) => {
       if (!localeFile[id]) {
         error = true;
         console.error(
-          `Missing key: ${path.join(file.path, file.name)} - ${id}`
+          `Missing key: ${file} - ${id}`
         );
       }
     });
@@ -75,7 +86,7 @@ files.forEach((file) => {
           if (!localeFile[id]) {
             error = true;
             console.error(
-              `Missing key: ${path.join(file.path, file.name)} - ${id}`
+              `Missing key: ${file} - ${id}`
             );
           }
         });

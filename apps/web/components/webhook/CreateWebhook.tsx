@@ -26,7 +26,7 @@ const CreateWebhook = ({
     values: WebhookFormSchema,
     formikHelpers: FormikHelpers<WebhookFormSchema>
   ) => {
-    const response = await fetch(`/api/teams/${team.slug}/webhooks`, {
+    const response = await fetch(`/api/v1/teams/${team.slug}/webhooks`, {
       method: 'POST',
       headers: defaultHeaders,
       body: JSON.stringify(values),

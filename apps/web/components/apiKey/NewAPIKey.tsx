@@ -12,6 +12,25 @@ import { useFormik } from 'formik';
 import { z } from 'zod';
 import { createApiKeySchema } from '@/lib/zod';
 
+const credentialScopes = [
+  'teams',
+  'members',
+  'invitations',
+  'time_off',
+  'time_off.approve',
+  'time_off.policy',
+  'credentials',
+  'sso',
+  'directory_sync',
+  'webhooks',
+  'audit_logs',
+  'billing',
+] as const;
+
+const credentialSchema = createApiKeySchema.extend({
+  scopes: z.array(z.enum(credentialScopes)).min(1),
+});
+
 const NewAPIKey = ({
   team,
   createModalVisible,
@@ -22,7 +41,7 @@ const NewAPIKey = ({
 
   const onNewAPIKey = (apiKey: string) => {
     setApiKey(apiKey);
-    mutate(`/api/teams/${team.slug}/api-keys`);
+    mutate(`/api/v1/teams/${team.slug}/credentials`);
   };
 
   const toggleVisible = () => {
@@ -51,21 +70,36 @@ const CreateAPIKeyForm = ({
   closeModal,
 }: CreateAPIKeyFormProps) => {
   const { t } = useTranslation('common');
+  const scopeLabels: Record<(typeof credentialScopes)[number], string> = {
+    teams: t('credential-scope-teams'),
+    members: t('credential-scope-members'),
+    invitations: t('credential-scope-invitations'),
+    time_off: t('credential-scope-time_off'),
+    'time_off.approve': t('credential-scope-time_off-approve'),
+    'time_off.policy': t('credential-scope-time_off-policy'),
+    credentials: t('credential-scope-credentials'),
+    sso: t('credential-scope-sso'),
+    directory_sync: t('credential-scope-directory_sync'),
+    webhooks: t('credential-scope-webhooks'),
+    audit_logs: t('credential-scope-audit_logs'),
+    billing: t('credential-scope-billing'),
+  };
 
-  const formik = useFormik<z.infer<typeof createApiKeySchema>>({
+  const formik = useFormik<z.infer<typeof credentialSchema>>({
     initialValues: {
       name: '',
+      scopes: ['time_off'],
     },
     validateOnBlur: false,
     validate: (values) => {
       try {
-        createApiKeySchema.parse(values);
+        credentialSchema.parse(values);
       } catch (error: any) {
         return error.formErrors.fieldErrors;
       }
     },
     onSubmit: async (values) => {
-      const response = await fetch(`/api/teams/${team.slug}/api-keys`, {
+      const response = await fetch(`/api/v1/teams/${team.slug}/credentials`, {
         method: 'POST',
         body: JSON.stringify(values),
         headers: defaultHeaders,
@@ -101,6 +135,32 @@ const CreateAPIKeyForm = ({
           className="text-sm"
           error={formik.errors.name}
         />
+        <fieldset className="mt-5">
+          <legend className="text-sm font-semibold text-ui-heading">
+            {t('credential-scopes')}
+          </legend>
+          <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+            {credentialScopes.map((scope) => (
+              <label
+                key={scope}
+                className="flex items-center gap-2 text-sm text-ui-text"
+              >
+                <input
+                  className="checkbox checkbox-sm"
+                  type="checkbox"
+                  name="scopes"
+                  value={scope}
+                  checked={formik.values.scopes.includes(scope)}
+                  onChange={formik.handleChange}
+                />
+                <span>{scopeLabels[scope]}</span>
+              </label>
+            ))}
+          </div>
+          {formik.errors.scopes && (
+            <p className="mt-2 text-sm text-error">{t('select-a-scope')}</p>
+          )}
+        </fieldset>
       </Modal.Body>
       <Modal.Footer>
         <Button type="button" variant="outline" onClick={closeModal} size="md">

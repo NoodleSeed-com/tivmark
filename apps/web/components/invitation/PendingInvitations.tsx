@@ -40,7 +40,7 @@ const PendingInvitations = ({ team }: { team: Team }) => {
     const sp = new URLSearchParams({ id: invitation.id });
 
     const response = await fetch(
-      `/api/teams/${team.slug}/invitations?${sp.toString()}`,
+      `/api/v1/teams/${team.slug}/invitations?${sp.toString()}`,
       {
         method: 'DELETE',
         headers: defaultHeaders,
@@ -68,9 +68,7 @@ const PendingInvitations = ({ team }: { team: Team }) => {
         <h2 className="text-xl font-medium leading-none tracking-tight">
           {t('pending-invitations')}
         </h2>
-        <p className="text-sm text-gray-500 dark:text-gray-400">
-          {t('description-invitations')}
-        </p>
+        <p className="text-sm text-ui-muted">{t('description-invitations')}</p>
       </div>
 
       <Table

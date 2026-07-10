@@ -1,10 +1,11 @@
 spec:
-  name: saas-starter-kit
+  name: tivmark-app
   services:
     - name: web
       git:
         branch: main
-        repo_clone_url: https://github.com/boxyhq/saas-starter-kit.git
+        repo_clone_url: https://github.com/NoodleSeed-com/tivmark.git
+        source_dir: apps/web
       envs:
         - key: NEXTAUTH_URL
           value: ${APP_URL}

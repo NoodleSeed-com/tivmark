@@ -76,7 +76,7 @@ const Join = ({ recaptchaSiteKey }: JoinProps) => {
         router.push('/auth/verify-email');
       } else {
         toast.success(t('successfully-joined'));
-        router.push('/auth/login');
+        router.push('/?success=successfully-joined');
       }
     },
   });
@@ -86,6 +86,7 @@ const Join = ({ recaptchaSiteKey }: JoinProps) => {
       <div className="space-y-1">
         <InputWithLabel
           type="text"
+          autoComplete="name"
           label={t('name')}
           name="name"
           placeholder={t('your-name')}
@@ -95,15 +96,17 @@ const Join = ({ recaptchaSiteKey }: JoinProps) => {
         />
         <InputWithLabel
           type="text"
-          label={t('team')}
+          autoComplete="organization"
+          label={t('company-name')}
           name="team"
-          placeholder={t('team-name')}
+          placeholder={t('company-name')}
           value={formik.values.team}
           error={formik.errors.team}
           onChange={formik.handleChange}
         />
         <InputWithLabel
           type="email"
+          autoComplete="email"
           label={t('email')}
           name="email"
           placeholder={t('email-placeholder')}
@@ -114,6 +117,7 @@ const Join = ({ recaptchaSiteKey }: JoinProps) => {
         <div className="relative flex">
           <InputWithLabel
             type={isPasswordVisible ? 'text' : 'password'}
+            autoComplete="new-password"
             label={t('password')}
             name="password"
             placeholder={t('password')}

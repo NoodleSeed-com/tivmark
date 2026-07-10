@@ -1,7 +1,6 @@
 import {
   Button,
   Container,
-  Head,
   Html,
   Preview,
   Text,
@@ -9,6 +8,7 @@ import {
 import EmailLayout from './EmailLayout';
 import { Team } from '@prisma/client';
 import app from '@/lib/app';
+import EmailHead from './EmailHead';
 
 interface TeamInviteEmailProps {
   team: Team;
@@ -23,7 +23,7 @@ const TeamInviteEmail = ({
 }: TeamInviteEmailProps) => {
   return (
     <Html>
-      <Head />
+      <EmailHead />
       <Preview>{subject}</Preview>
       <EmailLayout>
         <Text>

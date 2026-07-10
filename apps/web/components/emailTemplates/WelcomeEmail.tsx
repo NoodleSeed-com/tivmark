@@ -1,7 +1,6 @@
 import {
   Button,
   Container,
-  Head,
   Html,
   Preview,
   Text,
@@ -9,6 +8,7 @@ import {
 import EmailLayout from './EmailLayout';
 import app from '@/lib/app';
 import env from '@/lib/env';
+import EmailHead from './EmailHead';
 
 interface WelcomeEmailProps {
   name: string;
@@ -19,7 +19,7 @@ interface WelcomeEmailProps {
 const WelcomeEmail = ({ name, subject, team }: WelcomeEmailProps) => {
   return (
     <Html>
-      <Head />
+      <EmailHead />
       <Preview>{subject}</Preview>
       <EmailLayout>
         <Text>Hi {name},</Text>

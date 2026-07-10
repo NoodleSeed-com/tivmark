@@ -1,32 +1,36 @@
 [
   {
-    "amount": "30k",
-    "currency": "USD",
+    "amount": "1,200",
+    "currency": "$",
     "duration": "month",
-    "description": "Lorem Ipsum is simply dummy text of the printing and typesetting industry.",
+    "description": "Monthly bookkeeping and reporting for early-stage teams.",
     "benefits": [
-      "Up to 20 users.",
-      "Free storage upto 1GB",
-      "Lifetime validity"
+      "Monthly financial statements",
+      "Bank reconciliation",
+      "Email support"
     ]
   },
   {
-    "amount": "120k",
-    "currency": "USD",
+    "amount": "2,800",
+    "currency": "$",
     "duration": "month",
-    "description": "Lorem Ipsum is simply dummy text of the printing and typesetting industry.",
-    "benefits": ["Up to 500 users.", "Storage upto 50GB", "24*7 support"]
+    "description": "Tax planning, platform setup, and ongoing accounting support.",
+    "benefits": [
+      "Quarterly estimates",
+      "Payroll coordination",
+      "Startup advisory"
+    ]
   },
   {
-    "amount": "350k",
-    "currency": "USD",
+    "amount": "4,500",
+    "currency": "$",
     "duration": "month",
-    "description": "Lorem Ipsum is simply dummy text of the printing and typesetting industry.",
+    "description": "Strategic finance support for active growth and fundraising.",
     "benefits": [
-      "Up to 1000 users.",
-      "Storage upto 100GB",
-      "24*7 support",
-      "Data backups"
+      "Fractional CFO",
+      "Financial modeling",
+      "Board reporting",
+      "Fundraising support"
     ]
   }
 ]

@@ -70,14 +70,14 @@ const MagicLink = ({ csrfToken }: MagicLinkProps) => {
       <Head>
         <title>{t('magic-link-title')}</title>
       </Head>
-      <div className="rounded p-6 border">
+      <div className="border border-ui-border bg-ui-surface p-6 text-ui-text shadow-sm">
         <form onSubmit={formik.handleSubmit}>
           <div className="space-y-2">
             <InputWithLabel
               type="email"
               label="Email"
               name="email"
-              placeholder="jackson@boxyhq.com"
+              placeholder="name@company.com"
               value={formik.values.email}
               descriptionText="We’ll email you a magic link for a password-free sign in."
               error={formik.touched.email ? formik.errors.email : undefined}
@@ -108,11 +108,11 @@ const MagicLink = ({ csrfToken }: MagicLinkProps) => {
           </Link>
         </div>
       </div>
-      <p className="text-center text-sm text-gray-600 mt-3">
+      <p className="mt-3 text-center text-sm text-ui-muted">
         {t('dont-have-an-account')}
         <Link
           href={`/auth/join${params}`}
-          className="font-medium text-indigo-600 hover:text-indigo-500"
+          className="font-medium text-ui-accent hover:text-ui-heading"
         >
           &nbsp;{t('create-a-free-account')}
         </Link>

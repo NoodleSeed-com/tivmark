@@ -81,7 +81,7 @@ const SSO: NextPageWithLayout<
       <Head>
         <title>{t('signin-with-saml-sso')}</title>
       </Head>
-      <div className="rounded p-6 border">
+      <div className="border border-ui-border bg-ui-surface p-6 text-ui-text shadow-sm">
         <form onSubmit={formik.handleSubmit}>
           <div className="space-y-2">
             {useEmail ? (
@@ -89,7 +89,7 @@ const SSO: NextPageWithLayout<
                 type="email"
                 label="Email"
                 name="email"
-                placeholder="user@boxyhq.com"
+                placeholder="name@company.com"
                 value={formik.values.email}
                 error={formik.touched.email ? formik.errors.email : undefined}
                 onChange={formik.handleChange}
@@ -99,7 +99,7 @@ const SSO: NextPageWithLayout<
                 type="text"
                 label="Team slug"
                 name="slug"
-                placeholder="boxyhq"
+                placeholder="client-team"
                 value={formik.values.slug}
                 descriptionText="Contact your administrator to get your team slug"
                 error={formik.touched.slug ? formik.errors.slug : undefined}

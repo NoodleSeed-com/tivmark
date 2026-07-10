@@ -58,10 +58,10 @@ const DirectorySync = ({ teamFeatures }) => {
           },
         }}
         urls={{
-          get: `/api/teams/${team.slug}/dsync`,
-          post: `/api/teams/${team.slug}/dsync`,
-          patch: `/api/teams/${team.slug}/dsync`,
-          delete: `/api/teams/${team.slug}/dsync`,
+          get: `/api/v1/teams/${team.slug}/dsync`,
+          post: `/api/v1/teams/${team.slug}/dsync`,
+          patch: `/api/v1/teams/${team.slug}/dsync`,
+          delete: `/api/v1/teams/${team.slug}/dsync`,
         }}
         successCallback={({ operation }) => {
           if (operation === 'CREATE') {

@@ -32,10 +32,10 @@ const TeamSSO = ({ teamFeatures, SPConfigURL }) => {
       <ConnectionsWrapper
         urls={{
           spMetadata: SPConfigURL,
-          get: `/api/teams/${team.slug}/sso`,
-          post: `/api/teams/${team.slug}/sso`,
-          patch: `/api/teams/${team.slug}/sso`,
-          delete: `/api/teams/${team.slug}/sso`,
+          get: `/api/v1/teams/${team.slug}/sso`,
+          post: `/api/v1/teams/${team.slug}/sso`,
+          patch: `/api/v1/teams/${team.slug}/sso`,
+          delete: `/api/v1/teams/${team.slug}/sso`,
         }}
         successCallback={({
           operation,

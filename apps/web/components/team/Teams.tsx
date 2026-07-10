@@ -31,7 +31,7 @@ const Teams = () => {
   }, [newTeam]);
 
   const leaveTeam = async (team: Team) => {
-    const response = await fetch(`/api/teams/${team.slug}/members`, {
+    const response = await fetch(`/api/v1/teams/${team.slug}/members`, {
       method: 'PUT',
       headers: defaultHeaders,
     });
@@ -55,9 +55,7 @@ const Teams = () => {
             <h2 className="text-xl font-medium leading-none tracking-tight">
               {t('all-teams')}
             </h2>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
-              {t('team-listed')}
-            </p>
+            <p className="text-sm text-ui-muted">{t('team-listed')}</p>
           </div>
           <Button
             color="primary"

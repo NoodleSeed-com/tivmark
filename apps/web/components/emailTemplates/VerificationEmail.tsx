@@ -1,7 +1,6 @@
 import {
   Button,
   Container,
-  Head,
   Heading,
   Html,
   Preview,
@@ -9,6 +8,7 @@ import {
 } from '@react-email/components';
 import EmailLayout from './EmailLayout';
 import app from '@/lib/app';
+import EmailHead from './EmailHead';
 
 interface VerificationEmailProps {
   subject: string;
@@ -21,7 +21,7 @@ const VerificationEmail = ({
 }: VerificationEmailProps) => {
   return (
     <Html>
-      <Head />
+      <EmailHead />
       <Preview>{subject}</Preview>
       <EmailLayout>
         <Heading as="h2">Confirm your account</Heading>

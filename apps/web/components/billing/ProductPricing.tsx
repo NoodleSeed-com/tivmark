@@ -18,7 +18,7 @@ const ProductPricing = ({ plans, subscriptions }: ProductPricingProps) => {
 
   const initiateCheckout = async (price: string, quantity?: number) => {
     const res = await fetch(
-      `/api/teams/${team?.slug}/payments/create-checkout-session`,
+      `/api/v1/teams/${team?.slug}/payments/create-checkout-session`,
       {
         method: 'POST',
         headers: {
@@ -50,7 +50,7 @@ const ProductPricing = ({ plans, subscriptions }: ProductPricingProps) => {
         {plans.map((plan) => {
           return (
             <div
-              className="relative rounded-md bg-white border border-gray-200"
+              className="relative rounded-md border border-ui-border bg-ui-surface"
               key={plan.id}
             >
               <div className="p-8">

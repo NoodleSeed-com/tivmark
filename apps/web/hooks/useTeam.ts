@@ -10,7 +10,7 @@ const useTeam = (slug?: string) => {
   const teamSlug = slug || (isReady ? query.slug : null);
 
   const { data, error, isLoading } = useSWR<ApiResponse<Team>>(
-    teamSlug ? `/api/teams/${teamSlug}` : null,
+    teamSlug ? `/api/v1/teams/${teamSlug}` : null,
     fetcher
   );
 

@@ -20,7 +20,7 @@ const ManageSessions = () => {
 
   const { data, isLoading, error, mutate } = useSWR<{
     data: NextAuthSession[];
-  }>(`/api/sessions`, fetcher);
+  }>(`/api/v1/me/sessions`, fetcher);
 
   const sessions = data?.data ?? [];
 
@@ -30,7 +30,7 @@ const ManageSessions = () => {
         throw new Error(t('select-a-session-to-delete'));
       }
 
-      const response = await fetch(`/api/sessions/${id}`, {
+      const response = await fetch(`/api/v1/me/sessions/${id}`, {
         method: 'DELETE',
       });
 
@@ -60,9 +60,7 @@ const ManageSessions = () => {
           <h2 className="text-xl font-medium leading-none tracking-tight">
             {t('browser-sessions')}
           </h2>
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            {t('manage-sessions')}
-          </p>
+          <p className="text-sm text-ui-muted">{t('manage-sessions')}</p>
         </div>
 
         <Table

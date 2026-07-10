@@ -17,7 +17,7 @@ const Drawer = ({ sidebarOpen, setSidebarOpen }: DrawerProps) => {
     <>
       {sidebarOpen && (
         <div className="relative z-50 lg:hidden">
-          <div className="fixed inset-0 bg-gray-600/80" />
+          <div className="fixed inset-0 bg-tivmark-deep/80" />
           <div className="fixed inset-0 flex">
             <div className="relative mr-16 flex w-full max-w-xs flex-1">
               <div className="absolute left-full top-0 flex w-16 justify-center pt-5">
@@ -33,7 +33,7 @@ const Drawer = ({ sidebarOpen, setSidebarOpen }: DrawerProps) => {
                   />
                 </button>
               </div>
-              <div className="flex grow flex-col gap-y-5 overflow-y-auto bg-white dark:bg-black px-6 pb-4">
+              <div className="flex grow flex-col gap-y-5 overflow-y-auto bg-ui-canvas px-6 pb-4 text-ui-text">
                 <Brand />
                 <TeamDropdown />
                 <Navigation />
@@ -44,7 +44,7 @@ const Drawer = ({ sidebarOpen, setSidebarOpen }: DrawerProps) => {
       )}
 
       <div className="hidden lg:fixed lg:inset-y-0 lg:z-50 lg:flex lg:w-64 lg:flex-col">
-        <div className="flex grow flex-col gap-y-5 overflow-y-auto border-r border-gray-200 px-6">
+        <div className="flex grow flex-col gap-y-5 overflow-y-auto border-r border-ui-border bg-ui-canvas px-6 text-ui-text">
           <Brand />
           <TeamDropdown />
           <Navigation />

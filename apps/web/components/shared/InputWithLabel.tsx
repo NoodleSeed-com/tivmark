@@ -9,7 +9,9 @@ interface InputWithLabelProps extends InputProps {
 const InputWithLabel = (props: InputWithLabelProps) => {
   const { label, error, descriptionText, ...rest } = props;
 
-  const classes = ['text-sm'];
+  const classes = [
+    'text-sm border-ui-border bg-ui-surface text-ui-text placeholder:text-ui-muted focus:border-ui-accent',
+  ];
 
   if (error) {
     classes.push('input-error');

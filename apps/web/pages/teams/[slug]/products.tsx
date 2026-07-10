@@ -1,26 +1,12 @@
-import { GetServerSidePropsContext } from 'next';
-import { serverSideTranslations } from 'next-i18next/serverSideTranslations';
-import type { NextPageWithLayout } from 'types';
-import { useTranslation } from 'next-i18next';
+import type { GetServerSidePropsContext } from 'next';
 
-const Products: NextPageWithLayout = () => {
-  const { t } = useTranslation('common');
+const ProductsRedirect = () => null;
 
-  return (
-    <div className="p-3">
-      <p className="text-sm">{t('product-placeholder')}</p>
-    </div>
-  );
-};
+export const getServerSideProps = ({ params }: GetServerSidePropsContext) => ({
+  redirect: {
+    destination: `/teams/${params?.slug}/time-off`,
+    permanent: false,
+  },
+});
 
-export async function getServerSideProps({
-  locale,
-}: GetServerSidePropsContext) {
-  return {
-    props: {
-      ...(locale ? await serverSideTranslations(locale, ['common']) : {}),
-    },
-  };
-}
-
-export default Products;
+export default ProductsRedirect;

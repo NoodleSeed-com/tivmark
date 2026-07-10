@@ -35,7 +35,7 @@ const TeamSettings = ({ team }: { team: Team }) => {
       }
     },
     onSubmit: async (values) => {
-      const response = await fetch(`/api/teams/${team.slug}`, {
+      const response = await fetch(`/api/v1/teams/${team.slug}`, {
         method: 'PUT',
         headers: defaultHeaders,
         body: JSON.stringify(values),

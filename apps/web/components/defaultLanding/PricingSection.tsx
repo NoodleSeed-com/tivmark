@@ -13,8 +13,7 @@ const PricingSection = () => {
           {t('pricing')}
         </h2>
         <p className="text-center text-xl">
-          Lorem Ipsum is simply dummy text of the printing and typesetting
-          industry.
+          Predictable retainers for finance operations as your company grows.
         </p>
         <div className="flex items-center justify-center">
           <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
@@ -22,7 +21,7 @@ const PricingSection = () => {
               return (
                 <Card
                   key={`plan-${index}`}
-                  className="rounded-md dark:border-gray-200 border border-gray-300"
+                  className="rounded-md border border-ui-border bg-ui-surface text-ui-text"
                 >
                   <Card.Body>
                     <Card.Title tag="h2">

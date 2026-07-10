@@ -19,7 +19,7 @@ const Payments = ({ teamFeatures }) => {
   const { canAccess } = useCanAccess();
   const { isLoading, isError, team } = useTeam();
   const { data } = useSWR(
-    team?.slug ? `/api/teams/${team?.slug}/payments/products` : null,
+    team?.slug ? `/api/v1/teams/${team?.slug}/payments/products` : null,
     fetcher
   );
 

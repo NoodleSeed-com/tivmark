@@ -14,7 +14,7 @@ const UpdateMemberRole = ({ team, member }: UpdateMemberRoleProps) => {
   const { t } = useTranslation('common');
 
   const updateRole = async (member: TeamMember, role: string) => {
-    const response = await fetch(`/api/teams/${team.slug}/members`, {
+    const response = await fetch(`/api/v1/teams/${team.slug}/members`, {
       method: 'PATCH',
       headers: defaultHeaders,
       body: JSON.stringify({

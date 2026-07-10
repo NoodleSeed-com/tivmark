@@ -18,7 +18,7 @@ const usePermissions = () => {
   }, [router.query, slug]);
 
   const { data, error, isLoading } = useSWR<ApiResponse<Permission[]>>(
-    teamSlug ? `/api/teams/${teamSlug}/permissions` : null,
+    teamSlug ? `/api/v1/teams/${teamSlug}/permissions` : null,
     fetcher
   );
 

@@ -17,7 +17,7 @@ const AcceptInvitation = ({ invitation }: AcceptInvitationProps) => {
 
   const acceptInvitation = async () => {
     const response = await fetch(
-      `/api/teams/${invitation.team.slug}/invitations`,
+      `/api/v1/teams/${invitation.team.slug}/invitations`,
       {
         method: 'PUT',
         headers: defaultHeaders,

@@ -30,7 +30,7 @@ const CreateTeam = ({ visible, setVisible }: CreateTeamProps) => {
       name: Yup.string().required().max(maxLengthPolicies.team),
     }),
     onSubmit: async (values) => {
-      const response = await fetch('/api/teams/', {
+      const response = await fetch('/api/v1/teams/', {
         method: 'POST',
         headers: defaultHeaders,
         body: JSON.stringify(values),

@@ -10,7 +10,7 @@ interface Props {
 }
 
 const useInvitations = ({ slug, sentViaEmail }: Props) => {
-  const url = `/api/teams/${slug}/invitations?sentViaEmail=${sentViaEmail}`;
+  const url = `/api/v1/teams/${slug}/invitations?sentViaEmail=${sentViaEmail}`;
 
   const { data, error, isLoading } = useSWR<ApiResponse<TeamInvitation[]>>(
     url,

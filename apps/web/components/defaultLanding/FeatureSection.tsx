@@ -11,15 +11,15 @@ const FeatureSection = () => {
           {t('features')}
         </h2>
         <p className="text-center text-xl">
-          Lorem Ipsum is simply dummy text of the printing and typesetting
-          industry.
+          Tools for secure client operations, team access, and advisory
+          workflows.
         </p>
         <div className="flex items-center justify-center">
           <div className="grid grid-cols-1 xl:grid-cols-3 md:grid-cols-2 gap-2">
             {features.map((feature: any, index) => {
               return (
                 <div
-                  className="card-compact card dark:border-gray-200 border border-gray-300"
+                  className="card card-compact border border-ui-border bg-ui-surface text-ui-text"
                   key={index}
                 >
                   <div className="card-body">

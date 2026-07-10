@@ -55,7 +55,7 @@ const InviteViaLink = ({ team }: InviteViaLinkProps) => {
     },
     validationSchema: FormValidationSchema,
     onSubmit: async (values) => {
-      const response = await fetch(`/api/teams/${team.slug}/invitations`, {
+      const response = await fetch(`/api/v1/teams/${team.slug}/invitations`, {
         method: 'POST',
         headers: defaultHeaders,
         body: JSON.stringify(values),
@@ -67,7 +67,7 @@ const InviteViaLink = ({ team }: InviteViaLinkProps) => {
         return;
       }
 
-      mutate(`/api/teams/${team.slug}/invitations?sentViaEmail=false`);
+      mutate(`/api/v1/teams/${team.slug}/invitations?sentViaEmail=false`);
       toast.success(t('invitation-link-created'));
       formik.resetForm();
     },
@@ -76,7 +76,7 @@ const InviteViaLink = ({ team }: InviteViaLinkProps) => {
   // Delete an existing invitation link
   const deleteInvitationLink = async (id: string) => {
     const response = await fetch(
-      `/api/teams/${team.slug}/invitations?id=${id}`,
+      `/api/v1/teams/${team.slug}/invitations?id=${id}`,
       {
         method: 'DELETE',
         headers: defaultHeaders,
@@ -89,7 +89,7 @@ const InviteViaLink = ({ team }: InviteViaLinkProps) => {
       return;
     }
 
-    mutate(`/api/teams/${team.slug}/invitations?sentViaEmail=false`);
+    mutate(`/api/v1/teams/${team.slug}/invitations?sentViaEmail=false`);
     toast.success(t('invitation-link-deleted'));
     setShowDelDialog(false);
   };
@@ -135,7 +135,7 @@ const InviteViaLink = ({ team }: InviteViaLinkProps) => {
           name="domains"
           onChange={formik.handleChange}
           value={formik.values.domains}
-          placeholder="Restrict domain: boxyhq.com"
+          placeholder="Restrict domain: company.com"
           className="text-sm w-1/2"
         />
         <select

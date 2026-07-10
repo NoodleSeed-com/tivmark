@@ -18,11 +18,8 @@ const HeroSection = () => {
             >
               {t('get-started')}
             </Link>
-            <Link
-              href="https://github.com/boxyhq/saas-starter-kit"
-              className="btn btn-outline px-8"
-            >
-              GitHub
+            <Link href="https://tivmark.com" className="btn btn-outline px-8">
+              Tivmark.com
             </Link>
           </div>
         </div>

@@ -4,6 +4,9 @@ import { createHash, randomBytes } from 'crypto';
 interface CreateApiKeyParams {
   name: string;
   teamId: string;
+  createdById?: string;
+  scopes?: string[];
+  expiresAt?: Date | null;
 }
 
 const hashApiKey = (apiKey: string) => {
@@ -11,13 +14,13 @@ const hashApiKey = (apiKey: string) => {
 };
 
 const generateUniqueApiKey = () => {
-  const apiKey = randomBytes(16).toString('hex');
+  const apiKey = `tiv_sk_${randomBytes(32).toString('base64url')}`;
 
   return [hashApiKey(apiKey), apiKey];
 };
 
 export const createApiKey = async (params: CreateApiKeyParams) => {
-  const { name, teamId } = params;
+  const { name, teamId, createdById, scopes = [], expiresAt } = params;
 
   const [hashedKey, apiKey] = generateUniqueApiKey();
 
@@ -25,7 +28,11 @@ export const createApiKey = async (params: CreateApiKeyParams) => {
     data: {
       name,
       hashedKey: hashedKey,
+      prefix: apiKey.slice(0, 15),
+      scopes,
+      expiresAt,
       team: { connect: { id: teamId } },
+      createdBy: createdById ? { connect: { id: createdById } } : undefined,
     },
   });
 
@@ -40,7 +47,11 @@ export const fetchApiKeys = async (teamId: string) => {
     select: {
       id: true,
       name: true,
+      prefix: true,
+      scopes: true,
       createdAt: true,
+      expiresAt: true,
+      lastUsedAt: true,
     },
   });
 };
@@ -54,15 +65,31 @@ export const deleteApiKey = async (id: string) => {
 };
 
 export const getApiKey = async (apiKey: string) => {
-  return prisma.apiKey.findUnique({
+  const credential = await prisma.apiKey.findUnique({
     where: {
       hashedKey: hashApiKey(apiKey),
     },
     select: {
       id: true,
       teamId: true,
+      scopes: true,
+      expiresAt: true,
     },
   });
+
+  if (
+    !credential ||
+    (credential.expiresAt && credential.expiresAt <= new Date())
+  ) {
+    return null;
+  }
+
+  await prisma.apiKey.update({
+    where: { id: credential.id },
+    data: { lastUsedAt: new Date() },
+  });
+
+  return credential;
 };
 
 export const getApiKeyById = async (id: string) => {

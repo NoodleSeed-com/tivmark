@@ -2,17 +2,16 @@ import { Card } from '@/components/shared';
 import { Error, Loading } from '@/components/shared';
 import { TeamTab } from '@/components/team';
 import env from '@/lib/env';
+import fetcher from '@/lib/fetcher';
 import { inferSSRProps } from '@/lib/inferSSRProps';
-import { getViewerToken } from '@/lib/retraced';
-import { getSession } from '@/lib/session';
 import useCanAccess from 'hooks/useCanAccess';
 import useTeam from 'hooks/useTeam';
-import { getTeamMember } from 'models/team';
-import { throwIfNotAllowed } from 'models/user';
 import { GetServerSidePropsContext } from 'next';
+import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { serverSideTranslations } from 'next-i18next/serverSideTranslations';
 import dynamic from 'next/dynamic';
+import useSWR from 'swr';
 import type { NextPageWithLayout } from 'types';
 
 interface RetracedEventsBrowserProps {
@@ -29,21 +28,28 @@ const RetracedEventsBrowser = dynamic<RetracedEventsBrowserProps>(
 );
 
 const Events: NextPageWithLayout<inferSSRProps<typeof getServerSideProps>> = ({
-  auditLogToken,
-  retracedHost,
-  error,
   teamFeatures,
 }) => {
+  const { query } = useRouter();
   const { t } = useTranslation('common');
   const { canAccess } = useCanAccess();
   const { isLoading, isError, team } = useTeam();
+  const canRead = canAccess('team_audit_log', ['read']);
+  const { data: viewer, error: viewerError } = useSWR<{
+    data: { token: string; host: string };
+  }>(
+    canRead && query.slug
+      ? `/api/v1/teams/${query.slug}/audit-logs/viewer-token`
+      : null,
+    (url: string) => fetcher(url, { method: 'POST' })
+  );
 
   if (isLoading) {
     return <Loading />;
   }
 
-  if (isError || error) {
-    return <Error message={isError?.message || error?.message} />;
+  if (isError || viewerError) {
+    return <Error message={isError?.message || viewerError?.message} />;
   }
 
   if (!team) {
@@ -55,10 +61,10 @@ const Events: NextPageWithLayout<inferSSRProps<typeof getServerSideProps>> = ({
       <TeamTab activeTab="audit-logs" team={team} teamFeatures={teamFeatures} />
       <Card>
         <Card.Body>
-          {canAccess('team_audit_log', ['read']) && auditLogToken && (
+          {canRead && viewer?.data.token && (
             <RetracedEventsBrowser
-              host={`${retracedHost}/viewer/v1`}
-              auditLogToken={auditLogToken}
+              host={viewer.data.host}
+              auditLogToken={viewer.data.token}
               header={t('audit-logs')}
             />
           )}
@@ -75,45 +81,13 @@ export async function getServerSideProps(context: GetServerSidePropsContext) {
     };
   }
 
-  const { locale, req, res, query } = context;
-
-  const session = await getSession(req, res);
-  const teamMember = await getTeamMember(
-    session?.user.id as string,
-    query.slug as string
-  );
-
-  try {
-    throwIfNotAllowed(teamMember, 'team_audit_log', 'read');
-
-    const auditLogToken = await getViewerToken(
-      teamMember.team.id,
-      session?.user.id as string
-    );
-
-    return {
-      props: {
-        ...(locale ? await serverSideTranslations(locale, ['common']) : {}),
-        error: null,
-        auditLogToken: auditLogToken ?? '',
-        retracedHost: env.retraced.url ?? '',
-        teamFeatures: env.teamFeatures,
-      },
-    };
-  } catch (error: unknown) {
-    const { message } = error as { message: string };
-    return {
-      props: {
-        ...(locale ? await serverSideTranslations(locale, ['common']) : {}),
-        error: {
-          message,
-        },
-        auditLogToken: null,
-        retracedHost: null,
-        teamFeatures: env.teamFeatures,
-      },
-    };
-  }
+  const { locale } = context;
+  return {
+    props: {
+      ...(locale ? await serverSideTranslations(locale, ['common']) : {}),
+      teamFeatures: env.teamFeatures,
+    },
+  };
 }
 
 export default Events;

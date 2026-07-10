@@ -108,6 +108,7 @@ const JoinWithInvitation = ({
       <form className="space-y-3" onSubmit={formik.handleSubmit}>
         <InputWithLabel
           type="text"
+          autoComplete="name"
           label={t('name')}
           name="name"
           placeholder={t('your-name')}
@@ -119,6 +120,7 @@ const JoinWithInvitation = ({
         {invitation.sentViaEmail ? (
           <InputWithLabel
             type="email"
+            autoComplete="email"
             label={t('email')}
             value={invitation.email!}
             disabled
@@ -126,6 +128,7 @@ const JoinWithInvitation = ({
         ) : (
           <InputWithLabel
             type="email"
+            autoComplete="email"
             label={t('email')}
             name="email"
             placeholder={t('email')}
@@ -138,6 +141,7 @@ const JoinWithInvitation = ({
         <div className="relative flex">
           <InputWithLabel
             type={isPasswordVisible ? 'text' : 'password'}
+            autoComplete="new-password"
             label={t('password')}
             name="password"
             placeholder={t('password')}

@@ -1,3 +1,3 @@
-export const pageHeading = 'Team Settings';
-export const loggedInPath = 'settings';
+export const pageHeading = 'Plan time away';
+export const loggedInPath = 'time-off';
 export const testRole = 'MEMBER';

@@ -21,7 +21,7 @@ export default function AppShell({ children }) {
   }
 
   return (
-    <div>
+    <div className="min-h-screen bg-ui-canvas text-ui-text">
       <Drawer sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
       <div className="lg:pl-64">
         <Header setSidebarOpen={setSidebarOpen} />

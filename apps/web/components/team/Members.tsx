@@ -49,7 +49,7 @@ const Members = ({ team }: { team: Team }) => {
     const sp = new URLSearchParams({ memberId: member.userId });
 
     const response = await fetch(
-      `/api/teams/${team.slug}/members?${sp.toString()}`,
+      `/api/v1/teams/${team.slug}/members?${sp.toString()}`,
       {
         method: 'DELETE',
         headers: defaultHeaders,
@@ -91,9 +91,7 @@ const Members = ({ team }: { team: Team }) => {
           <h2 className="text-xl font-medium leading-none tracking-tight">
             {t('members')}
           </h2>
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            {t('members-description')}
-          </p>
+          <p className="text-sm text-ui-muted">{t('members-description')}</p>
         </div>
         <Button color="primary" size="md" onClick={() => setVisible(!visible)}>
           {t('add-member')}

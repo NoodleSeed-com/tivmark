@@ -1,0 +1,950 @@
+<!doctype html>
+<html lang="en" data-theme="tivmark-light">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script>
+      (() => {
+        try {
+          const match = document.cookie.match(/(?:^|; )tivmark_theme=([^;]*)/);
+          const preference = match ? decodeURIComponent(match[1]) : "system";
+          const dark =
+            preference === "dark" ||
+            (preference !== "light" &&
+              window.matchMedia("(prefers-color-scheme: dark)").matches);
+          document.documentElement.dataset.theme = dark
+            ? "tivmark-dark"
+            : "tivmark-light";
+          document.documentElement.style.colorScheme = dark ? "dark" : "light";
+        } catch (_) {}
+      })();
+    </script>
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self' 'unsafe-inline' https://app.noodleseed.com; style-src 'self' 'unsafe-inline' https://app.noodleseed.com https://fonts.googleapis.com; font-src 'self' data: https://app.noodleseed.com https://fonts.gstatic.com; img-src 'self' data: https:; frame-src https://app.noodleseed.com https://*.mcp.noodleseed.com; child-src https://app.noodleseed.com https://*.mcp.noodleseed.com; worker-src 'self' blob: https://app.noodleseed.com; connect-src 'self' https://app.noodleseed.com https://*.mcp.noodleseed.com https://fonts.googleapis.com https://fonts.gstatic.com; base-uri 'self'; form-action 'self'"
+    />
+    <title>Tivmark Advisory | Accounting & Business Advisory</title>
+    <meta
+      name="description"
+      content="Bay Area accounting, tax, and advisory services for startups and growing businesses. Clear numbers. Clear direction."
+    />
+    <meta
+      property="og:title"
+      content="Tivmark Advisory | Accounting & Business Advisory"
+    />
+    <meta
+      property="og:description"
+      content="Bay Area accounting, tax, and advisory services for startups and growing businesses. Clear numbers. Clear direction."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://tivmark.com" />
+    <meta
+      property="og:image"
+      content="https://tivmark.com/images/og-image.png"
+    />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Tivmark Advisory" />
+    <meta
+      name="twitter:description"
+      content="Accounting, tax, and advisory services built for startups and growing businesses in the Bay Area."
+    />
+    <meta
+      name="twitter:image"
+      content="https://tivmark.com/images/twitter-card.png"
+    />
+    <link rel="canonical" href="https://tivmark.com" />
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="16x16"
+      href="/images/favicon-16.png"
+    />
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="32x32"
+      href="/images/favicon-32.png"
+    />
+    <link rel="apple-touch-icon" href="/images/apple-touch-icon.png" />
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="192x192"
+      href="/images/app-icon-192.png"
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=Outfit:wght@300;400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --secondary-blue: #1a2744;
+        --navy: var(--secondary-blue);
+        --navy-deep: #111c33;
+        --slate: #3d4f6b;
+        --cream: #f7f5f0;
+        --sand: #ece8df;
+        --accent: #b08d57;
+        --accent-light: #c9a96e;
+        --white: #ffffff;
+        --text: #2a2a2a;
+        --text-light: #6b6b6b;
+        --text-on-dark: rgba(255, 255, 255, 0.8);
+        --canvas: #f7f5f0;
+        --surface: #ffffff;
+        --surface-muted: #ece8df;
+        --border: #d8d0c0;
+        --heading: #1a2744;
+      }
+
+      [data-theme="tivmark-dark"] {
+        --canvas: #0b1222;
+        --surface: #111c33;
+        --surface-muted: #1a2744;
+        --border: #3d4f6b;
+        --text: #f7f5f0;
+        --text-light: #c4c0b8;
+        --heading: #ffffff;
+        --accent: #c9a96e;
+      }
+
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      html {
+        scroll-behavior: smooth;
+      }
+
+      body {
+        font-family: "Outfit", sans-serif;
+        color: var(--text);
+        background: var(--canvas);
+        -webkit-font-smoothing: antialiased;
+        line-height: 1.6;
+      }
+
+      h1,
+      h2,
+      h3 {
+        font-family: "Libre Baskerville", serif;
+        font-weight: 400;
+        line-height: 1.25;
+      }
+
+      /* ── NAV ── */
+      nav {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1.1rem 3rem;
+        background: var(--canvas);
+        position: sticky;
+        top: 0;
+        z-index: 100;
+        border-bottom: 2px solid var(--accent);
+      }
+      .logo {
+        display: inline-flex;
+        align-items: center;
+        width: 148px;
+        height: 52px;
+      }
+      .logo img {
+        display: block;
+        width: 100%;
+        height: auto;
+      }
+      nav ul {
+        list-style: none;
+        display: flex;
+        gap: 2rem;
+      }
+      nav a {
+        color: var(--heading);
+        text-decoration: none;
+        font-size: 0.88rem;
+        font-weight: 400;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        transition: color 0.2s;
+      }
+      nav a:hover {
+        color: var(--accent-light);
+      }
+
+      /* ── HAMBURGER ── */
+      .nav-toggle {
+        display: none;
+        background: none;
+        border: none;
+        cursor: pointer;
+        padding: 0.25rem;
+      }
+      .nav-toggle span {
+        display: block;
+        width: 22px;
+        height: 2px;
+        background: var(--heading);
+        margin: 5px 0;
+        transition:
+          transform 0.3s,
+          opacity 0.3s;
+      }
+      .nav-toggle[aria-expanded="true"] span:nth-child(1) {
+        transform: rotate(45deg) translate(4px, 5px);
+      }
+      .nav-toggle[aria-expanded="true"] span:nth-child(2) {
+        opacity: 0;
+      }
+      .nav-toggle[aria-expanded="true"] span:nth-child(3) {
+        transform: rotate(-45deg) translate(4px, -5px);
+      }
+
+      /* ── HERO ── */
+      .hero {
+        min-height: clamp(560px, calc(100svh - 74px), 760px);
+        display: flex;
+        align-items: center;
+        background: url("/images/hero-office-wide.png") center / cover no-repeat
+          var(--canvas);
+        color: var(--heading);
+        padding: 5.5rem 3rem 5rem;
+        position: relative;
+        overflow: hidden;
+      }
+      .hero::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: rgba(247, 245, 240, 0.72);
+        pointer-events: none;
+      }
+      .hero-inner {
+        max-width: 540px;
+        margin-left: auto;
+        position: relative;
+        z-index: 1;
+      }
+      .hero h1 {
+        font-size: 2.9rem;
+        color: var(--heading);
+        margin-bottom: 1.25rem;
+      }
+      .hero h1 em {
+        font-style: italic;
+        color: var(--accent-light);
+      }
+      .hero p {
+        font-size: 1.1rem;
+        color: var(--text-light);
+        max-width: 560px;
+        margin-bottom: 2rem;
+        line-height: 1.7;
+      }
+      .hero-cta {
+        display: inline-block;
+        background: var(--accent);
+        color: var(--white);
+        padding: 0.85rem 2.2rem;
+        text-decoration: none;
+        font-weight: 500;
+        font-size: 0.92rem;
+        letter-spacing: 0.03em;
+        transition: background 0.2s;
+      }
+      .hero-cta:hover {
+        background: var(--accent-light);
+      }
+
+      .brand-mark {
+        display: block;
+        width: 72px;
+        height: auto;
+        margin-bottom: 1.2rem;
+      }
+
+      /* ── SECTIONS ── */
+      section {
+        padding: 5rem 3rem;
+      }
+      .section-label {
+        font-family: "Outfit", sans-serif;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.15em;
+        color: var(--accent);
+        font-weight: 600;
+        margin-bottom: 0.75rem;
+      }
+      section h2 {
+        font-size: 2rem;
+        margin-bottom: 1rem;
+        color: var(--heading);
+      }
+      section p.section-intro {
+        max-width: 600px;
+        color: var(--text-light);
+        margin-bottom: 3rem;
+        font-size: 1.02rem;
+      }
+
+      /* ── SERVICES ── */
+      .services-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 1.5rem;
+        max-width: 960px;
+      }
+      .service-card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        padding: 2rem;
+        transition: border-color 0.2s;
+      }
+      .service-card:hover {
+        border-color: var(--accent);
+      }
+      .service-card h3 {
+        font-size: 1.15rem;
+        margin-bottom: 0.6rem;
+        color: var(--heading);
+      }
+      .service-card p {
+        font-size: 0.92rem;
+        color: var(--text-light);
+        line-height: 1.6;
+      }
+
+      /* ── WHY ── */
+      .why {
+        background: var(--navy);
+        color: var(--white);
+      }
+      .why h2 {
+        color: var(--white);
+      }
+      .why .section-intro {
+        color: var(--text-on-dark);
+      }
+      .why-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 2.5rem;
+        max-width: 900px;
+      }
+      .why-item .number {
+        font-family: "Libre Baskerville", serif;
+        font-size: 2.2rem;
+        color: var(--accent);
+        margin-bottom: 0.4rem;
+      }
+      .why-item h3 {
+        font-size: 1rem;
+        color: var(--white);
+        margin-bottom: 0.4rem;
+        font-family: "Outfit", sans-serif;
+        font-weight: 600;
+      }
+      .why-item p {
+        font-size: 0.88rem;
+        color: var(--text-on-dark);
+        line-height: 1.6;
+      }
+
+      /* ── ABOUT ── */
+      .about-content {
+        max-width: 640px;
+      }
+      .about-content p {
+        color: var(--text-light);
+        margin-bottom: 1rem;
+        font-size: 0.98rem;
+      }
+      .founder-name {
+        font-family: "Libre Baskerville", serif;
+        font-size: 1.05rem;
+        color: var(--heading);
+        margin-top: 1.5rem;
+      }
+      .founder-title {
+        font-size: 0.85rem;
+        color: var(--accent);
+        font-weight: 500;
+      }
+
+      /* ── CONTACT ── */
+      .contact {
+        background: var(--surface-muted);
+      }
+      .contact-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 3rem;
+        max-width: 800px;
+      }
+      .contact-info h3 {
+        font-size: 1.1rem;
+        color: var(--heading);
+        margin-bottom: 1rem;
+      }
+      .contact-info p {
+        font-size: 0.92rem;
+        color: var(--text-light);
+        margin-bottom: 0.6rem;
+        line-height: 1.6;
+      }
+      .contact-info a {
+        color: var(--accent);
+        text-decoration: none;
+      }
+      .contact-info a:hover {
+        text-decoration: underline;
+      }
+      .contact-form input,
+      .contact-form textarea {
+        width: 100%;
+        padding: 0.8rem 1rem;
+        border: 1px solid var(--border);
+        background: var(--surface);
+        color: var(--text);
+        font-family: "Outfit", sans-serif;
+        font-size: 0.9rem;
+        margin-bottom: 0.75rem;
+        outline: none;
+        transition: border-color 0.2s;
+      }
+      .contact-form input:focus,
+      .contact-form textarea:focus {
+        border-color: var(--accent);
+      }
+      .contact-form textarea {
+        height: 100px;
+        resize: vertical;
+      }
+      .contact-form button {
+        background: var(--navy);
+        color: var(--white);
+        border: none;
+        padding: 0.8rem 2rem;
+        font-family: "Outfit", sans-serif;
+        font-size: 0.9rem;
+        font-weight: 500;
+        cursor: pointer;
+        letter-spacing: 0.03em;
+        transition: background 0.2s;
+      }
+      .contact-form button:hover {
+        background: var(--slate);
+      }
+
+      /* ── SR-ONLY ── */
+      .sr-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+      }
+
+      /* ── FOOTER ── */
+      footer {
+        background: var(--navy-deep);
+        color: rgba(255, 255, 255, 0.45);
+        text-align: center;
+        padding: 2rem 3rem;
+        font-size: 0.8rem;
+      }
+      .footer-logo {
+        display: block;
+        width: 164px;
+        height: auto;
+        margin: 0 auto 1rem;
+      }
+
+      .logo .theme-logo-dark,
+      .theme-mark-dark {
+        display: none;
+      }
+      [data-theme="tivmark-dark"] .theme-logo-light,
+      [data-theme="tivmark-dark"] .theme-mark-light {
+        display: none;
+      }
+      [data-theme="tivmark-dark"] .logo .theme-logo-dark,
+      [data-theme="tivmark-dark"] .theme-mark-dark {
+        display: block;
+      }
+
+      [data-theme="tivmark-dark"] nav {
+        background: var(--navy-deep);
+      }
+      [data-theme="tivmark-dark"] nav a {
+        color: var(--text-on-dark);
+      }
+      [data-theme="tivmark-dark"] .nav-toggle span {
+        background: var(--white);
+      }
+      [data-theme="tivmark-dark"] .hero::before {
+        background: rgba(17, 28, 51, 0.68);
+      }
+      [data-theme="tivmark-dark"] .hero h1 {
+        color: var(--white);
+      }
+      [data-theme="tivmark-dark"] .hero p {
+        color: var(--text-on-dark);
+      }
+      [data-theme="tivmark-dark"] .contact-form button {
+        background: var(--accent);
+      }
+      [data-theme="tivmark-dark"] .contact-form button:hover {
+        background: var(--accent-light);
+      }
+
+      .nav-controls {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+      }
+      .theme-toggle {
+        width: 40px;
+        height: 40px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid var(--border);
+        background: var(--canvas);
+        color: var(--heading);
+        cursor: pointer;
+        font:
+          1.15rem/1 "Outfit",
+          sans-serif;
+      }
+      .theme-toggle:hover,
+      .theme-toggle:focus-visible {
+        border-color: var(--accent);
+        color: var(--accent);
+        outline: 2px solid transparent;
+      }
+      [data-theme="tivmark-dark"] .theme-toggle {
+        background: var(--navy-deep);
+        color: var(--accent-light);
+      }
+      .theme-icon-light {
+        display: none;
+      }
+      [data-theme="tivmark-dark"] .theme-icon-light {
+        display: inline;
+      }
+      [data-theme="tivmark-dark"] .theme-icon-dark {
+        display: none;
+      }
+
+      /* ── RESPONSIVE ── */
+      @media (max-width: 768px) {
+        nav {
+          padding: 1rem 1.5rem;
+        }
+        .logo {
+          width: 132px;
+          height: 46px;
+        }
+        nav ul {
+          gap: 1.2rem;
+        }
+        .hero {
+          min-height: 620px;
+          padding: 4rem 1.5rem 3.5rem;
+          background: url("/images/hero-office-wide.png") 68% center / cover
+            no-repeat var(--canvas);
+        }
+        .hero-inner {
+          align-self: flex-end;
+          margin-left: 0;
+        }
+        .hero h1 {
+          font-size: 2rem;
+        }
+        section {
+          padding: 3.5rem 1.5rem;
+        }
+        .contact-grid {
+          grid-template-columns: 1fr;
+          gap: 2rem;
+        }
+      }
+      @media (max-width: 480px) {
+        .nav-toggle {
+          display: block;
+        }
+        .logo {
+          width: 122px;
+          height: 42px;
+        }
+        nav ul {
+          display: none;
+          position: absolute;
+          top: 100%;
+          left: 0;
+          right: 0;
+          background: var(--canvas);
+          flex-direction: column;
+          padding: 1rem 1.5rem 1.5rem;
+          gap: 1rem;
+          border-bottom: 2px solid var(--accent);
+        }
+        nav ul.open {
+          display: flex;
+        }
+        [data-theme="tivmark-dark"] nav ul {
+          background: var(--navy-deep);
+        }
+        .hero {
+          min-height: 590px;
+        }
+        .hero h1 {
+          font-size: 1.7rem;
+        }
+        .brand-mark {
+          width: 58px;
+        }
+        section h2 {
+          font-size: 1.6rem;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <nav>
+      <a class="logo" href="/" aria-label="Tivmark Advisory home">
+        <img
+          class="theme-logo-light"
+          src="/images/logo-horizontal-light.png"
+          alt="Tivmark Advisory"
+          width="1997"
+          height="703"
+        />
+        <img
+          class="theme-logo-dark"
+          src="/images/logo-horizontal-dark.png"
+          alt="Tivmark Advisory"
+          width="1997"
+          height="703"
+        />
+      </a>
+      <div class="nav-controls">
+        <button
+          class="theme-toggle"
+          type="button"
+          aria-label="Switch to dark mode"
+          title="Switch to dark mode"
+        >
+          <span class="theme-icon-dark" aria-hidden="true">&#9790;</span>
+          <span class="theme-icon-light" aria-hidden="true">&#9728;</span>
+        </button>
+        <button
+          class="nav-toggle"
+          aria-label="Toggle navigation"
+          aria-expanded="false"
+          onclick="
+            const ul = this.closest('nav').querySelector('ul');
+            const open = ul.classList.toggle('open');
+            this.setAttribute('aria-expanded', open);
+          "
+        >
+          <span></span><span></span><span></span>
+        </button>
+      </div>
+      <ul>
+        <li><a href="#services">Services</a></li>
+        <li><a href="#about">About</a></li>
+        <li><a href="#contact">Contact</a></li>
+        <li><a href="https://app.tivmark.com/?tab=login">Client login</a></li>
+      </ul>
+    </nav>
+
+    <section class="hero">
+      <div class="hero-inner">
+        <h1>Clear numbers.<br /><em>Clear direction.</em></h1>
+        <p>
+          Accounting, tax, and advisory services built for startups and growing
+          businesses in the Bay Area. We translate complex financial questions
+          into plain language so you can focus on building.
+        </p>
+        <a href="#contact" class="hero-cta">Schedule a Consultation</a>
+      </div>
+    </section>
+
+    <section id="services">
+      <div class="section-label">What We Do</div>
+      <h2>Services</h2>
+      <p class="section-intro">
+        From monthly bookkeeping to fractional CFO engagements, we handle the
+        financial backbone so you can focus on growth.
+      </p>
+      <div class="services-grid">
+        <div class="service-card">
+          <h3>Bookkeeping & Reporting</h3>
+          <p>
+            Monthly financial statements, bank reconciliation, and reporting
+            that gives you a clear picture of where you stand.
+          </p>
+        </div>
+        <div class="service-card">
+          <h3>Tax Planning & Preparation</h3>
+          <p>
+            Business and individual tax strategy, quarterly estimates, R&D
+            credits, 83(b) elections, and QSBS planning.
+          </p>
+        </div>
+        <div class="service-card">
+          <h3>Fractional CFO</h3>
+          <p>
+            Financial modeling, fundraising support, board reporting, and
+            strategic finance guidance without a full-time hire.
+          </p>
+        </div>
+        <div class="service-card">
+          <h3>Startup Advisory</h3>
+          <p>
+            Entity formation, Delaware structuring, cap table setup, and the
+            financial foundations every early-stage company needs.
+          </p>
+        </div>
+        <div class="service-card">
+          <h3>Audit Preparation</h3>
+          <p>
+            Get your books investor-ready with clean documentation, organized
+            records, and confidence going into diligence.
+          </p>
+        </div>
+        <div class="service-card">
+          <h3>Platform Setup</h3>
+          <p>
+            QuickBooks and Xero configuration, chart of accounts design, payroll
+            integration, and ongoing platform support.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <section class="why" id="why">
+      <div class="section-label">Why Tivmark</div>
+      <h2>How We Work</h2>
+      <p class="section-intro">
+        We keep our client roster small on purpose. Every engagement gets senior
+        attention, fast response times, and pricing you can predict.
+      </p>
+      <div class="why-grid">
+        <div class="why-item">
+          <div class="number">4hr</div>
+          <h3>Response Guarantee</h3>
+          <p>
+            During business hours, you hear back within four hours. No ticket
+            queues, no phone trees.
+          </p>
+        </div>
+        <div class="why-item">
+          <div class="number">90</div>
+          <h3>Active Clients</h3>
+          <p>
+            Deliberately small roster so every client gets the attention they
+            deserve.
+          </p>
+        </div>
+        <div class="why-item">
+          <div class="number">2.8yr</div>
+          <h3>Avg. Client Tenure</h3>
+          <p>
+            Relationships built on trust, transparency, and results that
+            compound over time.
+          </p>
+        </div>
+        <div class="why-item">
+          <div class="number">Flat</div>
+          <h3>Monthly Pricing</h3>
+          <p>
+            Predictable retainers from $1,200 to $4,500/mo. No surprise
+            invoices, ever.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <section id="about">
+      <div class="section-label">Our Story</div>
+      <h2>About Tivmark</h2>
+      <div class="about-content">
+        <p>
+          Tivmark Advisory was founded in 2016 with a straightforward idea:
+          early-stage founders deserve the same caliber of financial guidance
+          that typically only Series C+ companies can afford.
+        </p>
+        <p>
+          After eight years at a Big Four firm specializing in emerging tech
+          companies, our founder saw the gap firsthand. Startups were either
+          overpaying for enterprise-level firms that didn't prioritize them, or
+          cobbling together freelance bookkeepers and tax preparers with no
+          strategic thread connecting the work.
+        </p>
+        <p>
+          Today, Tivmark serves roughly 90 active clients across the Bay Area,
+          primarily seed-to-Series B startups alongside a handful of established
+          professional firms. The practice has grown entirely through referrals,
+          which we take as the strongest possible signal that the model works.
+        </p>
+        <div class="founder-name">Nadia Karim, CPA</div>
+        <div class="founder-title">Managing Partner</div>
+      </div>
+    </section>
+
+    <section class="contact" id="contact">
+      <div class="section-label">Get in Touch</div>
+      <h2>Let's Talk</h2>
+      <p class="section-intro">
+        Whether you are raising your first round or just need someone to
+        untangle your books, we are happy to chat.
+      </p>
+      <div class="contact-grid">
+        <div class="contact-info">
+          <img
+            class="brand-mark theme-mark-light"
+            src="/images/logo-mark-light.png"
+            alt=""
+            width="708"
+            height="663"
+            loading="lazy"
+          />
+          <img
+            class="brand-mark theme-mark-dark"
+            src="/images/logo-mark-dark.png"
+            alt=""
+            width="708"
+            height="663"
+            loading="lazy"
+          />
+          <h3>Tivmark Advisory</h3>
+          <p>1900 Embarcadero Road, Suite 210<br />Palo Alto, CA 94303</p>
+          <p><a href="tel:6505550283">(650) 555-0283</a></p>
+          <p><a href="mailto:hello@tivmark.com">hello@tivmark.com</a></p>
+          <p style="margin-top: 1rem">
+            Monday through Friday, 9am to 6pm<br />Extended hours January
+            through April
+          </p>
+        </div>
+        <form
+          class="contact-form"
+          action="#contact"
+          method="post"
+          onsubmit="event.preventDefault()"
+        >
+          <label for="cf-name" class="sr-only">Your name</label>
+          <input
+            id="cf-name"
+            name="name"
+            type="text"
+            placeholder="Your name"
+            required
+          />
+          <label for="cf-email" class="sr-only">Email address</label>
+          <input
+            id="cf-email"
+            name="email"
+            type="email"
+            placeholder="Email address"
+            required
+          />
+          <label for="cf-company" class="sr-only">Company name</label>
+          <input
+            id="cf-company"
+            name="company"
+            type="text"
+            placeholder="Company name"
+          />
+          <label for="cf-message" class="sr-only">How can we help?</label>
+          <textarea
+            id="cf-message"
+            name="message"
+            placeholder="How can we help?"
+          ></textarea>
+          <button type="submit">Send Message</button>
+        </form>
+      </div>
+    </section>
+
+    <footer>
+      <img
+        class="footer-logo"
+        src="/images/logo-horizontal-dark.png"
+        alt="Tivmark Advisory"
+        width="1997"
+        height="703"
+        loading="lazy"
+      />
+      &copy; 2026 Tivmark Advisory. All rights reserved.
+      <br /><span style="opacity: 0.7"
+        >This is a fictional sample business and website created by
+        <a
+          href="https://noodleseed.com"
+          style="color: var(--accent); text-decoration: none"
+          >Noodle Seed</a
+        >.</span
+      >
+    </footer>
+
+    <script
+      src="https://app.noodleseed.com/widget/loader.js"
+      data-share-code="Z2G688FI"
+      async
+    ></script>
+    <script>
+      (() => {
+        const button = document.querySelector(".theme-toggle");
+        const media = window.matchMedia("(prefers-color-scheme: dark)");
+        const readPreference = () => {
+          const match = document.cookie.match(/(?:^|; )tivmark_theme=([^;]*)/);
+          return match ? decodeURIComponent(match[1]) : "system";
+        };
+        const resolvedTheme = () =>
+          document.documentElement.dataset.theme === "tivmark-dark"
+            ? "dark"
+            : "light";
+        const updateButton = () => {
+          const next = resolvedTheme() === "light" ? "dark" : "light";
+          button.setAttribute("aria-label", `Switch to ${next} mode`);
+          button.setAttribute("title", `Switch to ${next} mode`);
+        };
+        const applyTheme = (preference, persist = true) => {
+          const dark =
+            preference === "dark" || (preference === "system" && media.matches);
+          document.documentElement.dataset.theme = dark
+            ? "tivmark-dark"
+            : "tivmark-light";
+          document.documentElement.style.colorScheme = dark ? "dark" : "light";
+          if (persist && preference !== "system") {
+            const production =
+              location.hostname === "tivmark.com" ||
+              location.hostname.endsWith(".tivmark.com");
+            document.cookie = `tivmark_theme=${preference}; Path=/; Max-Age=31536000; SameSite=Lax${production ? "; Domain=.tivmark.com; Secure" : ""}`;
+          }
+          updateButton();
+        };
+        button.addEventListener("click", () =>
+          applyTheme(resolvedTheme() === "light" ? "dark" : "light"),
+        );
+        media.addEventListener("change", () => {
+          if (readPreference() === "system") applyTheme("system", false);
+        });
+        updateButton();
+      })();
+    </script>
+  </body>
+</html>

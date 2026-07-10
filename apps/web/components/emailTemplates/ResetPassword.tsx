@@ -2,12 +2,12 @@ import app from '@/lib/app';
 import {
   Button,
   Container,
-  Head,
   Html,
   Preview,
   Text,
 } from '@react-email/components';
 import EmailLayout from './EmailLayout';
+import EmailHead from './EmailHead';
 
 interface ResetPasswordEmailProps {
   url: string;
@@ -22,7 +22,7 @@ const ResetPasswordEmail = ({
 }: ResetPasswordEmailProps) => {
   return (
     <Html>
-      <Head />
+      <EmailHead />
       <Preview>{subject}</Preview>
       <EmailLayout>
         <Text>

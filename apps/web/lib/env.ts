@@ -22,6 +22,10 @@ const env = {
       'jwt') as SessionStrategy,
   },
 
+  oauth: {
+    privateJwk: process.env.OAUTH_PRIVATE_JWK,
+  },
+
   // Svix
   svix: {
     url: `${process.env.SVIX_URL}`,

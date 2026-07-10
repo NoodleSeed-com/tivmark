@@ -48,15 +48,17 @@ const NavigationItem = ({ menu, className }: NavigationItemProps) => {
   return (
     <Link
       href={menu.href}
-      className={`group flex items-center rounded text-sm text-gray-900 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-100 dark:hover:text-gray-100 dark:hover:bg-gray-800 px-2 p-2 gap-2 ${
-        menu.active ? 'text-white bg-gray-800 font-semibold' : ''
+      className={`group flex items-center gap-2 rounded-none p-2 px-2 text-sm text-ui-heading hover:bg-ui-surface-muted hover:text-ui-heading ${
+        menu.active
+          ? 'bg-tivmark-navy font-semibold text-white dark:bg-tivmark-gold dark:text-tivmark-deep'
+          : ''
       }${className}`}
     >
       {menu.icon && (
         <menu.icon
           className={classNames({
-            'h-5 w-5 shrink-0 group-hover:text-gray-900 dark:group-hover:text-gray-100': true,
-            'text-gray-100': menu.active,
+            'h-5 w-5 shrink-0 text-ui-accent group-hover:text-ui-heading': true,
+            'text-tivmark-gold-light dark:text-tivmark-deep': menu.active,
           })}
           aria-hidden="true"
         />

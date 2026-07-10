@@ -24,7 +24,7 @@ const RemoveTeam = ({ team, allowDelete }: RemoveTeamProps) => {
   const removeTeam = async () => {
     setLoading(true);
 
-    const response = await fetch(`/api/teams/${team.slug}`, {
+    const response = await fetch(`/api/v1/teams/${team.slug}`, {
       method: 'DELETE',
       headers: defaultHeaders,
     });

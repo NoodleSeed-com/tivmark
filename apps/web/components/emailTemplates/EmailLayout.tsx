@@ -15,30 +15,43 @@ interface EmailLayoutProps {
 }
 
 const EmailLayout = ({ children }: EmailLayoutProps) => {
+  const baseUrl = app.url.startsWith('http')
+    ? app.url.replace(/\/$/, '')
+    : 'https://app.tivmark.com';
+
   return (
     <Tailwind
       config={{
         theme: {
           extend: {
             colors: {
-              brand: '#25c2a0',
+              brand: '#b08d57',
             },
           },
         },
       }}
     >
-      <Body className="bg-white my-auto mx-auto font-sans">
-        <Container className="border border-solid bg-white border-[#f0f0f0] rounded my-[40px] mx-auto p-[20px] w-[465px]">
-          <Img
-            src={app.logoUrl}
-            width="50"
-            height="50"
-            alt={app.name}
-            className="my-8 mx-auto"
-          />
-          <Section>{children}</Section>
-          <Section>
-            <Hr className="border border-solid border-[#eaeaea] my-[20px] mx-0 w-full" />
+      <Body className="email-body mx-auto my-auto bg-[#f7f5f0] font-sans">
+        <Container className="email-card mx-auto my-[40px] w-[465px] rounded border border-solid border-[#d8d0c0] bg-white p-[20px] text-[#2a2a2a]">
+          <Section className="email-logo-panel bg-white py-4 text-center">
+            <Img
+              src={`${baseUrl}${app.logoUrl}`}
+              width="180"
+              height="63"
+              alt={app.name}
+              className="email-logo-light mx-auto my-4"
+            />
+            <Img
+              src={`${baseUrl}${app.logoUrlDark}`}
+              width="180"
+              height="63"
+              alt={app.name}
+              className="email-logo-dark mx-auto my-4"
+            />
+          </Section>
+          <Section className="email-content text-[#2a2a2a]">{children}</Section>
+          <Section className="email-footer text-[#6b6b6b]">
+            <Hr className="email-rule mx-0 my-[20px] w-full border border-solid border-[#d8d0c0]" />
             <Text className="my-0 text-center text-xs text-[#666666]">
               <span className="block">{app.name}</span>
             </Text>

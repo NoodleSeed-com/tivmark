@@ -2,7 +2,7 @@ import React from 'react';
 
 const Card = ({ children }: { children: React.ReactNode }) => {
   return (
-    <div className="card w-full border border-rounded dark:bg-black dark:border-gray-600">
+    <div className="card w-full rounded-none border border-ui-border bg-ui-surface text-ui-text">
       {children}
     </div>
   );
@@ -10,16 +10,14 @@ const Card = ({ children }: { children: React.ReactNode }) => {
 
 const Title = ({ children }: { children: React.ReactNode }) => {
   return (
-    <h2 className="card-title text-xl font-medium leading-none tracking-tight">
+    <h2 className="card-title font-serif text-xl font-normal leading-none tracking-tight text-ui-heading">
       {children}
     </h2>
   );
 };
 
 const Description = ({ children }: { children: React.ReactNode }) => {
-  return (
-    <div className="text-gray-600 dark:text-gray-400 text-sm">{children}</div>
-  );
+  return <div className="text-sm text-ui-muted">{children}</div>;
 };
 
 const Header = ({ children }: { children: React.ReactNode }) => {
@@ -27,12 +25,12 @@ const Header = ({ children }: { children: React.ReactNode }) => {
 };
 
 const Body = ({ children }: { children: React.ReactNode }) => {
-  return <div className="card-body dark:bg-black gap-4 p-6">{children}</div>;
+  return <div className="card-body gap-4 p-6">{children}</div>;
 };
 
 const Footer = ({ children }: { children: React.ReactNode }) => {
   return (
-    <div className="card-actions justify-end dark:border-gray-600 p-2 border-t bg-gray-50 dark:bg-black">
+    <div className="card-actions justify-end border-t border-ui-border bg-ui-surface-muted p-2">
       {children}
     </div>
   );

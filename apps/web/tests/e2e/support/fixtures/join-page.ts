@@ -17,8 +17,8 @@ export class JoinPage {
     public readonly teamName: string
   ) {
     this.nameBox = this.page.getByPlaceholder('Your Name');
-    this.teamNameBox = this.page.getByPlaceholder('Team Name');
-    this.emailBox = this.page.getByPlaceholder('example@boxyhq.com');
+    this.teamNameBox = this.page.getByPlaceholder('Company name');
+    this.emailBox = this.page.getByPlaceholder('name@company.com');
     this.passwordBox = this.page.getByPlaceholder('Password');
     this.createAccountButton = page.getByRole('button', {
       name: 'Create Account',
@@ -28,7 +28,7 @@ export class JoinPage {
   }
 
   async goto() {
-    await this.page.goto('/auth/join');
+    await this.page.goto('/?tab=signup');
     await expect(
       this.page.getByRole('heading', { name: 'Get started' })
     ).toBeVisible();
@@ -40,7 +40,7 @@ export class JoinPage {
     await this.emailBox.fill(this.user.email);
     await this.passwordBox.fill(this.user.password);
     await this.createAccountButton.click();
-    await this.page.waitForURL('/auth/login');
+    await this.page.waitForURL(/\/?success=successfully-joined/);
     await expect(
       this.page
         .getByRole('status')

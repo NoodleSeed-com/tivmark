@@ -1,5 +1,4 @@
-const theadClass =
-  'bg-gray-50 text-xs uppercase text-gray-700 dark:bg-gray-700 dark:text-gray-400';
+const theadClass = 'bg-ui-surface-muted text-xs uppercase text-ui-heading';
 const trHeadClass = 'hover:bg-gray-50';
 const thClass = 'px-6 py-3';
 

@@ -41,7 +41,7 @@ const EditWebhook = ({
     formikHelpers: FormikHelpers<WebhookFormSchema>
   ) => {
     const response = await fetch(
-      `/api/teams/${team.slug}/webhooks/${endpoint.id}`,
+      `/api/v1/teams/${team.slug}/webhooks/${endpoint.id}`,
       {
         method: 'PUT',
         headers: defaultHeaders,

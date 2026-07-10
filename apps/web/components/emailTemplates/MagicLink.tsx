@@ -1,7 +1,6 @@
 import {
   Button,
   Container,
-  Head,
   Heading,
   Html,
   Preview,
@@ -9,6 +8,7 @@ import {
 } from '@react-email/components';
 import EmailLayout from './EmailLayout';
 import app from '@/lib/app';
+import EmailHead from './EmailHead';
 
 interface MagicLinkProps {
   subject: string;
@@ -18,7 +18,7 @@ interface MagicLinkProps {
 const MagicLink = ({ subject, url }: MagicLinkProps) => {
   return (
     <Html>
-      <Head />
+      <EmailHead />
       <Preview>{subject}</Preview>
       <EmailLayout>
         <Heading as="h2">Log in to {app.name}</Heading>

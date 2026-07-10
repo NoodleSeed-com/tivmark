@@ -1,15 +1,26 @@
-# GitHub action to build
+# CI for the Next.js app (apps/web).
+# Runs lint/format/type-check/build/e2e whenever the app or this workflow changes.
 
-name: Build
+name: web-ci
 
 on:
   push:
     branches:
       - main
       - release
+    paths:
+      - 'apps/web/**'
+      - '.github/workflows/web-ci.yml'
   pull_request:
     branches:
       - main
+    paths:
+      - 'apps/web/**'
+      - '.github/workflows/web-ci.yml'
+
+defaults:
+  run:
+    working-directory: apps/web
 
 jobs:
   ci:
@@ -72,6 +83,7 @@ jobs:
         with:
           node-version: ${{ matrix.node-version }}
           cache: 'npm'
+          cache-dependency-path: apps/web/package-lock.json
           check-latest: true
       - run: npm install
       - run: npm run check-lint
@@ -89,5 +101,5 @@ jobs:
         if: ${{ !cancelled() }}
         with:
           name: playwright-report
-          path: playwright-report/
+          path: apps/web/playwright-report/
           retention-days: 2

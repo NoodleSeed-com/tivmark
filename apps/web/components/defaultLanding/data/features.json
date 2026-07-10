@@ -1,46 +1,46 @@
 [
   {
-    "name": "Create account",
-    "description": "Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s"
+    "name": "Client workspaces",
+    "description": "Create secure team spaces for each company, engagement, or advisory workflow."
   },
   {
-    "name": "Sign in with Email and Password",
-    "description": "Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s"
+    "name": "Email and password sign-in",
+    "description": "Give clients and staff a straightforward way to access their Tivmark workspace."
   },
   {
-    "name": "Sign in with Magic link",
-    "description": "Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s"
+    "name": "Magic link access",
+    "description": "Support passwordless access for users who need a quick, verified sign-in path."
   },
   {
-    "name": "Sign in with SAML SSO",
-    "description": "Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s"
+    "name": "SAML SSO",
+    "description": "Support enterprise clients that require centralized identity management."
   },
   {
     "name": "Directory Sync (SCIM)",
-    "description": "Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s"
+    "description": "Keep client teams current as employees join, leave, or change roles."
   },
   {
-    "name": "Update account",
-    "description": "Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s"
+    "name": "Account settings",
+    "description": "Let users manage profile details, passwords, sessions, and security settings."
   },
   {
-    "name": "Invite users to the team",
-    "description": "Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s"
+    "name": "Team invitations",
+    "description": "Invite founders, operators, and finance partners into the right workspace."
   },
   {
     "name": "Manage team members",
-    "description": "Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s"
+    "description": "Control roles and access for every client or internal team."
   },
   {
     "name": "Update team settings",
-    "description": "Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s"
+    "description": "Keep workspace details, domains, and configuration aligned with each engagement."
   },
   {
     "name": "Webhooks & Events",
-    "description": "Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s"
+    "description": "Connect operational events to the systems your team already uses."
   },
   {
-    "name": "Create team",
-    "description": "Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s"
+    "name": "Create teams",
+    "description": "Start a new workspace whenever a client relationship or internal workflow needs one."
   }
 ]

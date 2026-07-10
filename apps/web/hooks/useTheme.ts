@@ -3,56 +3,93 @@ import {
   MoonIcon,
   SunIcon,
 } from '@heroicons/react/24/outline';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'next-i18next';
 
-import { ThemesProps, applyTheme } from '@/lib/theme';
+import {
+  THEME_EVENT,
+  ThemesProps,
+  ThemePreference,
+  ResolvedTheme,
+  applyTheme,
+  getThemePreference,
+  resolveTheme,
+} from '@/lib/theme';
+
+const getInitialResolvedTheme = (): ResolvedTheme => {
+  if (typeof document === 'undefined') {
+    return 'light';
+  }
+
+  return document.documentElement.classList.contains('dark') ? 'dark' : 'light';
+};
 
 const useTheme = () => {
-  const [theme, setTheme] = useState<string | null>(null);
+  const [preference, setPreferenceState] = useState<ThemePreference>('system');
+  const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>(
+    getInitialResolvedTheme
+  );
   const { t } = useTranslation('common');
 
   useEffect(() => {
-    setTheme(localStorage.getItem('theme'));
+    const storedPreference = getThemePreference();
+    setPreferenceState(storedPreference);
+    setResolvedTheme(resolveTheme(storedPreference));
+
+    const media = window.matchMedia('(prefers-color-scheme: dark)');
+    const handleSystemChange = () => {
+      if (getThemePreference() === 'system') {
+        applyTheme('system');
+      }
+    };
+    const handleThemeChange = (event: Event) => {
+      const detail = (event as CustomEvent).detail as {
+        preference: ThemePreference;
+        resolvedTheme: ResolvedTheme;
+      };
+      setPreferenceState(detail.preference);
+      setResolvedTheme(detail.resolvedTheme);
+    };
+
+    media.addEventListener('change', handleSystemChange);
+    window.addEventListener(THEME_EVENT, handleThemeChange);
+
+    return () => {
+      media.removeEventListener('change', handleSystemChange);
+      window.removeEventListener(THEME_EVENT, handleThemeChange);
+    };
   }, []);
 
-  const themes: ThemesProps[] = [
-    {
-      id: 'system',
-      name: t('system'),
-      icon: ComputerDesktopIcon,
-    },
-    {
-      id: 'dark',
-      name: t('dark'),
-      icon: MoonIcon,
-    },
-    {
-      id: 'light',
-      name: t('light'),
-      icon: SunIcon,
-    },
-  ];
+  const themes: ThemesProps[] = useMemo(
+    () => [
+      { id: 'system', name: t('system'), icon: ComputerDesktopIcon },
+      { id: 'light', name: t('light'), icon: SunIcon },
+      { id: 'dark', name: t('dark'), icon: MoonIcon },
+    ],
+    [t]
+  );
 
-  const selectedTheme = themes.find((t) => t.id === theme) || themes[0];
+  const setPreference = useCallback((nextPreference: ThemePreference) => {
+    applyTheme(nextPreference);
+  }, []);
 
-  const toggleTheme = () => {
-    // eslint-disable-next-line @typescript-eslint/no-unused-expressions
-    selectedTheme.id === 'light' ? applyTheme('dark') : applyTheme('light');
+  const toggleTheme = useCallback(() => {
+    applyTheme(resolvedTheme === 'light' ? 'dark' : 'light');
+  }, [resolvedTheme]);
 
-    if (selectedTheme.id === 'light') {
-      applyTheme('dark');
-      setTheme('dark');
-    } else if (selectedTheme.id === 'dark') {
-      applyTheme('light');
-      setTheme('light');
-    } else if (selectedTheme.id === 'system') {
-      applyTheme('dark');
-      setTheme('dark');
-    }
+  const selectedTheme =
+    themes.find((theme) => theme.id === preference) || themes[0];
+
+  return {
+    preference,
+    resolvedTheme,
+    selectedTheme,
+    themes,
+    setPreference,
+    setTheme: setPreference,
+    toggleTheme,
+    applyTheme,
   };
-
-  return { theme, setTheme, selectedTheme, toggleTheme, themes, applyTheme };
 };
 
 export default useTheme;

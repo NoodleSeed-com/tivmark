@@ -14,13 +14,12 @@ FROM node:24-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
-COPY package*.json ./
-RUN npm ci --omit=dev
-COPY --from=builder /app/.next ./.next
+ENV PORT=4002
+ENV HOSTNAME=0.0.0.0
+COPY --from=builder /app/.next/standalone ./
+COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/public ./public
-COPY --from=builder /app/next.config.js ./next.config.js
-COPY --from=builder /app/next-i18next.config.js ./next-i18next.config.js
 COPY --from=builder /app/locales ./locales
 COPY --from=builder /app/prisma ./prisma
 EXPOSE 4002
-CMD ["npm", "start"]
+CMD ["node", "server.js"]

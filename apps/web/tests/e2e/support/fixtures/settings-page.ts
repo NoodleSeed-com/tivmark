@@ -46,7 +46,7 @@ export class SettingsPage {
   }
 
   async isLoggedIn() {
-    await this.page.waitForSelector('text=All Products');
+    await this.page.waitForSelector('text=Time Off');
   }
 
   async isSettingsPageVisible() {

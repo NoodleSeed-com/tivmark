@@ -1,11 +1,13 @@
 import { prisma } from '@/lib/prisma';
 import { getSession } from '@/lib/session';
 import { findOrCreateApp } from '@/lib/svix';
-import { Role, Team } from '@prisma/client';
+import { Role, Team, TimeOffType } from '@prisma/client';
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { getCurrentUser } from './user';
 import { normalizeUser } from './user';
 import { validateWithSchema, teamSlugSchema } from '@/lib/zod';
+import { DEFAULT_TIME_OFF_ALLOWANCES, TIME_OFF_TYPES } from '@/lib/timeOff';
+import { getLegacyApiTeamMember } from '@/lib/api/legacy-context';
 
 export const createTeam = async (param: {
   userId: string;
@@ -18,6 +20,12 @@ export const createTeam = async (param: {
     data: {
       name,
       slug,
+      timeOffPolicies: {
+        create: TIME_OFF_TYPES.map((type) => ({
+          type: type as TimeOffType,
+          annualAllowanceHalfDays: DEFAULT_TIME_OFF_ALLOWANCES[type],
+        })),
+      },
     },
   });
 
@@ -322,6 +330,9 @@ export const throwIfNoTeamAccess = async (
   req: NextApiRequest,
   res: NextApiResponse
 ) => {
+  const apiTeamMember = getLegacyApiTeamMember(req);
+  if (apiTeamMember) return apiTeamMember as any;
+
   const session = await getSession(req, res);
 
   if (!session) {

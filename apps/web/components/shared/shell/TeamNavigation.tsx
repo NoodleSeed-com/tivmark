@@ -1,4 +1,4 @@
-import { Cog6ToothIcon, CodeBracketIcon } from '@heroicons/react/24/outline';
+import { CalendarDaysIcon, Cog6ToothIcon } from '@heroicons/react/24/outline';
 import { useTranslation } from 'next-i18next';
 import NavigationItems from './NavigationItems';
 import { NavigationProps, MenuItem } from './NavigationItems';
@@ -12,10 +12,10 @@ const TeamNavigation = ({ slug, activePathname }: NavigationItemsProps) => {
 
   const menus: MenuItem[] = [
     {
-      name: t('all-products'),
-      href: `/teams/${slug}/products`,
-      icon: CodeBracketIcon,
-      active: activePathname === `/teams/${slug}/products`,
+      name: t('time-off'),
+      href: `/teams/${slug}/time-off`,
+      icon: CalendarDaysIcon,
+      active: activePathname === `/teams/${slug}/time-off`,
     },
     {
       name: t('settings'),
@@ -23,6 +23,7 @@ const TeamNavigation = ({ slug, activePathname }: NavigationItemsProps) => {
       icon: Cog6ToothIcon,
       active:
         activePathname?.startsWith(`/teams/${slug}`) &&
+        !activePathname.includes('time-off') &&
         !activePathname.includes('products'),
     },
   ];

@@ -21,7 +21,7 @@ const LinkToPortal = ({ team }: LinkToPortalProps) => {
     setLoading(true);
 
     const response = await fetch(
-      `/api/teams/${team.slug}/payments/create-portal-link`,
+      `/api/v1/teams/${team.slug}/payments/create-portal-link`,
       {
         method: 'POST',
         headers: defaultHeaders,

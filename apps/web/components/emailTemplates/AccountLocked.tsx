@@ -1,7 +1,6 @@
 import {
   Button,
   Container,
-  Head,
   Heading,
   Html,
   Preview,
@@ -10,6 +9,7 @@ import {
 
 import app from '@/lib/app';
 import EmailLayout from './EmailLayout';
+import EmailHead from './EmailHead';
 
 interface AccountLockedProps {
   subject: string;
@@ -19,7 +19,7 @@ interface AccountLockedProps {
 const AccountLocked = ({ subject, url }: AccountLockedProps) => {
   return (
     <Html>
-      <Head />
+      <EmailHead />
       <Preview>{subject}</Preview>
       <EmailLayout>
         <Heading as="h2">Account Locked</Heading>

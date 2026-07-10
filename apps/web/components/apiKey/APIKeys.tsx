@@ -29,7 +29,7 @@ const APIKeys = ({ team }: APIKeysProps) => {
     }
 
     const response = await fetch(
-      `/api/teams/${team.slug}/api-keys/${apiKey.id}`,
+      `/api/v1/teams/${team.slug}/credentials/${apiKey.id}`,
       {
         method: 'DELETE',
       }
@@ -58,9 +58,7 @@ const APIKeys = ({ team }: APIKeysProps) => {
             <h2 className="text-xl font-medium leading-none tracking-tight">
               {t('api-keys')}
             </h2>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
-              {t('api-keys-description')}
-            </p>
+            <p className="text-sm text-ui-muted">{t('api-keys-description')}</p>
           </div>
           <Button
             color="primary"
