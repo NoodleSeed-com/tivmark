@@ -47,7 +47,13 @@ export default async function handler(
       },
     });
 
-    return res.status(200).json(assistantSession);
+    // The @noodleseed/assistant@1.0.0 widget reads `session.gatewayUrl`, but the Noodle Cloud
+    // session response now delivers the gateway under `endpoints.turns`. Bridge the two so the
+    // widget POSTs turns to the absolute gateway instead of a relative (portal 404) URL.
+    return res.status(200).json({
+      ...assistantSession,
+      gatewayUrl: assistantSession.gatewayUrl ?? assistantSession.endpoints?.turns,
+    });
   } catch (err) {
     const message =
       err instanceof Error ? err.message : 'Failed to create assistant session';
