@@ -124,6 +124,32 @@ const TimeOffPolicy = z
   })
   .openapi('TimeOffPolicy');
 
+const TimeOffBalance = z.object({
+  allowanceHalfDays: z.number().int().nullable(),
+  approvedHalfDays: z.number().int(),
+  pendingHalfDays: z.number().int(),
+  remainingHalfDays: z.number().int().nullable(),
+});
+
+const TimeOffWorkspace = z
+  .object({
+    year: z.number().int(),
+    canApprove: z.boolean(),
+    currentUserId: uuid,
+    policies: z.array(TimeOffPolicy),
+    requests: z.array(TimeOffRequest),
+    members: z.array(
+      z.object({
+        id: uuid,
+        name: z.string(),
+        email: z.string().email(),
+        role,
+      })
+    ),
+    balances: z.record(z.record(TimeOffBalance)),
+  })
+  .openapi('TimeOffWorkspace');
+
 const Credential = z
   .object({
     id: uuid,
@@ -538,6 +564,24 @@ registry.registerPath({
   },
   responses: {
     201: { description: 'Created invitation', content: json(data(Invitation)) },
+    ...problemResponses,
+  },
+});
+registry.registerPath({
+  method: 'get',
+  path: '/api/v1/teams/{teamId}/time-off',
+  tags: ['Time Off'],
+  summary: 'Get the time-off workspace',
+  security,
+  request: {
+    params: teamParams,
+    query: z.object({ year: z.coerce.number().int().optional() }),
+  },
+  responses: {
+    200: {
+      description: 'Time-off workspace',
+      content: json(data(TimeOffWorkspace)),
+    },
     ...problemResponses,
   },
 });
