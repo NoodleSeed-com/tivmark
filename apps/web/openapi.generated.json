@@ -145,6 +145,18 @@
         },
         "required": ["id", "email", "role", "token", "expires", "sentViaEmail"]
       },
+      "TimeOffPolicy": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "type": {
+            "type": "string",
+            "enum": ["VACATION", "SICK", "PERSONAL", "UNPAID"]
+          },
+          "annualAllowanceHalfDays": { "type": ["integer", "null"] }
+        },
+        "required": ["id", "type", "annualAllowanceHalfDays"]
+      },
       "TimeOffRequest": {
         "type": "object",
         "properties": {
@@ -190,17 +202,67 @@
           "reviewer"
         ]
       },
-      "TimeOffPolicy": {
+      "TimeOffWorkspace": {
         "type": "object",
         "properties": {
-          "id": { "type": "string", "format": "uuid" },
-          "type": {
-            "type": "string",
-            "enum": ["VACATION", "SICK", "PERSONAL", "UNPAID"]
+          "year": { "type": "integer" },
+          "canApprove": { "type": "boolean" },
+          "currentUserId": { "type": "string", "format": "uuid" },
+          "policies": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/TimeOffPolicy" }
           },
-          "annualAllowanceHalfDays": { "type": ["integer", "null"] }
+          "requests": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/TimeOffRequest" }
+          },
+          "members": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": { "type": "string", "format": "uuid" },
+                "name": { "type": "string" },
+                "email": { "type": "string", "format": "email" },
+                "role": {
+                  "type": "string",
+                  "enum": ["OWNER", "ADMIN", "MEMBER"]
+                }
+              },
+              "required": ["id", "name", "email", "role"]
+            }
+          },
+          "balances": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "object",
+                "properties": {
+                  "allowanceHalfDays": { "type": ["integer", "null"] },
+                  "approvedHalfDays": { "type": "integer" },
+                  "pendingHalfDays": { "type": "integer" },
+                  "remainingHalfDays": { "type": ["integer", "null"] }
+                },
+                "required": [
+                  "allowanceHalfDays",
+                  "approvedHalfDays",
+                  "pendingHalfDays",
+                  "remainingHalfDays"
+                ]
+              }
+            }
+          }
         },
-        "required": ["id", "type", "annualAllowanceHalfDays"]
+        "required": [
+          "year",
+          "canApprove",
+          "currentUserId",
+          "policies",
+          "requests",
+          "members",
+          "balances"
+        ]
       },
       "Credential": {
         "type": "object",
@@ -3890,6 +3952,100 @@
           }
         },
         "operationId": "post_teams_teamId_invitations"
+      }
+    },
+    "/api/v1/teams/{teamId}/time-off": {
+      "get": {
+        "tags": ["Time Off"],
+        "summary": "Get the time-off workspace",
+        "security": [{ "oauth2": [] }, { "bearerAuth": [] }],
+        "parameters": [
+          {
+            "schema": { "type": "string", "format": "uuid" },
+            "required": true,
+            "in": "path",
+            "name": "teamId"
+          },
+          {
+            "schema": { "type": ["integer", "null"] },
+            "required": false,
+            "name": "year",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Time-off workspace",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": { "$ref": "#/components/schemas/TimeOffWorkspace" }
+                  },
+                  "required": ["data"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Problem" }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Problem" }
+              }
+            }
+          },
+          "403": {
+            "description": "Insufficient permissions",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Problem" }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Problem" }
+              }
+            }
+          },
+          "409": {
+            "description": "Resource conflict",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Problem" }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Problem" }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Problem" }
+              }
+            }
+          }
+        },
+        "operationId": "get_teams_teamId_time_off"
       }
     },
     "/api/v1/teams/{teamId}/time-off/requests": {

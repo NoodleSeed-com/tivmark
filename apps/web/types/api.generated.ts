@@ -411,6 +411,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/v1/teams/{teamId}/time-off': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get the time-off workspace */
+    get: operations['get_teams_teamId_time_off'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/v1/teams/{teamId}/time-off/requests': {
     parameters: {
       query?: never;
@@ -538,6 +555,13 @@ export interface components {
       expires: string;
       sentViaEmail: boolean;
     };
+    TimeOffPolicy: {
+      /** Format: uuid */
+      id: string;
+      /** @enum {string} */
+      type: 'VACATION' | 'SICK' | 'PERSONAL' | 'UNPAID';
+      annualAllowanceHalfDays: number | null;
+    };
     TimeOffRequest: {
       /** Format: uuid */
       id: string;
@@ -559,12 +583,32 @@ export interface components {
       requester: components['schemas']['User'];
       reviewer: components['schemas']['User'] & (Record<string, never> | null);
     };
-    TimeOffPolicy: {
+    TimeOffWorkspace: {
+      year: number;
+      canApprove: boolean;
       /** Format: uuid */
-      id: string;
-      /** @enum {string} */
-      type: 'VACATION' | 'SICK' | 'PERSONAL' | 'UNPAID';
-      annualAllowanceHalfDays: number | null;
+      currentUserId: string;
+      policies: components['schemas']['TimeOffPolicy'][];
+      requests: components['schemas']['TimeOffRequest'][];
+      members: {
+        /** Format: uuid */
+        id: string;
+        name: string;
+        /** Format: email */
+        email: string;
+        /** @enum {string} */
+        role: 'OWNER' | 'ADMIN' | 'MEMBER';
+      }[];
+      balances: {
+        [key: string]: {
+          [key: string]: {
+            allowanceHalfDays: number | null;
+            approvedHalfDays: number;
+            pendingHalfDays: number;
+            remainingHalfDays: number | null;
+          };
+        };
+      };
     };
     Credential: {
       /** Format: uuid */
@@ -4282,6 +4326,95 @@ export interface operations {
         content: {
           'application/json': {
             data: components['schemas']['Invitation'];
+          };
+        };
+      };
+      /** @description Invalid request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+      /** @description Insufficient permissions */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+      /** @description Resource not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+      /** @description Resource conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+      /** @description Validation failed */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+      /** @description Rate limit exceeded */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
+  get_teams_teamId_time_off: {
+    parameters: {
+      query?: {
+        year?: number | null;
+      };
+      header?: never;
+      path: {
+        teamId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Time-off workspace */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            data: components['schemas']['TimeOffWorkspace'];
           };
         };
       };
