@@ -52,7 +52,8 @@ export default async function handler(
     // widget POSTs turns to the absolute gateway instead of a relative (portal 404) URL.
     return res.status(200).json({
       ...assistantSession,
-      gatewayUrl: assistantSession.gatewayUrl ?? assistantSession.endpoints?.turns,
+      gatewayUrl:
+        assistantSession.gatewayUrl ?? assistantSession.endpoints?.turns,
     });
   } catch (err) {
     const message =
