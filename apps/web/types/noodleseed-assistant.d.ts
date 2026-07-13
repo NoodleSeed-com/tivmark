@@ -46,6 +46,11 @@ declare module '@noodleseed/assistant/server' {
     readonly token: string;
     readonly expiresAt: string;
     readonly gatewayUrl?: string;
+    // Newer Noodle Cloud responses deliver the gateway here (the v1.0.0 type predates it).
+    readonly endpoints?: {
+      readonly turns?: string;
+      readonly toolConfirmations?: string;
+    };
   }
 
   export function createAssistantSession(
