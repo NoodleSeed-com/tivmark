@@ -25,7 +25,11 @@ const nextConfig = {
     // subpaths straight to their dist files to bypass exports resolution. `$` = exact match.
     const assistantDist = (file) => {
       const candidates = [
-        path.join(monorepoRoot, 'node_modules/@noodleseed/assistant/dist', file),
+        path.join(
+          monorepoRoot,
+          'node_modules/@noodleseed/assistant/dist',
+          file
+        ),
         path.join(__dirname, 'node_modules/@noodleseed/assistant/dist', file),
       ];
       return candidates.find((p) => fs.existsSync(p)) || candidates[0];
