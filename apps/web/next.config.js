@@ -16,6 +16,26 @@ const nextConfig = {
   reactStrictMode: true,
   output: 'standalone',
   outputFileTracingRoot,
+  // @noodleseed/assistant ships ESM-only subpath exports (import/types, no require),
+  // so Next must transpile it to down-level the compiled ESM for the browser target.
+  transpilePackages: ['@noodleseed/assistant'],
+  webpack: (config) => {
+    // The package's exports map exposes only the `import` condition, which Next's server-side
+    // resolution pass won't match ("Package path ./react is not exported"). Alias the two
+    // subpaths straight to their dist files to bypass exports resolution. `$` = exact match.
+    const assistantDist = (file) => {
+      const candidates = [
+        path.join(monorepoRoot, 'node_modules/@noodleseed/assistant/dist', file),
+        path.join(__dirname, 'node_modules/@noodleseed/assistant/dist', file),
+      ];
+      return candidates.find((p) => fs.existsSync(p)) || candidates[0];
+    };
+    config.resolve.alias['@noodleseed/assistant/react$'] =
+      assistantDist('react.js');
+    config.resolve.alias['@noodleseed/assistant/server$'] =
+      assistantDist('server.js');
+    return config;
+  },
   images: {
     remotePatterns: [
       {

@@ -1,0 +1,21 @@
+{
+  "name": "tivmark-assistant",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "validate": "noodle validate",
+    "dev": "noodle dev",
+    "deploy": "noodle deploy",
+    "agent:check": "noodle validate --json && noodle test --json",
+    "agent:commands": "noodle commands --json"
+  },
+  "devDependencies": {
+    "@noodleseed/one": "^0.33.0",
+    "vitest": "^4.1.10"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

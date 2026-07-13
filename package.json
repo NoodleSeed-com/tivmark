@@ -12,7 +12,11 @@
     "check-types:web": "npm run check-types --workspace apps/web",
     "lint:web": "npm run check-lint --workspace apps/web",
     "format:web": "npm run format --workspace apps/web",
-    "test:web": "npm run test --workspace apps/web"
+    "test:web": "npm run test --workspace apps/web",
+    "dev:assistant": "npm run dev --prefix apps/assistant",
+    "validate:assistant": "npm run validate --prefix apps/assistant",
+    "test:assistant": "npm run test --prefix apps/assistant",
+    "deploy:assistant": "npm run deploy --prefix apps/assistant"
   },
   "engines": {
     "node": ">=22"

@@ -64,7 +64,9 @@ jobs:
       - name: Build and push image
         run: |
           IMAGE_URI="${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/${ARTIFACT_REPOSITORY}/${IMAGE_NAME}:${GITHUB_SHA}"
-          docker build -t "${IMAGE_URI}" apps/web
+          docker build \
+            --build-arg NEXT_PUBLIC_ASSISTANT_ENABLED=true \
+            -t "${IMAGE_URI}" apps/web
           docker push "${IMAGE_URI}"
           echo "IMAGE_URI=${IMAGE_URI}" >> "${GITHUB_ENV}"
 
@@ -78,5 +80,5 @@ jobs:
             --no-invoker-iam-check \
             --port 4002 \
             --add-cloudsql-instances "${CLOUD_SQL_CONNECTION_NAME}" \
-            --set-env-vars "NEXTAUTH_URL=https://app.tivmark.com,APP_URL=https://app.tivmark.com,NEXTAUTH_SESSION_STRATEGY=jwt,AUTH_PROVIDERS=credentials,HIDE_LANDING_PAGE=false,FEATURE_TEAM_WEBHOOK=false,FEATURE_TEAM_PAYMENTS=false" \
-            --set-secrets "DATABASE_URL=database-url:latest,NEXTAUTH_SECRET=nextauth-secret:latest,OAUTH_PRIVATE_JWK=oauth-private-jwk:latest"
+            --set-env-vars "NEXTAUTH_URL=https://app.tivmark.com,APP_URL=https://app.tivmark.com,NEXTAUTH_SESSION_STRATEGY=jwt,AUTH_PROVIDERS=credentials,HIDE_LANDING_PAGE=false,FEATURE_TEAM_WEBHOOK=false,FEATURE_TEAM_PAYMENTS=false,NOODLE_ASSISTANT_SERVICE_URL=https://cloud.noodleseed.dev" \
+            --set-secrets "DATABASE_URL=database-url:latest,NEXTAUTH_SECRET=nextauth-secret:latest,OAUTH_PRIVATE_JWK=oauth-private-jwk:latest,NOODLE_ASSISTANT_CLIENT_ID=noodle-assistant-client-id:latest,NOODLE_ASSISTANT_CLIENT_SECRET=noodle-assistant-client-secret:latest"
