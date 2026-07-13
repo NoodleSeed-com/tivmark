@@ -1,4 +1,5 @@
 import {
+  annotations,
   customerAuth,
   embeddedAssistant,
   openAICompatible,
@@ -37,15 +38,17 @@ export default server(
   },
   [
     tool('greet', {
-      description: 'Greet a person by name.',
-      input: z.object({
-        name: z.string().default('world'),
-      }),
+      description: 'Greet the currently signed-in user by name.',
+      input: z.object({}),
       output: z.object({
         message: z.string(),
       }),
-      fulfil: ({ input }) => {
-        return { message: `Hello, ${input.name}!` };
+      // Read-only, non-destructive → runs automatically without a confirmation prompt.
+      annotations: annotations.readOnly(),
+      // `user` is the bridged portal identity (see customerAuth.bridge above); user.name is the
+      // signed-in user's name passed through createAssistantSession.
+      fulfil: ({ user }) => {
+        return { message: `Hello, ${user.name}!` };
       },
     }),
   ],
