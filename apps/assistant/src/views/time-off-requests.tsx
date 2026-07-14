@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from "react";
 import {
   DataCard,
   DataList,
@@ -8,8 +8,11 @@ import {
   StatusBadge,
   SubmitButton,
   useCallTool,
+  useLayout,
   useToolInfo,
-} from '../helpers.js';
+  useUpdateModelContext,
+  useWidgetLifecycle,
+} from "../helpers.js";
 
 type Request = {
   readonly id: string;
@@ -20,23 +23,48 @@ type Request = {
   readonly duration: string;
   readonly reason?: string | null;
 };
-type Result = { readonly team?: string; readonly requests?: readonly Request[] };
+type Result = {
+  readonly team?: string;
+  readonly requests?: readonly Request[];
+};
 
-type Tone = 'neutral' | 'success' | 'warning' | 'danger' | 'info';
+type Tone = "neutral" | "success" | "warning" | "danger" | "info";
 const statusTone: Record<string, Tone> = {
-  PENDING: 'warning',
-  APPROVED: 'success',
-  DECLINED: 'danger',
-  CANCELED: 'neutral',
+  PENDING: "warning",
+  APPROVED: "success",
+  DECLINED: "danger",
+  CANCELED: "neutral",
 };
 
 export default function RequestsList() {
-  const data = useToolInfo('my_time_off').structuredContent as Result | undefined;
-  const team = data?.team ?? '';
-  const cancel = useCallTool('cancel_time_off');
+  const data = useToolInfo("my_time_off").structuredContent as
+    | Result
+    | undefined;
+  const team = data?.team ?? "";
+  const cancel = useCallTool("cancel_time_off");
   const [canceled, setCanceled] = useState<Record<string, boolean>>({});
 
   const requests = (data?.requests ?? []).filter((r) => !canceled[r.id]);
+
+  // Tell the assistant this list is on screen and how many requests it shows.
+  const layout = useLayout();
+  const publishModelContext = useUpdateModelContext();
+  useWidgetLifecycle("time-off-requests");
+  useEffect(() => {
+    if (!layout.supports?.modelContext) return;
+    publishModelContext({
+      content: [
+        {
+          type: "text",
+          text: `Time-off requests list is open for team "${team}": ${requests.length} shown.`,
+        },
+      ],
+      structuredContent: {
+        widget: { name: "time-off-requests", team, count: requests.length },
+      },
+    }).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [layout.supports?.modelContext, team, requests.length]);
 
   async function onCancel(id: string) {
     setCanceled((c) => ({ ...c, [id]: true })); // optimistic
@@ -63,13 +91,13 @@ export default function RequestsList() {
                     </strong>
                     <div>
                       {r.type}
-                      {r.reason ? ` · ${r.reason}` : ''}
+                      {r.reason ? ` · ${r.reason}` : ""}
                     </div>
                   </div>
-                  <StatusBadge tone={statusTone[r.status] ?? 'neutral'}>
+                  <StatusBadge tone={statusTone[r.status] ?? "neutral"}>
                     {r.status}
                   </StatusBadge>
-                  {(r.status === 'PENDING' || r.status === 'APPROVED') && (
+                  {(r.status === "PENDING" || r.status === "APPROVED") && (
                     <SubmitButton
                       pending={cancel.isPending}
                       pendingLabel="Canceling…"
