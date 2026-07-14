@@ -34,7 +34,9 @@ const createSigningKeys = async () => {
   const privateKey = await importJWK(privateJwk, 'ES256');
   const publicJwk = { ...privateJwk };
   delete publicJwk.d;
-  return { privateKey, privateJwk, publicJwk };
+  // Asymmetric verification requires the PUBLIC key; verifying with the private key throws.
+  const publicKey = await importJWK(publicJwk, 'ES256');
+  return { privateKey, publicKey, privateJwk, publicJwk };
 };
 
 const signingKeys = () => {
@@ -99,7 +101,7 @@ export const issueAccessToken = async (
 
 export const verifyAccessToken = async (token: string) => {
   const keys = await signingKeys();
-  const result = await jwtVerify(token, keys.privateKey, {
+  const result = await jwtVerify(token, keys.publicKey, {
     issuer,
     audience,
     algorithms: ['ES256'],
