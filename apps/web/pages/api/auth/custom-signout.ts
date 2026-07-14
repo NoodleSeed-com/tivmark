@@ -42,10 +42,22 @@ export default async function handler(
       }
     }
 
-    res.setHeader(
-      'Set-Cookie',
-      'next-auth.session-token=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT; HttpOnly; Secure; SameSite=Lax'
-    );
+    // Clear the actual session cookie. In production (HTTPS) NextAuth uses the secure-prefixed name
+    // `__Secure-next-auth.session-token`; hard-coding the unprefixed name left the session intact, so
+    // sign-out never worked. `sessionTokenCookieName` resolves the correct name for the environment.
+    const expired = (name: string) =>
+      `${name}=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT; HttpOnly; SameSite=Lax${
+        sessionTokenCookieName.startsWith('__Secure-') ? '; Secure' : ''
+      }`;
+    const securePrefix = sessionTokenCookieName.startsWith('__Secure-')
+      ? '__Secure-'
+      : '';
+    res.setHeader('Set-Cookie', [
+      expired(sessionTokenCookieName),
+      expired(`${securePrefix}next-auth.callback-url`),
+      // CSRF token uses the __Host- prefix when secure.
+      `${securePrefix ? '__Host-' : ''}next-auth.csrf-token=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT; HttpOnly; SameSite=Lax${securePrefix ? '; Secure' : ''}`,
+    ]);
 
     return res.status(200).json({ success: true });
   } catch (error) {
