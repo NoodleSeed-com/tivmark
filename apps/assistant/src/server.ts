@@ -11,38 +11,11 @@ import {
   z,
 } from '@noodleseed/one';
 
-// ---------------------------------------------------------------------------
-// Shapes shared between the connector and the tools.
-// ---------------------------------------------------------------------------
 const leaveType = z.enum(['VACATION', 'SICK', 'PERSONAL', 'UNPAID']);
 
-const teamShape = z.object({
-  id: z.string(),
-  name: z.string(),
-  slug: z.string(),
-});
-
-// One person's balance for one leave type (half-day units, matching the Tivmark API).
-const balance = z.object({
-  allowanceHalfDays: z.number().nullable(),
-  approvedHalfDays: z.number(),
-  pendingHalfDays: z.number(),
-  remainingHalfDays: z.number().nullable(),
-});
-// balances[userId][type] -> balance
-const balancesMap = z.record(z.record(balance));
-
-const requestShape = z.object({
-  id: z.string(),
-  type: z.string(),
-  status: z.string(),
-  startDate: z.string(),
-  endDate: z.string(),
-  duration: z.string(),
-  halfDayPeriod: z.string().nullable().optional(),
-  requestedHalfDays: z.number().optional(),
-  reason: z.string().nullable().optional(),
-});
+// Connector/tool list + object outputs bind the raw API values as `z.unknown()`: the connector
+// validates outputs strictly and real Tivmark objects (teams, requests, balances) carry more fields
+// than we consume. The tools return them as-is and the widgets read the fields they need.
 
 // ---------------------------------------------------------------------------
 // Connector: the Tivmark portal's public v1 API, called AS the signed-in end user.
@@ -62,7 +35,8 @@ const tivmark = connector('tivmark_timeoff')
       tokenUrl: 'https://app.tivmark.com/api/assistant/oauth/token',
       clientId: variable('TIVMARK_DELEG_CLIENT_ID'),
       clientSecret: secret('TIVMARK_DELEG_CLIENT_SECRET'),
-      scopes: ['time_off'],
+      // `teams` to list the user's teams; `time_off` for the time-off endpoints.
+      scopes: ['time_off', 'teams'],
       // audience omitted → the assertion is bound to tokenUrl (strongest replay protection).
       authMethod: 'client_secret_basic',
     },
@@ -72,7 +46,9 @@ const tivmark = connector('tivmark_timeoff')
         method: 'GET',
         path: '/teams',
         input: z.object({}),
-        output: z.object({ teams: z.array(teamShape) }),
+        // Bind the whole array; connector output validation is strict, and real API objects carry
+        // more fields than we model. The tools/widgets read the fields they need.
+        output: z.object({ teams: z.array(z.unknown()) }),
         response: { teams: '${response.data}' },
       },
       get_balances: {
@@ -81,7 +57,7 @@ const tivmark = connector('tivmark_timeoff')
         path: '/teams/{team}/time-off/balances',
         query: ['year'],
         input: z.object({ team: z.string(), year: z.number().optional() }),
-        output: z.object({ balances: balancesMap }),
+        output: z.object({ balances: z.record(z.record(z.unknown())) }),
         response: { balances: '${response.data}' },
       },
       list_requests: {
@@ -94,7 +70,7 @@ const tivmark = connector('tivmark_timeoff')
           requesterId: z.string(),
           year: z.number().optional(),
         }),
-        output: z.object({ requests: z.array(requestShape) }),
+        output: z.object({ requests: z.array(z.unknown()) }),
         response: { requests: '${response.data}' },
       },
       create_request: {
@@ -116,7 +92,7 @@ const tivmark = connector('tivmark_timeoff')
           duration: 'FULL_DAY',
           reason: '${args.reason}',
         },
-        output: z.object({ request: requestShape }),
+        output: z.object({ request: z.unknown() }),
         response: { request: '${response.data}' },
       },
       cancel_request: {
@@ -126,7 +102,7 @@ const tivmark = connector('tivmark_timeoff')
         input: z.object({ team: z.string(), id: z.string() }),
         // No actorUserId — derived from the user principal.
         request: { action: 'cancel' },
-        output: z.object({ request: requestShape }),
+        output: z.object({ request: z.unknown() }),
         response: { request: '${response.data}' },
       },
     },
@@ -139,14 +115,14 @@ export default server(
   'tivmark_assistant',
   {
     title: 'Tivmark Assistant',
-    version: '1.2.0',
+    version: '1.3.0',
     instructions:
       'You are the Tivmark time-off assistant. Help the signed-in user check their leave balance, ' +
       'review their time-off requests, submit a new request, and cancel a request. ' +
-      'Time off is per team. Before using any time-off tool, resolve the team: if the user named a ' +
-      'team, use it; otherwise call my_teams — if they belong to exactly one team, use it silently; ' +
-      'if several, ask which team. Pass that team to time_off_balance, my_time_off, and ' +
-      'request_time_off. Address the user by name.',
+      'Time off is per team. Always call my_teams first to resolve the team the user means (match by ' +
+      'name case-insensitively). If they belong to exactly one team, use it silently; if several, ask ' +
+      'which. Then pass that team’s "slug" (NOT its display name) as the `team` argument to ' +
+      'time_off_balance, my_time_off, and request_time_off. Address the user by name.',
     branding: {
       name: 'Tivmark',
       accent: '#7C3AED',
@@ -190,7 +166,7 @@ export default server(
         'request applies to when the user has not named one.',
       annotations: readOnly,
       input: z.object({}),
-      output: z.object({ teams: z.array(teamShape) }),
+      output: z.object({ teams: z.array(z.unknown()) }),
       fulfil: ({ connectors }) => {
         const res = connectors.tiv.list_teams({});
         return { teams: res.teams };
@@ -201,7 +177,11 @@ export default server(
         "Show the signed-in user's time-off balances (vacation, sick, personal, unpaid) for a team.",
       annotations: readOnly,
       input: z.object({ team: z.string() }),
-      output: z.object({ team: z.string(), userId: z.string(), balances: balancesMap }),
+      output: z.object({
+        team: z.string(),
+        userId: z.string(),
+        balances: z.record(z.record(z.unknown())),
+      }),
       fulfil: ({ input, user, connectors }) => {
         const res = connectors.tiv.get_balances({ team: input.team });
         return { team: input.team, userId: user.id, balances: res.balances };
@@ -216,7 +196,7 @@ export default server(
       description: "List the signed-in user's time-off requests and their status for a team.",
       annotations: readOnly,
       input: z.object({ team: z.string() }),
-      output: z.object({ team: z.string(), requests: z.array(requestShape) }),
+      output: z.object({ team: z.string(), requests: z.array(z.unknown()) }),
       fulfil: ({ input, user, connectors }) => {
         const res = connectors.tiv.list_requests({
           team: input.team,
@@ -257,7 +237,7 @@ export default server(
         endDate: z.string().default(''),
         reason: z.string().default(''),
       }),
-      output: z.object({ status: z.string(), request: requestShape }),
+      output: z.object({ status: z.string(), request: z.unknown() }),
       fulfil: ({ input, connectors }) => {
         const res = connectors.tiv.create_request({
           team: input.team,
@@ -278,7 +258,7 @@ export default server(
       description: "Cancel one of the signed-in user's time-off requests by id in a team.",
       annotations: action,
       input: z.object({ team: z.string().default(''), id: z.string().default('') }),
-      output: z.object({ status: z.string(), request: requestShape }),
+      output: z.object({ status: z.string(), request: z.unknown() }),
       fulfil: ({ input, connectors }) => {
         const res = connectors.tiv.cancel_request({ team: input.team, id: input.id });
         return { status: `Canceled request ${input.id}.`, request: res.request };
