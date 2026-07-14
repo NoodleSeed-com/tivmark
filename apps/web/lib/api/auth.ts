@@ -53,7 +53,14 @@ export const getApiPrincipal = async (
 
     try {
       const accessToken = await verifyAccessToken(token);
-      if (req.headers.origin) {
+      // The Origin/allowedOrigins check enforces browser CORS for SPA OAuth clients. The embedded
+      // assistant's delegated-token-exchange client is a trusted server-to-server caller (the broker
+      // mirrors the connector origin as an Origin header), so it is exempt from the registered-client
+      // lookup — its tokens are minted only by our own /api/assistant/oauth/token endpoint.
+      const isDelegationClient =
+        !!env.assistant.delegClientId &&
+        accessToken.clientId === env.assistant.delegClientId;
+      if (req.headers.origin && !isDelegationClient) {
         const client = await (
           await import('@/lib/prisma')
         ).prisma.oAuthClient.findUnique({
