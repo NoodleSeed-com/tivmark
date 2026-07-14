@@ -15,7 +15,7 @@ import { issueAccessToken } from '@/lib/api/oauth';
 
 const GRANT = 'urn:ietf:params:oauth:grant-type:token-exchange';
 const TOKEN_URL = `${env.appUrl}/api/assistant/oauth/token`;
-const ALLOWED_SCOPES = new Set(['time_off', 'time_off.approve']);
+const ALLOWED_SCOPES = new Set(['time_off', 'time_off.approve', 'teams']);
 
 // Cache the remote JWKS across warm invocations.
 let jwks: ReturnType<typeof createRemoteJWKSet> | null = null;
