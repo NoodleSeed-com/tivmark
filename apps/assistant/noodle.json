@@ -1,5 +1,5 @@
 {
   "entrypoint": "src/server.ts",
   "name": "tivmark-assistant",
-  "template": "hello"
+  "template": "widget"
 }
