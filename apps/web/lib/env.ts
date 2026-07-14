@@ -133,6 +133,13 @@ const env = {
     serviceUrl: process.env.NOODLE_ASSISTANT_SERVICE_URL,
     clientId: process.env.NOODLE_ASSISTANT_CLIENT_ID,
     clientSecret: process.env.NOODLE_ASSISTANT_CLIENT_SECRET,
+    // Delegated token exchange: the assistant connector authenticates to
+    // /api/assistant/oauth/token with these; that endpoint mints a user-scoped token.
+    delegClientId: process.env.ASSISTANT_DELEG_CLIENT_ID,
+    delegClientSecret: process.env.ASSISTANT_DELEG_CLIENT_SECRET,
+    // NoodleSeed platform issuer whose JWKS signs the subject_token assertion.
+    platformIssuer:
+      process.env.NOODLE_PLATFORM_ISSUER || 'https://cloud.noodleseed.dev',
   },
 };
 

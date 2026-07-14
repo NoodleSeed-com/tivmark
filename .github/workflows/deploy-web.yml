@@ -82,4 +82,4 @@ jobs:
             --port 4002 \
             --add-cloudsql-instances "${CLOUD_SQL_CONNECTION_NAME}" \
             --set-env-vars "NEXTAUTH_URL=https://app.tivmark.com,APP_URL=https://app.tivmark.com,NEXTAUTH_SESSION_STRATEGY=jwt,AUTH_PROVIDERS=credentials,HIDE_LANDING_PAGE=false,FEATURE_TEAM_WEBHOOK=false,FEATURE_TEAM_PAYMENTS=false,NOODLE_ASSISTANT_SERVICE_URL=https://cloud.noodleseed.dev" \
-            --set-secrets "DATABASE_URL=database-url:latest,NEXTAUTH_SECRET=nextauth-secret:latest,OAUTH_PRIVATE_JWK=oauth-private-jwk:latest,NOODLE_ASSISTANT_CLIENT_ID=noodle-assistant-client-id:latest,NOODLE_ASSISTANT_CLIENT_SECRET=noodle-assistant-client-secret:latest"
+            --set-secrets "DATABASE_URL=database-url:latest,NEXTAUTH_SECRET=nextauth-secret:latest,OAUTH_PRIVATE_JWK=oauth-private-jwk:latest,NOODLE_ASSISTANT_CLIENT_ID=noodle-assistant-client-id:latest,NOODLE_ASSISTANT_CLIENT_SECRET=noodle-assistant-client-secret:latest,ASSISTANT_DELEG_CLIENT_ID=assistant-deleg-client-id:latest,ASSISTANT_DELEG_CLIENT_SECRET=assistant-deleg-client-secret:latest"

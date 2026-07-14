@@ -75,6 +75,7 @@ const unAuthenticatedRoutes = [
   '/api/invitations/*',
   '/api/webhooks/stripe',
   '/api/webhooks/dsync',
+  '/api/assistant/oauth/token',
   '/auth/**',
   '/oauth/**',
   '/oauth/.well-known/openid-configuration',
