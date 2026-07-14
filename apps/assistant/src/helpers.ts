@@ -1,4 +1,4 @@
-import type { ServerDefinition } from '@noodleseed/one';
+import type { ServerDefinition } from "@noodleseed/one";
 import {
   ActionBar,
   DataCard,
@@ -14,12 +14,18 @@ import {
   SubmitButton,
   Textarea,
   generateHelpers,
-} from '@noodleseed/one/react';
+} from "@noodleseed/one/react";
 
 export type AppType = ServerDefinition;
 
-export const { useCallTool, useLayout, useToolInfo, useViewState } =
-  generateHelpers<AppType>();
+export const {
+  useCallTool,
+  useLayout,
+  useToolInfo,
+  useViewState,
+  useUpdateModelContext,
+  useWidgetLifecycle,
+} = generateHelpers<AppType>();
 
 export {
   ActionBar,

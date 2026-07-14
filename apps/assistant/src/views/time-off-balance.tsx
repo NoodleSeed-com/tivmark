@@ -1,4 +1,14 @@
-import { EmptyState, Fact, Flow, Frame, useLayout, useToolInfo } from '../helpers.js';
+import { useEffect } from "react";
+import {
+  EmptyState,
+  Fact,
+  Flow,
+  Frame,
+  useLayout,
+  useToolInfo,
+  useUpdateModelContext,
+  useWidgetLifecycle,
+} from "../helpers.js";
 
 type Balance = {
   readonly allowanceHalfDays: number | null;
@@ -12,21 +22,22 @@ type BalanceResult = {
 };
 
 const TYPES = [
-  { key: 'VACATION', label: 'Vacation' },
-  { key: 'SICK', label: 'Sick' },
-  { key: 'PERSONAL', label: 'Personal' },
-  { key: 'UNPAID', label: 'Unpaid' },
+  { key: "VACATION", label: "Vacation" },
+  { key: "SICK", label: "Sick" },
+  { key: "PERSONAL", label: "Personal" },
+  { key: "UNPAID", label: "Unpaid" },
 ] as const;
 
 // The Tivmark API counts leave in half-days; show whole days.
 function days(halfDays: number | null | undefined): string {
-  if (halfDays == null) return '—';
+  if (halfDays == null) return "—";
   return `${halfDays / 2} days`;
 }
 
 export default function BalanceCard() {
-  const { theme } = useLayout();
-  const data = useToolInfo('time_off_balance').structuredContent as
+  const layout = useLayout();
+  const { theme } = layout;
+  const data = useToolInfo("time_off_balance").structuredContent as
     | BalanceResult
     | undefined;
   const mine = (data?.userId && data?.balances?.[data.userId]) || undefined;
@@ -35,12 +46,31 @@ export default function BalanceCard() {
   const summary = rows
     .filter((r) => r.b)
     .map((r) => `${r.label} ${days(r.b?.remainingHalfDays)} left`)
-    .join('; ');
+    .join("; ");
+
+  // Tell the assistant the balance card is on screen and its headline numbers.
+  const publishModelContext = useUpdateModelContext();
+  useWidgetLifecycle("time-off-balance");
+  useEffect(() => {
+    if (!layout.supports?.modelContext) return;
+    publishModelContext({
+      content: [
+        {
+          type: "text",
+          text: `Time-off balance card is open — ${summary || "no balances found"}.`,
+        },
+      ],
+      structuredContent: {
+        widget: { name: "time-off-balance", summary: summary || null },
+      },
+    }).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [layout.supports?.modelContext, summary]);
 
   return (
     <main
-      className={theme === 'dark' ? 'dark' : undefined}
-      data-llm={`Time-off balance — ${summary || 'no balances found'}`}
+      className={theme === "dark" ? "dark" : undefined}
+      data-llm={`Time-off balance — ${summary || "no balances found"}`}
     >
       <Frame title="Your time off" subtitle="Remaining balance this year">
         {mine ? (
@@ -53,12 +83,14 @@ export default function BalanceCard() {
                 detail={
                   r.b?.allowanceHalfDays != null
                     ? `of ${r.b.allowanceHalfDays / 2} days`
-                    : 'no allowance'
+                    : "no allowance"
                 }
                 tone={
-                  r.b && r.b.remainingHalfDays != null && r.b.remainingHalfDays <= 0
-                    ? 'danger'
-                    : 'success'
+                  r.b &&
+                  r.b.remainingHalfDays != null &&
+                  r.b.remainingHalfDays <= 0
+                    ? "danger"
+                    : "success"
                 }
               />
             ))}
