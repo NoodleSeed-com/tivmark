@@ -6,6 +6,10 @@ RUN npm ci
 FROM node:24-alpine AS builder
 WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
+# NEXT_PUBLIC_* is inlined at build time — pass the assistant flag as a build arg so the embedded
+# assistant widget mounts in the built image (see components/shared/shell/AssistantWidget.tsx).
+ARG NEXT_PUBLIC_ASSISTANT_ENABLED
+ENV NEXT_PUBLIC_ASSISTANT_ENABLED=$NEXT_PUBLIC_ASSISTANT_ENABLED
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN npm run build

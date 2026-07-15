@@ -38,6 +38,7 @@
     "@boxyhq/saml-jackson": "26.2.0",
     "@heroicons/react": "2.2.0",
     "@next-auth/prisma-adapter": "1.0.7",
+    "@noodleseed/assistant": "^1.4.0",
     "@prisma/client": "6.10.0",
     "@react-email/components": "1.0.12",
     "@react-email/render": "2.0.8",

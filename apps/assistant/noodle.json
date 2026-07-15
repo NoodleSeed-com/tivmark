@@ -1,0 +1,9 @@
+{
+  "entrypoint": "src/server.ts",
+  "name": "tivmark-assistant",
+  "template": "widget",
+  "agents": [
+    "codex",
+    "claude-code"
+  ]
+}

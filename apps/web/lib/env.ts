@@ -26,6 +26,21 @@ const env = {
     privateJwk: process.env.OAUTH_PRIVATE_JWK,
   },
 
+  // Embedded Tivmark Assistant (Noodle Seed). All values are backend-only — never expose the client
+  // secret or delegation secret to the browser. `enabled` gates the widget mount (public build flag).
+  assistant: {
+    enabled: process.env.NEXT_PUBLIC_ASSISTANT_ENABLED === 'true',
+    // Session exchange (backend → Noodle control plane): mints the browser's short-lived session.
+    serviceUrl: process.env.NOODLE_ASSISTANT_SERVICE_URL,
+    clientId: process.env.NOODLE_ASSISTANT_CLIENT_ID,
+    clientSecret: process.env.NOODLE_ASSISTANT_CLIENT_SECRET,
+    // Delegated token exchange (Noodle connector → our /api/assistant/oauth/token): the connector
+    // authenticates with these client credentials; platformIssuer signs the per-user subject_token.
+    delegClientId: process.env.ASSISTANT_DELEG_CLIENT_ID,
+    delegClientSecret: process.env.ASSISTANT_DELEG_CLIENT_SECRET,
+    platformIssuer: process.env.NOODLE_PLATFORM_ISSUER,
+  },
+
   // Svix
   svix: {
     url: `${process.env.SVIX_URL}`,
