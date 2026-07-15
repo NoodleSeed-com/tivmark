@@ -48,6 +48,7 @@ export const oauthMetadata = {
   issuer,
   authorization_endpoint: `${issuer}/authorize`,
   token_endpoint: `${issuer}/token`,
+  registration_endpoint: `${issuer}/register`,
   revocation_endpoint: `${issuer}/revoke`,
   userinfo_endpoint: `${issuer}/userinfo`,
   jwks_uri: `${issuer}/jwks`,
