@@ -39,7 +39,9 @@ jobs:
           cache: 'npm'
           cache-dependency-path: apps/assistant/package-lock.json
           check-latest: true
-      - run: npm ci
+      # `npm install` (not `npm ci`) to match apps/web CI: the noodle react deps resolve transitive
+      # @radix-ui packages that npm's lockfile strictness rejects under `latest` specifiers.
+      - run: npm install
       # Compile + schema + connector validation via the project-local noodle CLI (offline, no account).
       - run: npm run validate
       # Unit tests: tool surface, connector wiring, and the confirm gate on every write.
