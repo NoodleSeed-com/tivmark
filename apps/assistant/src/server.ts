@@ -156,11 +156,15 @@ export default server(
         },
       },
     },
-    // 'customers' access: the Tivmark portal backend bridges the signed-in user's identity into a
-    // short-lived assistant session; user.id equals the Tivmark user id.
-    auth: customerAuth.bridge({
-      provider: "tivmark-portal",
-      user: { id: "id", email: "email", name: "name", roles: "roles" },
+    // 'customers' access with BYO identity provider: Tivmark's own OAuth server is the IdP. Generic
+    // MCP clients (ChatGPT/Claude) discover it via the MCP protected-resource-metadata, sign the user
+    // in at app.tivmark.com, and present the resulting token here — Noodle (as resource server)
+    // verifies it against Tivmark's JWKS. The portal embed continues to work via createAssistantSession
+    // (session exchange is independent of this auth kind). Both inbound paths normalize to the same
+    // verified customer identity, so the delegatedTokenExchange connector calls the API as that user.
+    auth: customerAuth.oidc({
+      issuer: "https://app.tivmark.com/oauth",
+      audience: "tivmark-api",
     }),
     assistant: embeddedAssistant({
       model: openAICompatible({
