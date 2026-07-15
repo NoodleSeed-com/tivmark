@@ -31,7 +31,9 @@ export class LoginPage {
     this.IDP_LOGIN_URL = `${process.env.MOCKSAML_ORIGIN}/saml/login`;
     this.ACS_URL = `${process.env.JACKSON_URL || process.env.APP_URL}/api/oauth/saml`;
 
-    this.emailBox = this.page.getByPlaceholder('Email');
+    // The login form's email placeholder is `email-placeholder` ("name@company.com"),
+    // so select by the stable name attribute instead of the placeholder text.
+    this.emailBox = this.page.locator('input[name="email"]');
     this.passwordBox = this.page.getByPlaceholder('Password');
     this.signInButton = this.page.getByRole('button', { name: 'Sign in' });
     this.continueWithSSOButton = this.page.getByRole('button', {
