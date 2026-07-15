@@ -150,11 +150,63 @@ async function seedInvitations(teams: any[], users: any[]) {
   return newInvitations;
 }
 
+async function seedEquipmentRequests(teams: any[]) {
+  const catalog = [
+    { category: 'LAPTOP', item: '16" MacBook Pro' },
+    { category: 'MONITOR', item: '27" 4K monitor' },
+    { category: 'PHONE', item: 'iPhone 15' },
+    { category: 'PERIPHERAL', item: 'Mechanical keyboard' },
+    { category: 'FURNITURE', item: 'Standing desk' },
+  ];
+  const statuses = ['PENDING', 'APPROVED', 'FULFILLED'];
+  let created = 0;
+
+  for (const team of teams) {
+    const members = await client.teamMember.findMany({
+      where: { teamId: team.id },
+      include: { user: true },
+    });
+    if (members.length === 0) continue;
+    const approver =
+      members.find((m: any) => m.role === 'OWNER' || m.role === 'ADMIN') ||
+      members[0];
+
+    for (let i = 0; i < Math.min(3, members.length); i++) {
+      const member = members[i];
+      const pick = catalog[Math.floor(Math.random() * catalog.length)];
+      const status = statuses[i % statuses.length];
+      const reviewed = status === 'APPROVED' || status === 'FULFILLED';
+      try {
+        await client.equipmentRequest.create({
+          data: {
+            teamId: team.id,
+            requesterId: member.userId,
+            category: pick.category,
+            item: pick.item,
+            quantity: Math.floor(Math.random() * 2) + 1,
+            justification: faker.lorem.sentence(),
+            status,
+            reviewerId: reviewed ? approver.userId : null,
+            reviewedAt: reviewed ? new Date() : null,
+            fulfilledAt: status === 'FULFILLED' ? new Date() : null,
+          },
+        });
+        created++;
+      } catch (ex) {
+        console.log(ex);
+      }
+    }
+  }
+
+  console.log('Seeded equipment requests', created);
+}
+
 async function init() {
   const users = await seedUsers();
   const teams = await seedTeams();
   await seedTeamMembers(users, teams);
   await seedInvitations(teams, users);
+  await seedEquipmentRequests(teams);
 }
 
 init();

@@ -37,6 +37,23 @@ enum HalfDayPeriod {
   AFTERNOON
 }
 
+enum EquipmentCategory {
+  LAPTOP
+  MONITOR
+  PHONE
+  PERIPHERAL
+  FURNITURE
+  OTHER
+}
+
+enum EquipmentStatus {
+  PENDING
+  APPROVED
+  DECLINED
+  FULFILLED
+  CANCELED
+}
+
 model Account {
   id                String  @id @default(uuid())
   userId            String
@@ -87,31 +104,34 @@ model User {
   invalid_login_attempts Int       @default(0)
   lockedAt               DateTime?
 
-  teamMembers             TeamMember[]
-  accounts                Account[]
-  sessions                Session[]
-  invitations             Invitation[]
-  createdApiKeys          ApiKey[]         @relation("ApiKeyCreator")
-  timeOffRequests         TimeOffRequest[] @relation("TimeOffRequester")
-  reviewedTimeOffRequests TimeOffRequest[] @relation("TimeOffReviewer")
+  teamMembers               TeamMember[]
+  accounts                  Account[]
+  sessions                  Session[]
+  invitations               Invitation[]
+  createdApiKeys            ApiKey[]           @relation("ApiKeyCreator")
+  timeOffRequests           TimeOffRequest[]   @relation("TimeOffRequester")
+  reviewedTimeOffRequests   TimeOffRequest[]   @relation("TimeOffReviewer")
+  equipmentRequests         EquipmentRequest[] @relation("EquipmentRequester")
+  reviewedEquipmentRequests EquipmentRequest[] @relation("EquipmentReviewer")
 }
 
 model Team {
-  id              String           @id @default(uuid())
-  name            String
-  slug            String           @unique
-  domain          String?          @unique
-  defaultRole     Role             @default(MEMBER)
-  billingId       String?
-  billingProvider String?
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @default(now())
-  members         TeamMember[]
-  invitations     Invitation[]
-  apiKeys         ApiKey[]
-  timeOffPolicies TimeOffPolicy[]
-  timeOffRequests TimeOffRequest[]
-  oauthClients    OAuthClient[]
+  id                String             @id @default(uuid())
+  name              String
+  slug              String             @unique
+  domain            String?            @unique
+  defaultRole       Role               @default(MEMBER)
+  billingId         String?
+  billingProvider   String?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @default(now())
+  members           TeamMember[]
+  invitations       Invitation[]
+  apiKeys           ApiKey[]
+  timeOffPolicies   TimeOffPolicy[]
+  timeOffRequests   TimeOffRequest[]
+  equipmentRequests EquipmentRequest[]
+  oauthClients      OAuthClient[]
 
   @@index([billingId])
 }
@@ -155,6 +175,31 @@ model TimeOffRequest {
   @@index([teamId, startDate])
   @@index([teamId, status])
   @@index([teamId, requesterId])
+}
+
+model EquipmentRequest {
+  id            String            @id @default(uuid())
+  teamId        String
+  requesterId   String
+  reviewerId    String?
+  category      EquipmentCategory
+  item          String            @db.VarChar(200)
+  quantity      Int               @default(1)
+  justification String?           @db.VarChar(500)
+  status        EquipmentStatus   @default(PENDING)
+  reviewNote    String?           @db.VarChar(500)
+  reviewedAt    DateTime?
+  fulfilledAt   DateTime?
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  team      Team  @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  requester User  @relation("EquipmentRequester", fields: [requesterId], references: [id], onDelete: Cascade)
+  reviewer  User? @relation("EquipmentReviewer", fields: [reviewerId], references: [id], onDelete: SetNull)
+
+  @@index([teamId, status])
+  @@index([teamId, requesterId])
+  @@index([teamId, createdAt])
 }
 
 model TeamMember {
