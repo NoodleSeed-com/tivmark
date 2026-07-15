@@ -40,8 +40,15 @@ const generateCSP = (): string => {
       'boxyhq.com',
       '*.ingest.sentry.io',
       '*.mixpanel.com',
+      // Embedded Tivmark Assistant streams turns/interactions to the Noodle Seed service.
+      'https://*.noodleseed.dev',
     ],
-    'frame-src': ["'self'", '*.google.com', '*.gstatic.com'],
+    'frame-src': [
+      "'self'",
+      '*.google.com',
+      '*.gstatic.com',
+      'https://*.noodleseed.dev',
+    ],
     'font-src': ["'self'", 'https://fonts.gstatic.com'],
     'object-src': ["'none'"],
     'base-uri': ["'self'"],
@@ -66,6 +73,8 @@ const unAuthenticatedRoutes = [
   '/api/auth/**',
   '/api/oauth/**',
   '/api/oauth-v1/**',
+  // The assistant session route does its own NextAuth check; the token route is client-authenticated.
+  '/api/assistant/**',
   '/api/scim/v2.0/**',
   '/api/invitations/*',
   '/api/webhooks/stripe',

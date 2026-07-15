@@ -1,0 +1,46 @@
+# CI for the Noodle Seed MCP app (apps/assistant).
+# Runs the offline authoring checks — compile/schema/connector validation and the unit tests —
+# whenever the app or this workflow changes. `noodle test` (the loopback MCP smoke) and `noodle deploy`
+# need managed secrets/network, so they are run locally / in the gated deploy step, not here.
+
+name: assistant-ci
+
+on:
+  push:
+    branches:
+      - main
+      - release
+    paths:
+      - 'apps/assistant/**'
+      - '.github/workflows/assistant-ci.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'apps/assistant/**'
+      - '.github/workflows/assistant-ci.yml'
+
+defaults:
+  run:
+    working-directory: apps/assistant
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [22]
+    steps:
+      - uses: actions/checkout@v6
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+          cache-dependency-path: apps/assistant/package-lock.json
+          check-latest: true
+      - run: npm ci
+      # Compile + schema + connector validation via the project-local noodle CLI (offline, no account).
+      - run: npm run validate
+      # Unit tests: tool surface, connector wiring, and the confirm gate on every write.
+      - run: npm test

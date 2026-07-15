@@ -1,0 +1,10 @@
+node_modules
+dist
+.env.noodle
+.env.*
+.noodle/
+
+# Generated agent tooling — the noodle-seed skill + bundled upstream examples. Regenerable with
+# `noodle agents setup --write`; kept out of git to keep the app's history focused.
+.claude/
+.agents/
