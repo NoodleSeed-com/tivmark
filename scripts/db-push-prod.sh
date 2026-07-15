@@ -55,16 +55,25 @@ SECRET_URL="$(gcloud secrets versions access latest \
   --secret="$DB_SECRET_NAME" --project="$GCP_PROJECT_ID")"
 
 # --- start the proxy and ensure it is cleaned up ---------------------------------------------------
+PROXY_LOG="$(mktemp)"
 log "Starting Cloud SQL Auth Proxy for ${CLOUD_SQL_CONNECTION_NAME} on 127.0.0.1:${PROXY_PORT}"
-"$PROXY_BIN" "$CLOUD_SQL_CONNECTION_NAME" --port "$PROXY_PORT" >/tmp/cloud-sql-proxy.log 2>&1 &
+"$PROXY_BIN" "$CLOUD_SQL_CONNECTION_NAME" --port "$PROXY_PORT" >"$PROXY_LOG" 2>&1 &
 PROXY_PID=$!
-cleanup() { kill "$PROXY_PID" >/dev/null 2>&1 || true; }
+# On any failure, surface the proxy log (it explains connection/permission errors that prisma
+# reports only as a generic P1001). The DB URL is never written here, so this is safe to print.
+cleanup() {
+  local rc=$?
+  if [[ $rc -ne 0 ]]; then log "Cloud SQL Auth Proxy log:"; cat "$PROXY_LOG" >&2 || true; fi
+  kill "$PROXY_PID" >/dev/null 2>&1 || true
+}
 trap cleanup EXIT
 
-# wait until the proxy is accepting connections
+# Wait until the proxy reports it is ready (v2 prints this once the instance connection is usable),
+# falling back to a plain port-bind check. A bound port alone doesn't guarantee the backend
+# connection works, so prefer the readiness line.
 for i in $(seq 1 30); do
-  if (exec 3<>"/dev/tcp/127.0.0.1/${PROXY_PORT}") 2>/dev/null; then exec 3>&- 3<&-; break; fi
-  if ! kill -0 "$PROXY_PID" 2>/dev/null; then log "Proxy exited early:"; cat /tmp/cloud-sql-proxy.log >&2; exit 1; fi
+  if grep -q "ready for new connections" "$PROXY_LOG" 2>/dev/null; then break; fi
+  if ! kill -0 "$PROXY_PID" 2>/dev/null; then log "Proxy exited early."; exit 1; fi
   sleep 1
 done
 
