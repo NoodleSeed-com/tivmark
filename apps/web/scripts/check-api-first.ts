@@ -12,7 +12,6 @@ const allowedInternal = [
   '/api/health',
   '/api/openapi.json',
   '/api/invitations/',
-  '/api/assistant/',
 ];
 
 for (const file of sourceFiles) {

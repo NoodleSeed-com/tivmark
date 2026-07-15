@@ -24,8 +24,6 @@ const generateCSP = (): string => {
       '*.boxyhq.com',
       '*.dicebear.com',
       'data:',
-      // Noodle Seed embedded assistant assets/avatars
-      'https://*.noodleseed.dev',
     ],
     'script-src': [
       "'self'",
@@ -42,9 +40,6 @@ const generateCSP = (): string => {
       'boxyhq.com',
       '*.ingest.sentry.io',
       '*.mixpanel.com',
-      // Noodle Seed embedded assistant gateway (streaming session)
-      'https://*.noodleseed.dev',
-      'wss://*.noodleseed.dev',
     ],
     'frame-src': ["'self'", '*.google.com', '*.gstatic.com'],
     'font-src': ["'self'", 'https://fonts.gstatic.com'],
@@ -75,7 +70,6 @@ const unAuthenticatedRoutes = [
   '/api/invitations/*',
   '/api/webhooks/stripe',
   '/api/webhooks/dsync',
-  '/api/assistant/oauth/token',
   '/auth/**',
   '/oauth/**',
   '/oauth/.well-known/openid-configuration',
