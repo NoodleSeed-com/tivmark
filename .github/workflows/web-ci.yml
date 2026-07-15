@@ -92,7 +92,10 @@ jobs:
       - run: npm run test
       - run: npm run build-ci
       - run: npm run check-types
-      - run: npx prisma migrate deploy
+      # Provision the e2e DB from the full current schema. The repo manages schema via `db push`
+      # (the prisma/migrations/ dir is frozen at 2024 and omits newer models like TimeOffPolicy),
+      # so `migrate deploy` would leave the test DB missing tables and signup would 500.
+      - run: npx prisma db push --skip-generate
       - name: Install playwright browser dependencies
         run: npx playwright install chromium
       - name: e2e tests
