@@ -124,23 +124,6 @@ const env = {
     secretKey: process.env.STRIPE_SECRET_KEY,
     webhookSecret: process.env.STRIPE_WEBHOOK_SECRET,
   },
-
-  // Noodle Seed embedded assistant (deployed from apps/assistant). `enabled` is public so the
-  // widget can render; serviceUrl/clientId/clientSecret are server-only (used by the session
-  // exchange in pages/api/assistant/session.ts) and stay undefined in the browser bundle.
-  assistant: {
-    enabled: process.env.NEXT_PUBLIC_ASSISTANT_ENABLED === 'true',
-    serviceUrl: process.env.NOODLE_ASSISTANT_SERVICE_URL,
-    clientId: process.env.NOODLE_ASSISTANT_CLIENT_ID,
-    clientSecret: process.env.NOODLE_ASSISTANT_CLIENT_SECRET,
-    // Delegated token exchange: the assistant connector authenticates to
-    // /api/assistant/oauth/token with these; that endpoint mints a user-scoped token.
-    delegClientId: process.env.ASSISTANT_DELEG_CLIENT_ID,
-    delegClientSecret: process.env.ASSISTANT_DELEG_CLIENT_SECRET,
-    // NoodleSeed platform issuer whose JWKS signs the subject_token assertion.
-    platformIssuer:
-      process.env.NOODLE_PLATFORM_ISSUER || 'https://cloud.noodleseed.dev',
-  },
 };
 
 export default env;

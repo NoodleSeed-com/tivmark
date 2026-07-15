@@ -48,7 +48,6 @@ export const oauthMetadata = {
   issuer,
   authorization_endpoint: `${issuer}/authorize`,
   token_endpoint: `${issuer}/token`,
-  registration_endpoint: `${issuer}/register`,
   revocation_endpoint: `${issuer}/revoke`,
   userinfo_endpoint: `${issuer}/userinfo`,
   jwks_uri: `${issuer}/jwks`,
@@ -92,12 +91,6 @@ export const issueAccessToken = async (
   return new SignJWT({
     scope: scopes.join(' '),
     client_id: clientId,
-    // Marks this token as a verified end-user (customer) identity for NoodleSeed's `customerAuth.oidc`
-    // resource server. Without it, oidc callers are untagged and NoodleSeed's `delegatedTokenExchange`
-    // fails closed (`credential_unavailable`). Only we can sign it (verified against our JWKS), so it's
-    // a trustworthy self-assertion. Ignored by our own API's `verifyAccessToken`.
-    noodle_identity: 'customer',
-    noodle_identity_provider: 'tivmark',
   })
     .setProtectedHeader({ alg: 'ES256', kid: keys.publicJwk.kid })
     .setIssuer(issuer)

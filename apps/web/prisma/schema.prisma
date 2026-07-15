@@ -225,9 +225,7 @@ model OAuthClient {
   id             String   @id @default(uuid())
   clientId       String   @unique
   name           String
-  // Nullable: self-registered (RFC 7591 DCR) clients are not owned by a team. Team-owned clients
-  // created via the admin API still set teamId.
-  teamId         String?
+  teamId         String
   redirectUris   String[]
   allowedOrigins String[]
   scopes         String[]
@@ -235,7 +233,7 @@ model OAuthClient {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  team Team? @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
 
   @@index([teamId])
 }

@@ -4,7 +4,6 @@ import { useSession } from 'next-auth/react';
 import React from 'react';
 import Header from './Header';
 import Drawer from './Drawer';
-import AssistantWidget from './AssistantWidget';
 import { useRouter } from 'next/navigation';
 
 export default function AppShell({ children }) {
@@ -32,7 +31,6 @@ export default function AppShell({ children }) {
           </div>
         </main>
       </div>
-      <AssistantWidget />
     </div>
   );
 }
