@@ -60,6 +60,10 @@ const nextConfig = {
         destination: '/api/oauth-v1/jwks',
       },
       {
+        source: '/oauth/register',
+        destination: '/api/oauth-v1/register',
+      },
+      {
         source: '/oauth/.well-known/openid-configuration',
         destination: '/api/oauth-v1/discovery',
       },

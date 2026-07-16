@@ -51,6 +51,9 @@ export const oauthMetadata = {
   revocation_endpoint: `${issuer}/revoke`,
   userinfo_endpoint: `${issuer}/userinfo`,
   jwks_uri: `${issuer}/jwks`,
+  // RFC 7591 Dynamic Client Registration — lets generic MCP clients (ChatGPT, Claude, Cursor)
+  // self-register public PKCE clients instead of prompting for a manual client id.
+  registration_endpoint: `${issuer}/register`,
   response_types_supported: ['code'],
   grant_types_supported: ['authorization_code', 'refresh_token'],
   token_endpoint_auth_methods_supported: ['none'],
