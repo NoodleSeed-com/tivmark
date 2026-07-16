@@ -366,56 +366,6 @@ export default server(
       csp: widgetCsp,
       view: { component: 'time-off-requests', entry: './views/time-off-requests.tsx' },
     }),
-    // Opens the time-off request form widget; the widget submits via the app-only submit_time_off.
-    tool('request_time_off', {
-      description:
-        'Open the time-off request form so the user can pick a type and dates and submit a new ' +
-        'full-day request for a team. Resolve the team to its slug first.',
-      annotations: readOnly,
-      input: z.object({ team: z.string() }),
-      output: z.object({ team: z.string(), prompt: z.string() }),
-      fulfil: ({ input, user }) => ({
-        team: input.team,
-        prompt: `Pick a type and dates to request time off, ${user.name}.`,
-      }),
-      viewTitle: 'Request time off',
-      viewDescription: 'Submit a new full-day time-off request.',
-      invoking: 'Opening the request form…',
-      invoked: 'Form ready',
-      csp: widgetCsp,
-      view: {
-        component: 'time-off-request-form',
-        entry: './views/time-off-request-form.tsx',
-      },
-    }),
-    // App-only helper the request form widget calls. The delegated user token supplies the actor.
-    tool('submit_time_off', {
-      visibility: ['app'],
-      description:
-        'Submit a new full-day time-off request for the signed-in user in a team.',
-      annotations: annotations.action(),
-      input: z.object({
-        team: z.string().default(''),
-        type: leaveType.default('VACATION'),
-        startDate: z.string().default(''),
-        endDate: z.string().default(''),
-        reason: z.string().default(''),
-      }),
-      output: z.object({ status: z.string(), request: z.unknown() }),
-      fulfil: ({ input, connectors }) => {
-        const res = connectors.tiv.create_time_off({
-          team: input.team,
-          type: input.type,
-          startDate: input.startDate,
-          endDate: input.endDate,
-          reason: input.reason,
-        });
-        return {
-          status: `Requested ${input.type} from ${input.startDate} to ${input.endDate}.`,
-          request: res.request,
-        };
-      },
-    }),
     // Conversational booking. Model-callable and confirm-gated: the runtime shows a confirmation with
     // the exact resolved arguments and only creates the request on approval. One connector op, as a
     // confirmable flow requires.
@@ -518,55 +468,6 @@ export default server(
       invoked: 'Requests ready',
       csp: widgetCsp,
       view: { component: 'equipment-requests', entry: './views/equipment-requests.tsx' },
-    }),
-    // Opens the equipment request form widget; the widget submits via the app-only submit_equipment.
-    tool('request_equipment', {
-      description:
-        'Open the equipment request form so the user can pick a category, item, and quantity and ' +
-        'submit a new request for a team. Resolve the team to its slug first.',
-      annotations: readOnly,
-      input: z.object({ team: z.string() }),
-      output: z.object({ team: z.string(), prompt: z.string() }),
-      fulfil: ({ input, user }) => ({
-        team: input.team,
-        prompt: `Pick a category, item, and quantity to request equipment, ${user.name}.`,
-      }),
-      viewTitle: 'Request equipment',
-      viewDescription: 'Submit a new equipment request.',
-      invoking: 'Opening the request form…',
-      invoked: 'Form ready',
-      csp: widgetCsp,
-      view: {
-        component: 'equipment-request-form',
-        entry: './views/equipment-request-form.tsx',
-      },
-    }),
-    // App-only helper the request form widget calls. The delegated user token supplies the actor.
-    tool('submit_equipment', {
-      visibility: ['app'],
-      description: 'Submit a new equipment request for the signed-in user in a team.',
-      annotations: annotations.action(),
-      input: z.object({
-        team: z.string().default(''),
-        category: equipmentCategory.default('LAPTOP'),
-        item: z.string().default(''),
-        quantity: z.number().int().min(1).max(20).default(1),
-        justification: z.string().default(''),
-      }),
-      output: z.object({ status: z.string(), request: z.unknown() }),
-      fulfil: ({ input, connectors }) => {
-        const res = connectors.tiv.create_equipment({
-          team: input.team,
-          category: input.category,
-          item: input.item,
-          quantity: input.quantity,
-          justification: input.justification,
-        });
-        return {
-          status: `Requested ${input.quantity}× ${input.item} (${input.category}).`,
-          request: res.request,
-        };
-      },
     }),
     tool('order_equipment', {
       description:
@@ -686,17 +587,8 @@ export default server(
         });
         return { team: input.team, requests: res.requests };
       },
-      viewTitle: 'Equipment approvals',
-      viewDescription: 'Pending equipment requests to approve or decline.',
-      invoking: 'Loading the review queue…',
-      invoked: 'Queue ready',
-      csp: widgetCsp,
-      view: {
-        component: 'review-equipment-queue',
-        entry: './views/review-equipment-queue.tsx',
-      },
     }),
-    // App-only helpers the review-queue widgets call (the button click is the explicit user action).
+    // App-only helper the time-off review-queue widget calls (the button click is the user action).
     tool('review_time_off_app', {
       visibility: ['app'],
       description: 'Approve or decline a pending time-off request by id (OWNER/ADMIN only).',
@@ -716,29 +608,6 @@ export default server(
         });
         return {
           status: `${input.decision} time-off request ${input.id}.`,
-          request: res.request,
-        };
-      },
-    }),
-    tool('review_equipment_app', {
-      visibility: ['app'],
-      description: 'Approve or decline a pending equipment request by id (OWNER/ADMIN only).',
-      annotations: annotations.action(),
-      input: z.object({
-        team: z.string().default(''),
-        id: z.string().default(''),
-        decision: decision.default('APPROVED'),
-      }),
-      output: z.object({ status: z.string(), request: z.unknown() }),
-      fulfil: ({ input, connectors }) => {
-        const res = connectors.tiv.review_equipment({
-          team: input.team,
-          id: input.id,
-          decision: input.decision,
-          reviewNote: '',
-        });
-        return {
-          status: `${input.decision} equipment request ${input.id}.`,
           request: res.request,
         };
       },
