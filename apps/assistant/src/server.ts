@@ -220,6 +220,8 @@ const confirmedDestructive = annotations.action({ confirm: true, destructive: tr
 // The widgets are self-contained: they render from tool output and call tools through the host bridge,
 // never fetching external origins. Declare that explicitly so widget CSP is minimal and reviewable.
 const widgetCsp = { connectDomains: [], resourceDomains: [] };
+// One https origin per app — ChatGPT's app builder keys the widget identity to this domain.
+const widgetDomain = 'https://app.tivmark.com';
 
 export default server(
   'tivmark_assistant',
@@ -343,6 +345,7 @@ export default server(
       viewDescription: 'Vacation, sick, personal, and unpaid balances for the year.',
       invoking: 'Loading your balance…',
       invoked: 'Balance ready',
+      domain: widgetDomain,
       csp: widgetCsp,
       view: { component: 'time-off-balance', entry: './views/time-off-balance.tsx' },
     }),
@@ -363,6 +366,7 @@ export default server(
       viewDescription: 'Your submitted time-off requests and their status.',
       invoking: 'Loading your requests…',
       invoked: 'Requests ready',
+      domain: widgetDomain,
       csp: widgetCsp,
       view: { component: 'time-off-requests', entry: './views/time-off-requests.tsx' },
     }),
@@ -466,6 +470,7 @@ export default server(
       viewDescription: 'Your submitted equipment requests and their status.',
       invoking: 'Loading your requests…',
       invoked: 'Requests ready',
+      domain: widgetDomain,
       csp: widgetCsp,
       view: { component: 'equipment-requests', entry: './views/equipment-requests.tsx' },
     }),
@@ -567,6 +572,7 @@ export default server(
       viewDescription: 'Pending time-off requests to approve or decline.',
       invoking: 'Loading the review queue…',
       invoked: 'Queue ready',
+      domain: widgetDomain,
       csp: widgetCsp,
       view: {
         component: 'review-time-off-queue',
