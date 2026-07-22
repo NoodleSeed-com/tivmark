@@ -36,7 +36,9 @@ const days = (halfDays?: number) =>
 
 export default function TimeOffRequests() {
   const { theme } = useLayout();
-  const shown = useToolInfo('my_time_off').structuredContent as Result | undefined;
+  // No-arg useToolInfo() reads the INVOKING tool's own output, so this one widget backs both the
+  // my_time_off read and the book_time_off write result (both return { team, requests }).
+  const shown = useToolInfo().structuredContent as Result | undefined;
   const requests = shown?.requests ?? [];
   const pending = requests.filter((r) => r.status === 'PENDING').length;
 

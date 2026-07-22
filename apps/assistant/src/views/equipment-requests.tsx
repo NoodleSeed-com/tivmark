@@ -31,7 +31,9 @@ const badgeClass = (status: string) => `tv-badge tv-badge-${status.toLowerCase()
 
 export default function EquipmentRequests() {
   const { theme } = useLayout();
-  const shown = useToolInfo('my_equipment').structuredContent as Result | undefined;
+  // No-arg useToolInfo() reads the INVOKING tool's own output, so this one widget backs both the
+  // my_equipment read and the order_equipment write result (both return { team, requests }).
+  const shown = useToolInfo().structuredContent as Result | undefined;
   const requests = shown?.requests ?? [];
   const pending = requests.filter((r) => r.status === 'PENDING').length;
 

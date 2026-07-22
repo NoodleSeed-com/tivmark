@@ -228,6 +228,13 @@ export default server(
   {
     title: 'Tivmark Assistant',
     version: '1.0.0',
+    // Host-compat for confirm-gated writes. Hosts like ChatGPT can't carry Noodle's standard
+    // confirmation form (elicitation/create), so by default a `confirm: true` write fails closed.
+    // `confirmationFallback: 'host'` explicitly trusts the host's own native write-approval UX and
+    // executes the confirmed action directly there — Tivmark still enforces all authorization on the
+    // delegated per-user token. In the portal embed (which carries the form) the normal confirmation
+    // still renders.
+    interactions: { confirmationFallback: 'host' },
     instructions:
       'You are the Tivmark people-ops assistant. Help the signed-in user with two things: TIME OFF ' +
       '(check balances, review their requests, book new time off, cancel a request) and EQUIPMENT ' +
@@ -386,7 +393,17 @@ export default server(
         endDate: z.string(),
         reason: z.string().default(''),
       }),
-      output: z.object({ status: z.string(), request: z.unknown() }),
+      // Return the refreshed request list so the shared time-off-requests widget renders the just-created
+      // request as the confirmed result (the widget reads the invoking tool's own output via no-arg
+      // useToolInfo()).
+      output: z.object({
+        team: z.string(),
+        status: z.string(),
+        request: z.unknown(),
+        requests: z.array(z.unknown()),
+      }),
+      // A confirmable flow may contain at most one connector op, so render the just-created request
+      // itself (not a re-fetched list) as the result widget's single row.
       fulfil: ({ input, connectors }) => {
         const res = connectors.tiv.create_time_off({
           team: input.team,
@@ -396,10 +413,19 @@ export default server(
           reason: input.reason,
         });
         return {
+          team: input.team,
           status: `Requested ${input.type} from ${input.startDate} to ${input.endDate}.`,
           request: res.request,
+          requests: [res.request],
         };
       },
+      viewTitle: 'Time-off request submitted',
+      viewDescription: 'Your time-off requests, including the one just submitted.',
+      invoking: 'Submitting your time-off request…',
+      invoked: 'Request submitted',
+      domain: widgetDomain,
+      csp: widgetCsp,
+      view: { component: 'time-off-requests', entry: './views/time-off-requests.tsx' },
     }),
     // Guided booking for under-specified requests ("book me some time off"). Elicits the leave type and
     // dates as one schema-validated form (all elicited input collected before the single connector op),
@@ -486,7 +512,17 @@ export default server(
         quantity: z.number().int().min(1).max(20).default(1),
         justification: z.string().default(''),
       }),
-      output: z.object({ status: z.string(), request: z.unknown() }),
+      // Return the refreshed request list so the shared equipment-requests widget renders the just-created
+      // request as the confirmed result (the widget reads the invoking tool's own output via no-arg
+      // useToolInfo()).
+      output: z.object({
+        team: z.string(),
+        status: z.string(),
+        request: z.unknown(),
+        requests: z.array(z.unknown()),
+      }),
+      // A confirmable flow may contain at most one connector op, so render the just-created request
+      // itself (not a re-fetched list) as the result widget's single row.
       fulfil: ({ input, connectors }) => {
         const res = connectors.tiv.create_equipment({
           team: input.team,
@@ -496,10 +532,19 @@ export default server(
           justification: input.justification,
         });
         return {
+          team: input.team,
           status: `Requested ${input.quantity}× ${input.item} (${input.category}).`,
           request: res.request,
+          requests: [res.request],
         };
       },
+      viewTitle: 'Equipment request submitted',
+      viewDescription: 'Your equipment requests, including the one just submitted.',
+      invoking: 'Submitting your equipment request…',
+      invoked: 'Request submitted',
+      domain: widgetDomain,
+      csp: widgetCsp,
+      view: { component: 'equipment-requests', entry: './views/equipment-requests.tsx' },
     }),
     tool('order_equipment_guided', {
       description:

@@ -1,5 +1,5 @@
 <!-- BEGIN NOODLE AGENT CONTEXT -->
-<!-- noodle-agent-kit:0.20.0 hash:647f923fff1f5897 -->
+<!-- noodle-agent-kit:0.29.0 hash:9945f8d8122b4176 -->
 # Noodle Seed Project Context
 
 Agent target: Claude Code.
@@ -35,10 +35,13 @@ Generated widgets, official examples, and agent-authored MCP Apps must start wit
 
 ## Project Defaults
 
-- name: assistant
+- name: tivmark-assistant
 - entrypoint: src/server.ts
-- template: hello
-- app: assistant
+- env: prod
+- access: customers
+- template: widget
+- org: noodleseed
+- app: tivmark-assistant
 
 Generated Noodle agent files are project-local and non-secret. Refresh them with `noodle agents setup --write`.
 <!-- END NOODLE AGENT CONTEXT -->
