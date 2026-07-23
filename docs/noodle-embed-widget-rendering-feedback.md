@@ -5,6 +5,39 @@
 > in the embedded assistant (`@noodleseed/assistant`). This is isolated to the embed host/client, not the
 > app. Everything below is backed by the shipped client code and by eliminating every app-side cause.
 
+## Update (2026-07-23) — bug moved downstream; latest versions do NOT fix it
+
+Re-verified live in the portal after upgrading the toolchain. **The original "html absent" root
+cause below is no longer the failure mode**, and the widget is **still blank**. Summary of what
+changed and what's now true (all observed on `app.tivmark.com`, signed-in, via DevTools):
+
+- **html IS now delivered.** `mountAssistantApp` bails *before creating any iframe* when `detail.html`
+  is absent — yet in the untouched state the outer proxy iframe **is** present, and it hosts a nested
+  **inner iframe whose `srcdoc` is the full ~596 KB widget bundle**. So `detail.html` is now populated
+  (service-side change in the `@noodleseed/one` 0.69/0.70 runtime and/or client). The doc's §2/§4
+  "html absent → renderer bails" is **fixed**.
+- **The bug moved downstream to inner-widget rendering.** The inner iframe (`sandbox="allow-scripts
+  allow-forms"`, opaque origin) receives its HTML but **never becomes visible** — it renders as a blank
+  ~150 px box. The widget's React does not visibly mount in the embed, while the **identical** bundle
+  renders in ChatGPT. Scripts in the opaque sandbox run without throwing (no `window.onerror` /
+  `unhandledrejection` captured).
+- **Latest versions do NOT fix it (verified):**
+  - `@noodleseed/one` (widget runtime): bumped 0.48 → **0.70.0**, redeployed prod **v15** — widget still blank.
+  - `@noodleseed/assistant` (host): the `mountAssistantApp` widget mount/render path is **byte-identical
+    between the deployed 1.6.0 and the latest 1.7.0** (diffed), and the inner-iframe sandbox flags are
+    identical. A host version bump therefore **cannot** change rendering.
+- **Ruled out (again):** no `Content-Security-Policy` on the parent page; the intermittent `503` on
+  `POST /v1/assistant/turns` is **not** the cause (turns also return `200` with the widget still blank);
+  the once-per-second `console.debug("Ignoring message from unknown source")` is a third-party page
+  heartbeat (`__TAG_ASSISTANT_API`), correctly ignored by the transport — not related.
+
+**Net:** this is now a **host-runtime rendering bug in `@noodleseed/assistant`'s embedded host**, present
+on the absolute latest published versions — not fixable by upgrading. Suggested platform-side
+investigation: how the host applies the widget's declared `csp`/nonce to the **inner sandboxed `srcdoc`
+iframe**, and whether the widget's inlined React actually executes there (vs. ChatGPT, which serves the
+widget from a dedicated origin). Making the inner-render failure observable (a structured event instead
+of a silent blank) would also help.
+
 ## TL;DR
 
 The embedded-assistant browser client renders a widget **only when the widget `html` is inlined in the
