@@ -3,6 +3,7 @@ const Loading = () => {
     <div className="flex items-center justify-center">
       <div role="status">
         <Spinner />
+        {/* eslint-disable-next-line i18next/no-literal-string -- sr-only label; suppressed after eslint-plugin-i18next bump flagged this pre-existing string */}
         <span className="sr-only">Loading...</span>
       </div>
     </div>

@@ -1,17 +1,8 @@
 export type EquipmentCategoryValue =
-  | 'LAPTOP'
-  | 'MONITOR'
-  | 'PHONE'
-  | 'PERIPHERAL'
-  | 'FURNITURE'
-  | 'OTHER';
+  'LAPTOP' | 'MONITOR' | 'PHONE' | 'PERIPHERAL' | 'FURNITURE' | 'OTHER';
 
 export type EquipmentStatusValue =
-  | 'PENDING'
-  | 'APPROVED'
-  | 'DECLINED'
-  | 'FULFILLED'
-  | 'CANCELED';
+  'PENDING' | 'APPROVED' | 'DECLINED' | 'FULFILLED' | 'CANCELED';
 
 export interface EquipmentPerson {
   id: string;

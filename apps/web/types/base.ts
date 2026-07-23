@@ -58,12 +58,7 @@ export type AppEvent =
   | 'webhook.updated';
 
 export type AUTH_PROVIDER =
-  | 'github'
-  | 'google'
-  | 'saml'
-  | 'email'
-  | 'credentials'
-  | 'idp-initiated';
+  'github' | 'google' | 'saml' | 'email' | 'credentials' | 'idp-initiated';
 
 export interface TeamFeature {
   sso: boolean;

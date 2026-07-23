@@ -33,8 +33,7 @@ describe('Tivmark OpenAPI contract', () => {
       (pathItem) =>
         ['get', 'post', 'put', 'patch', 'delete'].flatMap((method) => {
           const operation = pathItem?.[method as keyof typeof pathItem] as
-            | { operationId?: string }
-            | undefined;
+            { operationId?: string } | undefined;
           return operation?.operationId ? [operation.operationId] : [];
         })
     );

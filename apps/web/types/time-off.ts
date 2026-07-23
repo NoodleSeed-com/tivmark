@@ -1,9 +1,6 @@
 export type TimeOffTypeValue = 'VACATION' | 'SICK' | 'PERSONAL' | 'UNPAID';
 export type TimeOffStatusValue =
-  | 'PENDING'
-  | 'APPROVED'
-  | 'DECLINED'
-  | 'CANCELED';
+  'PENDING' | 'APPROVED' | 'DECLINED' | 'CANCELED';
 export type TimeOffDurationValue = 'FULL_DAY' | 'HALF_DAY';
 export type HalfDayPeriodValue = 'MORNING' | 'AFTERNOON';
 
