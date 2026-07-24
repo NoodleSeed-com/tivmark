@@ -46,7 +46,7 @@
     "@retracedhq/retraced": "0.7.23",
     "@sentry/nextjs": "10.67.0",
     "@tailwindcss/typography": "0.5.20",
-    "@types/swagger-ui-react": "^4.19.0",
+    "@types/swagger-ui-react": "^5.18.0",
     "bcryptjs": "3.0.3",
     "classnames": "2.5.1",
     "cookies-next": "6.1.1",
