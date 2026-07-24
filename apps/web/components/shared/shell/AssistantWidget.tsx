@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import dynamic from 'next/dynamic';
 
 import env from '@/lib/env';
+import useTheme from 'hooks/useTheme';
 
 // The Noodle assistant renders a custom element and must mount client-side only (it references
 // `HTMLElement` at import time). Load it with ssr:false.
@@ -27,6 +28,12 @@ function setPreferenceCookie(name: string, value: string) {
 }
 
 export default function AssistantWidget() {
+  // Drive the assistant's light/dark from the app's *resolved* theme (the DaisyUI toggle), not
+  // `theme="auto"` — otherwise the assistant follows the OS `prefers-color-scheme`, which can
+  // diverge from the app theme and mismatch the launcher against the canvas (e.g. a navy launcher
+  // on the dark navy background). `resolvedTheme` updates reactively on toggle and OS change.
+  const { resolvedTheme } = useTheme();
+
   useEffect(() => {
     try {
       setPreferenceCookie(
@@ -44,7 +51,7 @@ export default function AssistantWidget() {
   return (
     <NoodleAssistant
       sessionEndpoint="/api/assistant/session"
-      theme="auto"
+      theme={resolvedTheme}
       appearance={ASSISTANT_APPEARANCE}
       onAppearanceWarning={(warning) =>
         // Dev-only signal: the client flags low-contrast launcher colors so we can retune if needed.
