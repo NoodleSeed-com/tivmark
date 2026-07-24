@@ -11,13 +11,67 @@ const NoodleAssistant = dynamic(
   { ssr: false }
 );
 
-// Launcher (round FAB) colors — each theme's Tivmark `primary`, chosen to contrast with the page
-// canvas so the button doesn't blend in. Passed as literal values because the launcher renders
-// inside the assistant's own custom element (shadow DOM), where the app's DaisyUI CSS variables
-// don't reach. Overrides the deployed assistant's server-side branding accent.
+// Full per-theme palette for the embedded assistant, so the opened panel reads as part of Tivmark
+// (navy surfaces + gold/navy accents) instead of the assistant's default purple accent. Passed as
+// literal values because the assistant renders inside its own custom element (shadow DOM), where
+// the app's DaisyUI / `--ui-*` CSS variables can't reach. These MIRROR the tokens in
+// `styles/globals.css` (`--ui-*`) + `tailwind.config.js` (daisyui `tivmark-light`/`tivmark-dark`) —
+// keep them in sync with that source of truth. Each surface role is `{ surface, text, border }`;
+// scalar roles (canvas/text/link/focus/...) are plain color strings. This overrides the deployed
+// assistant's server-side `branding.accent` (#7C3AED) for every visible role.
 const ASSISTANT_APPEARANCE = {
-  light: { launcher: { surface: '#1a2744', text: '#f7f5f0' } }, // navy button, cream icon on the cream canvas
-  dark: { launcher: { surface: '#c9a96e', text: '#111c33' } }, // gold button, navy icon on the navy canvas
+  light: {
+    canvas: '#f7f5f0',
+    text: '#2a2a2a',
+    mutedText: '#6b6b6b',
+    link: '#b08d57',
+    focus: '#b08d57',
+    success: '#2f7d57',
+    warning: '#b08d57',
+    danger: '#b84a4a',
+    panel: { surface: '#ffffff', text: '#2a2a2a', border: '#d8d0c0' },
+    header: { surface: '#ece8df', text: '#1a2744', border: '#d8d0c0' },
+    assistantMessage: {
+      surface: '#ece8df',
+      text: '#2a2a2a',
+      border: '#d8d0c0',
+    },
+    userMessage: { surface: '#1a2744', text: '#f7f5f0' }, // navy bubble = app primary
+    composer: { surface: '#ffffff', text: '#2a2a2a', border: '#d8d0c0' },
+    suggestion: { surface: '#ece8df', text: '#1a2744', border: '#d8d0c0' },
+    confirmation: { surface: '#ffffff', text: '#2a2a2a', border: '#d8d0c0' },
+    primaryButton: { surface: '#1a2744', text: '#f7f5f0' }, // navy send button (was purple)
+    secondaryButton: { surface: '#ece8df', text: '#1a2744', border: '#d8d0c0' },
+    launcher: { surface: '#1a2744', text: '#f7f5f0' }, // navy FAB, cream icon on cream canvas
+    code: { surface: '#ece8df', text: '#2a2a2a', border: '#d8d0c0' },
+    app: { surface: '#ffffff', text: '#2a2a2a', border: '#d8d0c0' },
+  },
+  dark: {
+    canvas: '#0b1222',
+    text: '#f7f5f0',
+    mutedText: '#c4c0b8',
+    link: '#c9a96e',
+    focus: '#c9a96e',
+    success: '#67b58d',
+    warning: '#c9a96e',
+    danger: '#e47777',
+    panel: { surface: '#111c33', text: '#f7f5f0', border: '#3d4f6b' },
+    header: { surface: '#1a2744', text: '#f7f5f0', border: '#3d4f6b' },
+    assistantMessage: {
+      surface: '#1a2744',
+      text: '#f7f5f0',
+      border: '#3d4f6b',
+    },
+    userMessage: { surface: '#c9a96e', text: '#111c33' }, // gold bubble = app primary
+    composer: { surface: '#111c33', text: '#f7f5f0', border: '#3d4f6b' },
+    suggestion: { surface: '#1a2744', text: '#f7f5f0', border: '#3d4f6b' },
+    confirmation: { surface: '#1a2744', text: '#f7f5f0', border: '#3d4f6b' },
+    primaryButton: { surface: '#c9a96e', text: '#111c33' }, // gold send button (was purple)
+    secondaryButton: { surface: '#1a2744', text: '#f7f5f0', border: '#3d4f6b' },
+    launcher: { surface: '#c9a96e', text: '#111c33' }, // gold FAB, navy icon on navy canvas
+    code: { surface: '#0b1222', text: '#f7f5f0', border: '#3d4f6b' },
+    app: { surface: '#111c33', text: '#f7f5f0', border: '#3d4f6b' },
+  },
 } as const;
 
 // One-year cookie so the backend session route can read the browser's IANA time zone / locale and
