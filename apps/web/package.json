@@ -69,7 +69,7 @@
     "react-i18next": "15.5.3",
     "sharp": "0.35.3",
     "slack-notify": "2.0.7",
-    "stripe": "17.7.0",
+    "stripe": "22.3.2",
     "svix": "1.99.1",
     "swagger-ui-react": "^5.32.11",
     "swr": "2.4.2",
