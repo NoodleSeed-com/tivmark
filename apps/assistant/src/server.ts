@@ -258,7 +258,17 @@ export default server(
       'Address the user by name.',
     branding: {
       name: 'Tivmark',
-      accent: '#7C3AED',
+      // Tivmark brand accent (gold). This is the portable baseline used by external hosts
+      // (ChatGPT/Claude direct-connect); the portal embed overrides every role via the host-side
+      // `appearance` prop in apps/web AssistantWidget.tsx. Per-mode gold matches Tivmark's DaisyUI
+      // themes (light accent #b08d57 / dark accent #c9a96e), replacing the old purple default.
+      accent: '#b08d57',
+      theme: {
+        // Navy text on gold (both modes) — matches Tivmark's gold buttons and clears WCAG contrast
+        // (cream-on-gold was only 2.84:1 in light mode).
+        light: { accent: '#b08d57', accentText: '#111c33' },
+        dark: { accent: '#c9a96e', accentText: '#111c33' },
+      },
       radius: 'lg',
       density: 'comfortable',
     },
