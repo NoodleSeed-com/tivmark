@@ -5,12 +5,7 @@ import { methodNotAllowed, sendProblem } from '@/lib/api/http';
 import { requireTeamPrincipal } from '@/lib/api/team';
 import { ApiError } from '@/lib/errors';
 import { prisma } from '@/lib/prisma';
-
-const updateSchema = z.object({
-  name: z.string().trim().min(1).max(100).optional(),
-  slug: z.string().trim().min(3).max(100).optional(),
-  domain: z.string().trim().nullable().optional(),
-});
+import { updateTeamApiSchema } from '@/lib/zod';
 
 const canManage = (role?: string) => role === 'OWNER' || role === 'ADMIN';
 
@@ -32,7 +27,7 @@ export default async function handler(
       }
       const team = await prisma.team.update({
         where: { id: access.team.id },
-        data: updateSchema.parse(req.body),
+        data: updateTeamApiSchema.parse(req.body),
       });
       return res.status(200).json({ data: team });
     }
