@@ -133,6 +133,9 @@ export class LoginPage {
   async logout(name: string) {
     await this.page.locator('button').filter({ hasText: name }).click();
     await this.page.getByRole('button', { name: 'Sign out' }).click();
+    await this.page.waitForURL((url) => {
+      return url.pathname === '/' && url.searchParams.get('tab') === 'login';
+    });
     await expect(this.welcomeBackHeading).toBeVisible();
   }
 
