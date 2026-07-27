@@ -23,7 +23,10 @@
       "Bash(gh repo:*)",
       "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\(f'Environment: {d.get\\(\\\\\"name\\\\\"\\)}, protection_rules: {d.get\\(\\\\\"protection_rules\\\\\",[]\\)}'\\);\")",
       "Bash(git push:*)",
-      "Bash(gh run:*)"
+      "Bash(gh run:*)",
+      "Bash(echo *)",
+      "Bash(cd *)",
+      "Bash(npx noodle *)"
     ]
   }
 }
