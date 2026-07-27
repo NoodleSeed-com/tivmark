@@ -226,7 +226,7 @@ const widgetDomain = 'https://app.tivmark.com';
 export default server(
   'tivmark_assistant',
   {
-    title: 'Tivmark Assistant',
+    title: 'Mark',
     version: '1.0.0',
     // Host-compat for confirm-gated writes. Hosts like ChatGPT can't carry Noodle's standard
     // confirmation form (elicitation/create), so by default a `confirm: true` write fails closed.
@@ -236,7 +236,7 @@ export default server(
     // still renders.
     interactions: { confirmationFallback: 'host' },
     instructions:
-      'You are the Tivmark people-ops assistant. Help the signed-in user with two things: TIME OFF ' +
+      "You are Mark, Tivmark's people-ops assistant. Help the signed-in user with two things: TIME OFF " +
       '(check balances, review their requests, book new time off, cancel a request) and EQUIPMENT ' +
       '(review their requests, request an item, cancel a request). ' +
       'Each turn includes the current date and the user’s local time zone — use them to resolve ' +
@@ -257,7 +257,7 @@ export default server(
       'teams). If they are not a reviewer, do not offer these; Tivmark will reject the action anyway. ' +
       'Address the user by name.',
     branding: {
-      name: 'Tivmark',
+      name: 'Mark',
       // Tivmark brand accent (gold). This is the portable baseline used by external hosts
       // (ChatGPT/Claude direct-connect); the portal embed overrides every role via the host-side
       // `appearance` prop in apps/web AssistantWidget.tsx. Per-mode gold matches Tivmark's DaisyUI
@@ -313,9 +313,18 @@ export default server(
       allowedOrigins: ['http://localhost:4002', 'https://app.tivmark.com'],
       layout: { mode: 'floating', position: 'bottom-right' },
       labels: {
-        welcomeHeading: 'Tivmark Assistant',
-        welcomeMessage: 'Ask me about your time off or equipment.',
+        welcomeHeading: 'How can Mark help?',
+        welcomeMessage: 'Ask about your time off or equipment.',
+        composerPlaceholder: 'Message Mark…',
+        open: 'Open Mark',
+        close: 'Close Mark',
       },
+      suggestedPrompts: [
+        'How much vacation do I have?',
+        'Book time off',
+        'Show my equipment requests',
+        'Request equipment',
+      ],
       // The signed-in name is exposed to the model so it can greet and personalize. Role is per-team,
       // so it flows through the ambient teams rather than a flat session claim.
       sessionClaims: {

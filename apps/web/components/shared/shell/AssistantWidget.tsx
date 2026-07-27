@@ -1,8 +1,13 @@
-import { useEffect } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import dynamic from 'next/dynamic';
+import type { NoodleAssistantElement } from '@noodleseed/assistant';
 
 import env from '@/lib/env';
 import useTheme from 'hooks/useTheme';
+import {
+  syncAssistantSurface,
+  type AssistantSurface,
+} from './assistantSurface';
 
 // The Noodle assistant renders a custom element and must mount client-side only (it references
 // `HTMLElement` at import time). Load it with ssr:false.
@@ -18,7 +23,7 @@ const NoodleAssistant = dynamic(
 // `styles/globals.css` (`--ui-*`) + `tailwind.config.js` (daisyui `tivmark-light`/`tivmark-dark`) —
 // keep them in sync with that source of truth. Each surface role is `{ surface, text, border }`;
 // scalar roles (canvas/text/link/focus/...) are plain color strings. This overrides the deployed
-// assistant's server-side `branding.accent` (#7C3AED) for every visible role.
+// assistant's portable server branding for every visible role.
 const ASSISTANT_APPEARANCE = {
   light: {
     canvas: '#f7f5f0',
@@ -81,12 +86,22 @@ function setPreferenceCookie(name: string, value: string) {
   document.cookie = `${name}=${encodeURIComponent(value)}; path=/; max-age=31536000; SameSite=Lax`;
 }
 
-export default function AssistantWidget() {
+interface AssistantWidgetProps {
+  surface: AssistantSurface;
+}
+
+export default function AssistantWidget({ surface }: AssistantWidgetProps) {
   // Drive the assistant's light/dark from the app's *resolved* theme (the DaisyUI toggle), not
   // `theme="auto"` — otherwise the assistant follows the OS `prefers-color-scheme`, which can
   // diverge from the app theme and mismatch the launcher against the canvas (e.g. a navy launcher
   // on the dark navy background). `resolvedTheme` updates reactively on toggle and OS change.
   const { resolvedTheme } = useTheme();
+  const assistantRef = useRef<NoodleAssistantElement | null>(null);
+
+  const syncSurface = useCallback(() => {
+    if (!assistantRef.current) return;
+    syncAssistantSurface(assistantRef.current, surface);
+  }, [surface]);
 
   useEffect(() => {
     try {
@@ -100,13 +115,24 @@ export default function AssistantWidget() {
     }
   }, []);
 
+  useEffect(() => {
+    syncSurface();
+  }, [syncSurface]);
+
   if (!env.assistant.enabled) return null;
 
   return (
     <NoodleAssistant
+      ref={assistantRef}
+      className={
+        surface === 'canvas'
+          ? 'tivmark-assistant tivmark-assistant--canvas'
+          : 'tivmark-assistant'
+      }
       sessionEndpoint="/api/assistant/session"
       theme={resolvedTheme}
       appearance={ASSISTANT_APPEARANCE}
+      onReady={syncSurface}
       onAppearanceWarning={(warning) =>
         // Dev-only signal: the client flags low-contrast launcher colors so we can retune if needed.
         console.warn('[assistant] appearance warning', warning)
