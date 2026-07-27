@@ -38,11 +38,18 @@ export default async function handler(
       throw new ApiError(400, 'Invalid OAuth client or redirect URI');
     }
 
+    // Downscope rather than reject. Standards-based MCP hosts (e.g. Claude) request every scope in
+    // `scopes_supported`, but a DCR-registered client is only granted the allowlisted subset. Grant
+    // the intersection (OAuth 2.1 §3.3 permits a narrower grant; the token response returns the
+    // granted `scope`). Only error if NOTHING the client can hold was requested.
     const requestedScopes = input.scope.split(' ').filter(Boolean);
-    if (requestedScopes.some((scope) => !client.scopes.includes(scope))) {
+    const grantedScopes = requestedScopes.filter((scope) =>
+      client.scopes.includes(scope)
+    );
+    if (grantedScopes.length === 0) {
       throw new ApiError(
         400,
-        'The client is not allowed to request that scope'
+        'The client is not allowed to request any of those scopes'
       );
     }
 
@@ -68,7 +75,7 @@ export default async function handler(
       userId: session.user.id,
       redirectUri: input.redirect_uri,
       codeChallenge: input.code_challenge,
-      scopes: requestedScopes,
+      scopes: grantedScopes,
       state: input.state,
       ...(input.resource ? { resource: input.resource } : {}),
     };
