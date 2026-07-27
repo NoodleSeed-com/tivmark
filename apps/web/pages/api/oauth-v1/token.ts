@@ -3,6 +3,7 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import { z } from 'zod';
 
 import {
+  ALLOWED_RESOURCES,
   consumeOAuthPayload,
   createOAuthPayload,
   hashToken,
@@ -82,18 +83,22 @@ const refreshResponse = async (
   userId: string,
   clientId: string,
   scopes: string[],
-  // RFC 8707: when the grant is bound to a resource, mint the access token with aud = that resource
-  // so the MCP resource server (Noodle) accepts it. Absent → default `tivmark-api` audience.
+  // RFC 8707 resource indicator, when the client sends one (validated against ALLOWED_RESOURCES).
   resource?: string
 ) => {
   if (resource && !isAllowedResource(resource)) {
     throw new ApiError(400, 'invalid_target: unknown resource');
   }
+  // Tokens from this (host) flow are only ever presented to the MCP resource server (Noodle), which
+  // verifies aud == the MCP URL. Bind aud to the requested resource, or default to the canonical MCP
+  // resource when the client omits `resource` (e.g. Gemini) — otherwise Noodle rejects the token.
+  // (The v1 API's own `tivmark-api` audience is minted separately by the delegated-exchange endpoint.)
+  const tokenAudience = resource ?? ALLOWED_RESOURCES[0];
   const accessToken = await issueAccessToken(
     userId,
     clientId,
     scopes,
-    resource // undefined → issueAccessToken falls back to the tivmark-api audience
+    tokenAudience
   );
   const refreshToken = randomToken();
   await createOAuthPayload(
