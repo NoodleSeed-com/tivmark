@@ -2,18 +2,24 @@ import { randomBytes } from 'crypto';
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { z } from 'zod';
 
+import { hashToken, randomToken } from '@/lib/api/oauth';
 import { prisma } from '@/lib/prisma';
 
 // RFC 7591 Dynamic Client Registration for the Tivmark OAuth authorization server.
 //
-// Generic MCP clients (ChatGPT, Claude) self-register here before running the PKCE authorization-code
-// flow. We only ever mint PUBLIC clients (PKCE, no secret): `token_endpoint_auth_method: 'none'`,
-// HTTPS redirect URIs, and scopes intersected with a safe allowlist so registration can never grant
-// admin-level access. Registered clients are not owned by a team (`teamId: null`).
+// Generic MCP clients self-register here before running the authorization-code flow. Two client
+// types are supported so every standards-based host connects out of the box:
+//   - PUBLIC (`token_endpoint_auth_method: 'none'`, e.g. Claude/ChatGPT): PKCE, no secret.
+//   - CONFIDENTIAL (`client_secret_basic`/`client_secret_post`, e.g. Gemini): a secret is minted and
+//     returned once; only its SHA-256 hash is stored (verified at the token endpoint).
+// Redirect URIs must be HTTPS (http only for loopback), and scopes are intersected with a safe
+// allowlist so registration can never grant admin access. Clients are not team-owned (`teamId: null`).
 //
 // Reachable at both `/api/oauth-v1/register` and (via next.config.js rewrite) `/oauth/register`, the
 // `registration_endpoint` advertised in the discovery document. The route is public (middleware
-// `unAuthenticatedRoutes` covers `/api/oauth-v1/**` and `/oauth/**`).
+// short-circuits `/oauth/**`).
+
+const CONFIDENTIAL_AUTH_METHODS = ['client_secret_basic', 'client_secret_post'];
 
 // Scopes a self-registered client may request. Never admin scopes (credentials/billing/webhooks/…).
 // The `.approve` scopes are safe to advertise: the v1 API still enforces per-user OWNER/ADMIN role
@@ -48,8 +54,10 @@ const isHttpsOrLocalhost = (value: string) => {
 const registrationSchema = z.object({
   redirect_uris: z.array(z.string().url()).min(1),
   client_name: z.string().trim().min(1).max(100).optional(),
-  // Public clients only. Omitted defaults to 'none'; any other value is rejected below.
-  token_endpoint_auth_method: z.literal('none').optional(),
+  // Public (`none`) or confidential (`client_secret_basic`/`client_secret_post`). Omitted → 'none'.
+  token_endpoint_auth_method: z
+    .enum(['none', 'client_secret_basic', 'client_secret_post'])
+    .optional(),
   grant_types: z
     .array(z.enum(['authorization_code', 'refresh_token']))
     .optional(),
@@ -79,19 +87,6 @@ export default async function handler(
       405,
       'invalid_client_metadata',
       'POST required'
-    );
-  }
-
-  // Reject an explicit non-public auth method before schema coercion so the error is specific.
-  if (
-    req.body?.token_endpoint_auth_method !== undefined &&
-    req.body.token_endpoint_auth_method !== 'none'
-  ) {
-    return registrationError(
-      res,
-      400,
-      'invalid_client_metadata',
-      "Only public clients are supported (token_endpoint_auth_method must be 'none')."
     );
   }
 
@@ -128,6 +123,11 @@ export default async function handler(
   ];
   const responseTypes = input.response_types ?? ['code'];
 
+  const authMethod = input.token_endpoint_auth_method ?? 'none';
+  const isConfidential = CONFIDENTIAL_AUTH_METHODS.includes(authMethod);
+  // Mint a secret ONLY for confidential clients; return it once, store only its hash.
+  const clientSecretPlain = isConfidential ? randomToken() : undefined;
+
   const client = await prisma.oAuthClient.create({
     data: {
       name: input.client_name ?? 'MCP Client',
@@ -137,6 +137,7 @@ export default async function handler(
       allowedOrigins: [],
       scopes,
       trusted: false,
+      clientSecret: clientSecretPlain ? hashToken(clientSecretPlain) : null,
     },
   });
 
@@ -144,8 +145,11 @@ export default async function handler(
   return res.status(201).json({
     client_id: client.clientId,
     client_id_issued_at: Math.floor(client.createdAt.getTime() / 1000),
+    ...(clientSecretPlain
+      ? { client_secret: clientSecretPlain, client_secret_expires_at: 0 }
+      : {}),
     redirect_uris: client.redirectUris,
-    token_endpoint_auth_method: 'none',
+    token_endpoint_auth_method: authMethod,
     grant_types: grantTypes,
     response_types: responseTypes,
     client_name: client.name,

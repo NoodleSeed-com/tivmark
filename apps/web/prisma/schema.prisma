@@ -277,6 +277,9 @@ model OAuthClient {
   allowedOrigins String[]
   scopes         String[]
   trusted        Boolean  @default(false)
+  // SHA-256 hash of the client secret for CONFIDENTIAL DCR clients (token_endpoint_auth_method
+  // client_secret_basic/post, e.g. Gemini). Null for public PKCE clients (Claude/ChatGPT).
+  clientSecret   String?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 

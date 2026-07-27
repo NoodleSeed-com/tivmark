@@ -16,8 +16,10 @@ const querySchema = z.object({
   response_type: z.literal('code'),
   client_id: z.string().min(1),
   redirect_uri: z.string().url(),
-  code_challenge: z.string().min(43).max(128),
-  code_challenge_method: z.literal('S256'),
+  // PKCE is optional at the schema level: REQUIRED for public clients, optional for confidential
+  // clients (authenticated by a secret at the token endpoint) — enforced after client lookup below.
+  code_challenge: z.string().min(43).max(128).optional(),
+  code_challenge_method: z.literal('S256').optional(),
   scope: z.string().min(1),
   state: z.string().min(8),
   // RFC 8707 resource indicator (optional). When present it must be a resource we recognize; the
@@ -57,6 +59,13 @@ export default async function handler(
       throw new ApiError(400, 'invalid_target: unknown resource');
     }
 
+    // PKCE is mandatory for public clients (no secret). Confidential clients (client.clientSecret
+    // set) authenticate with their secret at the token endpoint and MAY omit PKCE.
+    const isConfidential = Boolean(client.clientSecret);
+    if (!isConfidential && !input.code_challenge) {
+      throw new ApiError(400, 'code_challenge is required (PKCE)');
+    }
+
     const session = await getSession(req, res);
     if (!session?.user?.id) {
       const params = new URLSearchParams();
@@ -74,7 +83,7 @@ export default async function handler(
       clientId: client.clientId,
       userId: session.user.id,
       redirectUri: input.redirect_uri,
-      codeChallenge: input.code_challenge,
+      ...(input.code_challenge ? { codeChallenge: input.code_challenge } : {}),
       scopes: grantedScopes,
       state: input.state,
       ...(input.resource ? { resource: input.resource } : {}),

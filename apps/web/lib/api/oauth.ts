@@ -70,7 +70,13 @@ export const oauthMetadata = {
   registration_endpoint: `${issuer}/register`,
   response_types_supported: ['code'],
   grant_types_supported: ['authorization_code', 'refresh_token'],
-  token_endpoint_auth_methods_supported: ['none'],
+  // Public PKCE clients (`none`, e.g. Claude/ChatGPT) and confidential clients that authenticate
+  // with a DCR-issued secret (e.g. Gemini) are both supported.
+  token_endpoint_auth_methods_supported: [
+    'none',
+    'client_secret_basic',
+    'client_secret_post',
+  ],
   code_challenge_methods_supported: ['S256'],
   scopes_supported: [
     'openid',
@@ -196,7 +202,9 @@ export const redirectWithAuthorizationCode = async (input: {
   clientId: string;
   userId: string;
   redirectUri: string;
-  codeChallenge: string;
+  // Optional: public clients always send a PKCE challenge; confidential clients (authenticated by a
+  // secret at the token endpoint) may omit it.
+  codeChallenge?: string;
   scopes: string[];
   state: string;
   // RFC 8707 resource indicator — carried through to the token exchange to bind the access-token aud.
@@ -210,7 +218,7 @@ export const redirectWithAuthorizationCode = async (input: {
       clientId: input.clientId,
       userId: input.userId,
       redirectUri: input.redirectUri,
-      codeChallenge: input.codeChallenge,
+      ...(input.codeChallenge ? { codeChallenge: input.codeChallenge } : {}),
       scopes: input.scopes,
       ...(input.resource ? { resource: input.resource } : {}),
     },

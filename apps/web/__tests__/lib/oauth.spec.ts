@@ -81,9 +81,17 @@ describe('OAuth 2.1 helpers', () => {
   it('advertises authorization code flow with S256 PKCE', () => {
     expect(oauthMetadata.response_types_supported).toEqual(['code']);
     expect(oauthMetadata.code_challenge_methods_supported).toEqual(['S256']);
-    expect(oauthMetadata.token_endpoint_auth_methods_supported).toEqual([
-      'none',
-    ]);
+  });
+
+  it('supports public and confidential client authentication', () => {
+    // Public PKCE clients (Claude/ChatGPT) + confidential secret clients (Gemini).
+    expect(oauthMetadata.token_endpoint_auth_methods_supported).toEqual(
+      expect.arrayContaining([
+        'none',
+        'client_secret_basic',
+        'client_secret_post',
+      ])
+    );
   });
 
   it('issues and verifies scoped access tokens', async () => {
