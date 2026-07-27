@@ -50,6 +50,9 @@ export default async function handler(
         codeChallenge: String(authorization.codeChallenge),
         scopes: z.array(z.string()).parse(authorization.scopes),
         state: String(authorization.state),
+        resource: authorization.resource
+          ? String(authorization.resource)
+          : undefined,
       })
     );
   } catch (error) {

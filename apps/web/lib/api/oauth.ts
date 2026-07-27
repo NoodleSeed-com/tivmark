@@ -14,7 +14,21 @@ import { prisma } from '@/lib/prisma';
 import type { Prisma } from '@prisma/client';
 
 const issuer = `${env.appUrl}/oauth`;
+// Default audience for tokens minted for Tivmark's OWN v1 API (direct API clients and the
+// delegated token-exchange the assistant connector uses). `verifyAccessToken` (the v1 API) checks
+// this exact value — do not change it.
 const audience = 'tivmark-api';
+
+// RFC 8707 resource indicators. Standards-based MCP hosts (Gemini, ChatGPT, Claude) request a token
+// bound to the MCP server's canonical URL; we mint the access token with `aud` set to that resource
+// so Noodle (the resource server fronting the MCP endpoint) accepts it. A request with no `resource`
+// falls back to the `tivmark-api` audience above (backward compatible with direct v1 API clients).
+export const ALLOWED_RESOURCES = [
+  'https://noodleseed.cloud.noodleseed.dev/tivmark-assistant/mcp',
+];
+export const isAllowedResource = (resource: string) =>
+  ALLOWED_RESOURCES.includes(resource);
+
 let signingKeysPromise: ReturnType<typeof createSigningKeys> | null = null;
 
 const createSigningKeys = async () => {
@@ -67,6 +81,8 @@ export const oauthMetadata = {
     'time_off',
     'time_off.approve',
     'time_off.policy',
+    'equipment',
+    'equipment.approve',
     'credentials',
     'sso',
     'directory_sync',
@@ -88,7 +104,10 @@ export const randomToken = () => randomBytes(32).toString('base64url');
 export const issueAccessToken = async (
   userId: string,
   clientId: string,
-  scopes: string[]
+  scopes: string[],
+  // RFC 8707: MCP-host tokens bind `aud` to the requested resource; everything else (the v1 API /
+  // delegated exchange) keeps the default `tivmark-api`.
+  tokenAudience: string = audience
 ) => {
   const keys = await signingKeys();
   return new SignJWT({
@@ -97,7 +116,7 @@ export const issueAccessToken = async (
   })
     .setProtectedHeader({ alg: 'ES256', kid: keys.publicJwk.kid })
     .setIssuer(issuer)
-    .setAudience(audience)
+    .setAudience(tokenAudience)
     .setSubject(userId)
     .setIssuedAt()
     .setExpirationTime('15m')
@@ -180,6 +199,8 @@ export const redirectWithAuthorizationCode = async (input: {
   codeChallenge: string;
   scopes: string[];
   state: string;
+  // RFC 8707 resource indicator — carried through to the token exchange to bind the access-token aud.
+  resource?: string;
 }) => {
   const code = randomToken();
   await createOAuthPayload(
@@ -191,6 +212,7 @@ export const redirectWithAuthorizationCode = async (input: {
       redirectUri: input.redirectUri,
       codeChallenge: input.codeChallenge,
       scopes: input.scopes,
+      ...(input.resource ? { resource: input.resource } : {}),
     },
     new Date(Date.now() + 5 * 60_000)
   );

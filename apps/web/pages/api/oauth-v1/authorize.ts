@@ -3,6 +3,7 @@ import { z } from 'zod';
 
 import {
   createOAuthPayload,
+  isAllowedResource,
   randomToken,
   redirectWithAuthorizationCode,
 } from '@/lib/api/oauth';
@@ -19,6 +20,9 @@ const querySchema = z.object({
   code_challenge_method: z.literal('S256'),
   scope: z.string().min(1),
   state: z.string().min(8),
+  // RFC 8707 resource indicator (optional). When present it must be a resource we recognize; the
+  // minted access token's `aud` is bound to it (see the token endpoint).
+  resource: z.string().url().optional(),
 });
 
 export default async function handler(
@@ -42,11 +46,17 @@ export default async function handler(
       );
     }
 
+    if (input.resource && !isAllowedResource(input.resource)) {
+      throw new ApiError(400, 'invalid_target: unknown resource');
+    }
+
     const session = await getSession(req, res);
     if (!session?.user?.id) {
-      const callbackUrl = `/oauth/authorize?${new URLSearchParams(
-        Object.entries(input)
-      ).toString()}`;
+      const params = new URLSearchParams();
+      for (const [key, value] of Object.entries(input)) {
+        if (value !== undefined) params.set(key, String(value));
+      }
+      const callbackUrl = `/oauth/authorize?${params.toString()}`;
       return res.redirect(
         302,
         `/?tab=login&callbackUrl=${encodeURIComponent(callbackUrl)}`
@@ -60,6 +70,7 @@ export default async function handler(
       codeChallenge: input.code_challenge,
       scopes: requestedScopes,
       state: input.state,
+      ...(input.resource ? { resource: input.resource } : {}),
     };
 
     if (!client.trusted) {

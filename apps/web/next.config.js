@@ -71,6 +71,21 @@ const nextConfig = {
         source: '/.well-known/oauth-authorization-server',
         destination: '/api/oauth-v1/discovery',
       },
+      // RFC 8414 path-insertion: the issuer has a path (`/oauth`), so standards-based MCP clients
+      // fetch AS metadata at `/.well-known/oauth-authorization-server/oauth`. Also serve the OIDC
+      // variants (root + path-inserted) so every discovery convention resolves to the same doc.
+      {
+        source: '/.well-known/oauth-authorization-server/oauth',
+        destination: '/api/oauth-v1/discovery',
+      },
+      {
+        source: '/.well-known/openid-configuration',
+        destination: '/api/oauth-v1/discovery',
+      },
+      {
+        source: '/.well-known/openid-configuration/oauth',
+        destination: '/api/oauth-v1/discovery',
+      },
     ];
   },
   async headers() {

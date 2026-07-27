@@ -60,13 +60,22 @@ jest.mock('jose', () => {
 });
 
 import {
+  ALLOWED_RESOURCES,
   hashToken,
+  isAllowedResource,
   issueAccessToken,
   oauthJwks,
   oauthMetadata,
   randomToken,
   verifyAccessToken,
 } from '@/lib/api/oauth';
+
+// The mocked `jose.SignJWT.sign` returns base64url(JSON(claims)), so we can read the bound aud back.
+const decodeAud = (token: string): string =>
+  JSON.parse(Buffer.from(token, 'base64url').toString()).aud;
+
+const MCP_RESOURCE =
+  'https://noodleseed.cloud.noodleseed.dev/tivmark-assistant/mcp';
 
 describe('OAuth 2.1 helpers', () => {
   it('advertises authorization code flow with S256 PKCE', () => {
@@ -101,5 +110,32 @@ describe('OAuth 2.1 helpers', () => {
     const second = randomToken();
     expect(first).not.toBe(second);
     expect(hashToken(first)).toMatch(/^[a-f0-9]{64}$/);
+  });
+
+  it('advertises the equipment scopes it actually enforces', () => {
+    expect(oauthMetadata.scopes_supported).toEqual(
+      expect.arrayContaining(['equipment', 'equipment.approve'])
+    );
+  });
+
+  it('recognizes the MCP resource and rejects unknown resources (RFC 8707)', () => {
+    expect(ALLOWED_RESOURCES).toContain(MCP_RESOURCE);
+    expect(isAllowedResource(MCP_RESOURCE)).toBe(true);
+    expect(isAllowedResource('https://evil.example.com/mcp')).toBe(false);
+  });
+
+  it('defaults the access-token aud to tivmark-api (v1 API / delegated exchange)', async () => {
+    const token = await issueAccessToken('user-1', 'client-1', ['time_off']);
+    expect(decodeAud(token)).toBe('tivmark-api');
+  });
+
+  it('binds the access-token aud to the requested MCP resource', async () => {
+    const token = await issueAccessToken(
+      'user-1',
+      'client-1',
+      ['time_off'],
+      MCP_RESOURCE
+    );
+    expect(decodeAud(token)).toBe(MCP_RESOURCE);
   });
 });

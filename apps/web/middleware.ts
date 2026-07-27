@@ -83,6 +83,13 @@ const unAuthenticatedRoutes = [
   '/oauth/**',
   '/oauth/.well-known/openid-configuration',
   '/.well-known/oauth-authorization-server',
+  // Discovery variants for MCP clients: RFC 8414 path-insertion + OIDC (root and path-inserted).
+  // Listed explicitly because micromatch globs don't match dot-segments / multi-segment paths, and
+  // these must resolve to the discovery doc — never the login redirect. Also enforced by the
+  // `isPublicOAuthPath` short-circuit below (which additionally adds CORS).
+  '/.well-known/oauth-authorization-server/oauth',
+  '/.well-known/openid-configuration',
+  '/.well-known/openid-configuration/oauth',
   '/invitations/*',
   '/terms-condition',
   '/unlock-account',
@@ -107,6 +114,34 @@ export default async function middleware(req: NextRequest) {
       'GET, POST, PUT, PATCH, DELETE, OPTIONS'
     );
     response.headers.set('Access-Control-Max-Age', '600');
+    return response;
+  }
+
+  // Public OAuth authorization-server + discovery endpoints. These must be reachable by any
+  // standards-based MCP client without authentication or CORS friction. Handling them by prefix
+  // (not micromatch) sidesteps the dot-segment / multi-segment glob gaps that were 307-redirecting
+  // `/.well-known/oauth-authorization-server/oauth` to the login page. Credential-less, so `*`.
+  const isPublicOAuthPath =
+    pathname.startsWith('/oauth/') ||
+    pathname === '/oauth' ||
+    pathname.startsWith('/.well-known/');
+  if (isPublicOAuthPath) {
+    if (req.method === 'OPTIONS') {
+      const response = new NextResponse(null, { status: 204 });
+      response.headers.set('Access-Control-Allow-Origin', '*');
+      response.headers.set(
+        'Access-Control-Allow-Methods',
+        'GET, POST, OPTIONS'
+      );
+      response.headers.set(
+        'Access-Control-Allow-Headers',
+        'Authorization, Content-Type'
+      );
+      response.headers.set('Access-Control-Max-Age', '600');
+      return response;
+    }
+    const response = NextResponse.next();
+    response.headers.set('Access-Control-Allow-Origin', '*');
     return response;
   }
 

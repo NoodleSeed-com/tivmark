@@ -16,7 +16,17 @@ import { prisma } from '@/lib/prisma';
 // `unAuthenticatedRoutes` covers `/api/oauth-v1/**` and `/oauth/**`).
 
 // Scopes a self-registered client may request. Never admin scopes (credentials/billing/webhooks/…).
-const ALLOWED_SCOPES = ['openid', 'profile', 'time_off', 'equipment', 'teams'];
+// The `.approve` scopes are safe to advertise: the v1 API still enforces per-user OWNER/ADMIN role
+// on every approval, so holding the scope alone grants no privilege.
+const ALLOWED_SCOPES = [
+  'openid',
+  'profile',
+  'time_off',
+  'time_off.approve',
+  'equipment',
+  'equipment.approve',
+  'teams',
+];
 
 const isHttpsOrLocalhost = (value: string) => {
   let url: URL;
