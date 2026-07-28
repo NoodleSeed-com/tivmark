@@ -12,7 +12,7 @@
     "agent:commands": "noodle commands --json"
   },
   "devDependencies": {
-    "@noodleseed/one": "^0.79.0",
+    "@noodleseed/one": "^0.84.5",
     "@vitejs/plugin-react": "latest",
     "react": "latest",
     "react-dom": "latest",
