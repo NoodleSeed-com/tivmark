@@ -46,4 +46,10 @@ describe('assistant surface behavior', () => {
     expect(assistant.state).toBe('closed');
     expect(assistant.focusCount).toBe(0);
   });
+
+  it('does not crash while the custom element ref is still upgrading', () => {
+    expect(() =>
+      syncAssistantSurface({} as AssistantSurfaceController, 'canvas')
+    ).not.toThrow();
+  });
 });

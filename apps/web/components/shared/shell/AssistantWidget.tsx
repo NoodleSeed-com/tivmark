@@ -132,6 +132,7 @@ export default function AssistantWidget({ surface }: AssistantWidgetProps) {
       sessionEndpoint="/api/assistant/session"
       theme={resolvedTheme}
       appearance={ASSISTANT_APPEARANCE}
+      open={surface === 'canvas'}
       onReady={syncSurface}
       onAppearanceWarning={(warning) =>
         // Dev-only signal: the client flags low-contrast launcher colors so we can retune if needed.
