@@ -1,9 +1,9 @@
 export type AssistantSurface = 'floating' | 'canvas';
 
 export interface AssistantSurfaceController {
-  open(): void;
-  close(): void;
-  focusComposer(): void;
+  open?: () => void;
+  close?: () => void;
+  focusComposer?: () => void;
 }
 
 export function resolveAssistantSurface(pathname: string): AssistantSurface {
@@ -15,10 +15,10 @@ export function syncAssistantSurface(
   surface: AssistantSurface
 ) {
   if (surface === 'canvas') {
-    assistant.open();
-    assistant.focusComposer();
+    assistant.open?.();
+    assistant.focusComposer?.();
     return;
   }
 
-  assistant.close();
+  assistant.close?.();
 }
