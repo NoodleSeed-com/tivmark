@@ -50,6 +50,8 @@ jobs:
       JACKSON_PRODUCT_ID: boxyhq
       JACKSON_WEBHOOK_SECRET: your-webhook-secret
       JACKSON_API_KEY: secret
+      # The serial browser suite compresses many user journeys into one minute.
+      API_RATE_LIMIT_REQUESTS: '1000'
       DEBUG: pw:webserver
 
     services:

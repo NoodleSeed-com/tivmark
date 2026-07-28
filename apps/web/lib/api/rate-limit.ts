@@ -1,11 +1,12 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 
 import type { ApiPrincipal } from '@/lib/api/auth';
+import env from '@/lib/env';
 import { ApiError } from '@/lib/errors';
 import { prisma } from '@/lib/prisma';
 
 const WINDOW_MS = 60_000;
-const REQUEST_LIMIT = 120;
+const REQUEST_LIMIT = env.apiRateLimitRequests;
 
 export const enforceRateLimit = async (
   req: NextApiRequest,
