@@ -133,6 +133,11 @@ const env = {
 
   maxLoginAttempts: Number(process.env.MAX_LOGIN_ATTEMPTS) || 5,
 
+  apiRateLimitRequests:
+    Number(process.env.API_RATE_LIMIT_REQUESTS) > 0
+      ? Number(process.env.API_RATE_LIMIT_REQUESTS)
+      : 120,
+
   slackWebhookUrl: process.env.SLACK_WEBHOOK_URL,
 
   stripe: {

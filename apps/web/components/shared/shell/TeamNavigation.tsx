@@ -2,6 +2,7 @@ import {
   CalendarDaysIcon,
   Cog6ToothIcon,
   ComputerDesktopIcon,
+  SparklesIcon,
 } from '@heroicons/react/24/outline';
 import { useTranslation } from 'next-i18next';
 import NavigationItems from './NavigationItems';
@@ -11,24 +12,39 @@ interface NavigationItemsProps extends NavigationProps {
   slug: string;
 }
 
-const TeamNavigation = ({ slug, activePathname }: NavigationItemsProps) => {
-  const { t } = useTranslation('common');
+interface TeamNavigationLabels {
+  mark: string;
+  timeOff: string;
+  equipment: string;
+  settings: string;
+}
 
-  const menus: MenuItem[] = [
+export function buildTeamNavigation(
+  slug: string,
+  activePathname: string | null,
+  labels: TeamNavigationLabels
+): MenuItem[] {
+  return [
     {
-      name: t('time-off'),
+      name: labels.timeOff,
       href: `/teams/${slug}/time-off`,
       icon: CalendarDaysIcon,
       active: activePathname === `/teams/${slug}/time-off`,
     },
     {
-      name: t('equipment'),
+      name: labels.equipment,
       href: `/teams/${slug}/equipment`,
       icon: ComputerDesktopIcon,
       active: activePathname === `/teams/${slug}/equipment`,
     },
     {
-      name: t('settings'),
+      name: labels.mark,
+      href: '/mark',
+      icon: SparklesIcon,
+      active: activePathname === '/mark',
+    },
+    {
+      name: labels.settings,
       href: `/teams/${slug}/settings`,
       icon: Cog6ToothIcon,
       active:
@@ -38,6 +54,17 @@ const TeamNavigation = ({ slug, activePathname }: NavigationItemsProps) => {
         !activePathname.includes('products'),
     },
   ];
+}
+
+const TeamNavigation = ({ slug, activePathname }: NavigationItemsProps) => {
+  const { t } = useTranslation('common');
+
+  const menus = buildTeamNavigation(slug, activePathname, {
+    mark: t('mark'),
+    timeOff: t('time-off'),
+    equipment: t('equipment'),
+    settings: t('settings'),
+  });
 
   return <NavigationItems menus={menus} />;
 };

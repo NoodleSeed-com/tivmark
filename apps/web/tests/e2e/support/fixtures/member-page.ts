@@ -23,14 +23,12 @@ export class MemberPage {
     this.inviteMemberButton = this.page.getByRole('button', {
       name: 'Invite Member',
     });
-    this.inviteEmailField = this.page.getByPlaceholder('jackson@boxyhq.com');
+    this.inviteEmailField = this.page.locator('input[name="email"]');
     this.inviteButton = this.page.getByRole('button', {
       name: 'Invite',
       exact: true,
     });
-    this.inviteDomainField = this.page.getByPlaceholder(
-      'Restrict domain: boxyhq.com'
-    );
+    this.inviteDomainField = this.page.locator('input[name="domains"]');
     this.createInviteLinkButton = this.page.getByRole('button', {
       name: 'Create Link',
     });

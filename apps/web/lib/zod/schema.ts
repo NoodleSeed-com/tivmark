@@ -45,6 +45,10 @@ export const updateTeamSchema = z.object({
   domain,
 });
 
+export const updateTeamApiSchema = updateTeamSchema.partial().extend({
+  domain: domain.nullable().optional(),
+});
+
 export const createTeamSchema = z.object({
   name: teamName,
 });

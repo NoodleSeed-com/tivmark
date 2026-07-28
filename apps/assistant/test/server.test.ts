@@ -48,6 +48,29 @@ describe('tivmark_assistant', () => {
     expect(text).toContain('tiv.review_time_off');
   });
 
+  it('presents the embedded assistant as Mark with focused starter prompts', async () => {
+    const manifest = await app.toManifest();
+
+    expect(manifest.server.title).toBe('Mark');
+    expect(manifest.server.branding?.name).toBe('Mark');
+    expect(manifest.server.instructions).toContain(
+      "You are Mark, Tivmark's people-ops assistant."
+    );
+    expect(manifest.server.assistant?.labels).toMatchObject({
+      welcomeHeading: 'How can Mark help?',
+      welcomeMessage: 'Ask about your time off or equipment.',
+      composerPlaceholder: 'Message Mark…',
+      open: 'Open Mark',
+      close: 'Close Mark',
+    });
+    expect(manifest.server.assistant?.suggestedPrompts).toEqual([
+      'How much vacation do I have?',
+      'Book time off',
+      'Show my equipment requests',
+      'Request equipment',
+    ]);
+  });
+
   it('gates every write behind an end-user confirmation', async () => {
     const manifest = await app.toManifest();
     const writes = [

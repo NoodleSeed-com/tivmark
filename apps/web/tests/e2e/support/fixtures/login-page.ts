@@ -42,8 +42,8 @@ export class LoginPage {
     this.continueWithSSOLink = this.page.getByRole('link', {
       name: 'Continue with SSO',
     });
-    this.ssoEmailBox = this.page.getByPlaceholder('user@boxyhq.com');
-    this.slugInput = this.page.getByPlaceholder('boxyhq');
+    this.ssoEmailBox = this.page.locator('input[name="email"]');
+    this.slugInput = this.page.locator('input[name="slug"]');
     this.welcomeBackHeading = this.page.getByText('Welcome back', {
       exact: true,
     });
@@ -133,6 +133,9 @@ export class LoginPage {
   async logout(name: string) {
     await this.page.locator('button').filter({ hasText: name }).click();
     await this.page.getByRole('button', { name: 'Sign out' }).click();
+    await this.page.waitForURL((url) => {
+      return url.pathname === '/' && url.searchParams.get('tab') === 'login';
+    });
     await expect(this.welcomeBackHeading).toBeVisible();
   }
 

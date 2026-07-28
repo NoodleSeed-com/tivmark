@@ -120,3 +120,18 @@ a {
 .scrollbar::-webkit-scrollbar-button {
   display: none;
 }
+
+.tivmark-assistant--canvas {
+  position: absolute !important;
+  inset: 0 !important;
+  display: block;
+  width: 100%;
+  height: 100%;
+  z-index: 1 !important;
+  --ns-assistant-panel-width: 100%;
+  --ns-assistant-min-height: 100%;
+  --ns-assistant-max-height: 100%;
+  --ns-assistant-edge-offset: 0px;
+  --ns-assistant-panel-radius: 0px;
+  --ns-assistant-z-index: 1;
+}
