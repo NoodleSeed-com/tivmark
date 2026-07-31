@@ -15,7 +15,7 @@ jest.mock('jose', () => {
       return this;
     }
 
-    setAudience(audience: string) {
+    setAudience(audience: string | string[]) {
       this.claims.aud = audience;
       return this;
     }
@@ -53,14 +53,36 @@ jest.mock('jose', () => {
     })),
     generateKeyPair: jest.fn(async () => ({ privateKey: {} })),
     importJWK: jest.fn(async () => ({})),
-    jwtVerify: jest.fn(async (token: string) => ({
-      payload: JSON.parse(Buffer.from(token, 'base64url').toString()),
-    })),
+    jwtVerify: jest.fn(
+      async (
+        token: string,
+        _key: unknown,
+        options?: { issuer?: string; audience?: string }
+      ) => {
+        const payload = JSON.parse(Buffer.from(token, 'base64url').toString());
+        // Mirror real jose: `aud` may be a string or an array, and the check is set MEMBERSHIP, not
+        // scalar equality. The two-audience design depends on that, so the mock must not paper over it.
+        if (options?.audience !== undefined) {
+          const claimed: string[] = Array.isArray(payload.aud)
+            ? payload.aud
+            : [payload.aud];
+          if (!claimed.includes(options.audience)) {
+            throw new Error('unexpected "aud" claim value');
+          }
+        }
+        if (options?.issuer !== undefined && payload.iss !== options.issuer) {
+          throw new Error('unexpected "iss" claim value');
+        }
+        return { payload };
+      }
+    ),
   };
 });
 
 import {
+  API_AUDIENCE,
   ALLOWED_RESOURCES,
+  DEFAULT_MCP_RESOURCE,
   hashToken,
   isAllowedResource,
   issueAccessToken,
@@ -71,11 +93,13 @@ import {
 } from '@/lib/api/oauth';
 
 // The mocked `jose.SignJWT.sign` returns base64url(JSON(claims)), so we can read the bound aud back.
-const decodeAud = (token: string): string =>
+const decodeAud = (token: string): string | string[] =>
   JSON.parse(Buffer.from(token, 'base64url').toString()).aud;
 
 const MCP_RESOURCE =
   'https://noodleseed.cloud.noodleseed.dev/tivmark-assistant/mcp';
+const MCP_RESOURCE_V18 =
+  'https://noodleseed.cloud.noodleseed.dev/tivmark-assistant/v18/mcp';
 
 describe('OAuth 2.1 helpers', () => {
   it('advertises authorization code flow with S256 PKCE', () => {
@@ -126,24 +150,106 @@ describe('OAuth 2.1 helpers', () => {
     );
   });
 
-  it('recognizes the MCP resource and rejects unknown resources (RFC 8707)', () => {
-    expect(ALLOWED_RESOURCES).toContain(MCP_RESOURCE);
+  it('uses an environment-specific configured audience, never the bare tivmark-api', () => {
+    // Noodle requires an (issuer, audience) pair to belong to exactly one app environment. The bare
+    // `tivmark-api` was shared, which quarantines every environment that declares it.
+    expect(API_AUDIENCE).toBe('tivmark-api-prod');
+    expect(API_AUDIENCE).not.toBe('tivmark-api');
+  });
+
+  it('keeps the configured audience stable across server versions', () => {
+    // /v18/mcp → /v19/mcp must not change the configured audience; only the resource entry moves.
+    expect(API_AUDIENCE).not.toMatch(/^https?:\/\//);
+    expect(API_AUDIENCE).not.toMatch(/\/v\d+\//);
+  });
+
+  it('recognizes every active MCP resource, versioned and unversioned (RFC 8707)', () => {
     expect(isAllowedResource(MCP_RESOURCE)).toBe(true);
-    expect(isAllowedResource('https://evil.example.com/mcp')).toBe(false);
+    expect(isAllowedResource(MCP_RESOURCE_V18)).toBe(true);
+    // Distinct resources that nonetheless share the one stable environment audience.
+    expect(MCP_RESOURCE_V18).not.toBe(MCP_RESOURCE);
+    expect(ALLOWED_RESOURCES.has(DEFAULT_MCP_RESOURCE)).toBe(true);
   });
 
-  it('defaults the access-token aud to tivmark-api (v1 API / delegated exchange)', async () => {
+  it('rejects a resource for another host, app, environment, or path', () => {
+    for (const rejected of [
+      // Foreign host.
+      'https://evil.example.com/mcp',
+      'https://noodleseed.cloud.evil.dev/tivmark-assistant/mcp',
+      // Another app on our own host.
+      'https://noodleseed.cloud.noodleseed.dev/other-assistant/mcp',
+      // Another org/environment segment.
+      'https://otherorg.cloud.noodleseed.dev/tivmark-assistant/mcp',
+      // A version we do not serve, and one whose authorization server is Noodle's own, not ours.
+      'https://noodleseed.cloud.noodleseed.dev/tivmark-assistant/v1/mcp',
+      'https://noodleseed.cloud.noodleseed.dev/tivmark-assistant/v99/mcp',
+      // Unexpected path, including a traversal that would resolve to an allowed URL only if we
+      // normalized — we do not.
+      'https://noodleseed.cloud.noodleseed.dev/tivmark-assistant',
+      'https://noodleseed.cloud.noodleseed.dev/tivmark-assistant/mcp/extra',
+      'https://noodleseed.cloud.noodleseed.dev/tivmark-assistant/v18/../mcp',
+      // Exact string equality: trailing slash, case, port, and scheme variants all fail closed.
+      'https://noodleseed.cloud.noodleseed.dev/tivmark-assistant/mcp/',
+      'https://noodleseed.cloud.noodleseed.dev/tivmark-assistant/MCP',
+      'https://NOODLESEED.cloud.noodleseed.dev/tivmark-assistant/mcp',
+      'https://noodleseed.cloud.noodleseed.dev:443/tivmark-assistant/mcp',
+      'http://noodleseed.cloud.noodleseed.dev/tivmark-assistant/mcp',
+      // Prototype keys must not masquerade as allowed entries (hence a Set, not an object map).
+      '__proto__',
+      'constructor',
+    ]) {
+      expect(isAllowedResource(rejected)).toBe(false);
+    }
+  });
+
+  it('defaults the access-token aud to the configured audience (v1 API / delegated exchange)', async () => {
     const token = await issueAccessToken('user-1', 'client-1', ['time_off']);
-    expect(decodeAud(token)).toBe('tivmark-api');
+    expect(decodeAud(token)).toBe(API_AUDIENCE);
   });
 
-  it('binds the access-token aud to the requested MCP resource', async () => {
+  it('binds the access-token aud to both the audience and the exact MCP resource', async () => {
     const token = await issueAccessToken(
+      'user-1',
+      'client-1',
+      ['time_off'],
+      [API_AUDIENCE, MCP_RESOURCE]
+    );
+    expect(decodeAud(token)).toEqual([API_AUDIENCE, MCP_RESOURCE]);
+    expect(decodeAud(token)).not.toContain('tivmark-api');
+  });
+
+  it('verifies a two-audience MCP token against the configured audience', async () => {
+    // Audience checks are set membership, so the pair satisfies both this API and Noodle at once.
+    const token = await issueAccessToken(
+      'user-1',
+      'client-1',
+      ['time_off'],
+      [API_AUDIENCE, MCP_RESOURCE_V18]
+    );
+    await expect(verifyAccessToken(token)).resolves.toMatchObject({
+      userId: 'user-1',
+    });
+  });
+
+  it('rejects a token minted for the retired tivmark-api audience', async () => {
+    // Clean cutover: nothing accepts the shared audience any more, in either direction.
+    const stale = await issueAccessToken(
+      'user-1',
+      'client-1',
+      ['time_off'],
+      'tivmark-api'
+    );
+    await expect(verifyAccessToken(stale)).rejects.toThrow();
+  });
+
+  it('rejects a token bound only to the MCP resource', async () => {
+    // The resource alone is not enough for the v1 API — the configured audience must be present.
+    const resourceOnly = await issueAccessToken(
       'user-1',
       'client-1',
       ['time_off'],
       MCP_RESOURCE
     );
-    expect(decodeAud(token)).toBe(MCP_RESOURCE);
+    await expect(verifyAccessToken(resourceOnly)).rejects.toThrow();
   });
 });
