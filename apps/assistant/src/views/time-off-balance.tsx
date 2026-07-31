@@ -1,111 +1,123 @@
 import { useLayout, useToolInfo } from '../helpers.js';
+import {
+  formatHalfDays,
+  normalizeBalanceResult,
+  type BalanceItem,
+  type BalanceViewState,
+} from './widget-data.js';
+import {
+  BalanceTile,
+  WidgetFeedback,
+  WidgetFrame,
+  type WidgetTheme,
+} from './widget-ui.js';
 import './widget-style.css';
 
-type Balance = {
-  readonly allowanceHalfDays: number | null;
-  readonly approvedHalfDays: number;
-  readonly pendingHalfDays: number;
-  readonly remainingHalfDays: number;
+const clamp = (value: number) => Math.max(0, Math.min(100, value));
+
+const balancePresentation = (balance: BalanceItem) => {
+  if (balance.allowanceHalfDays === null) {
+    return {
+      value: `${formatHalfDays(balance.approvedHalfDays)} used`,
+      detail: 'Unlimited allowance',
+      progress: undefined,
+    };
+  }
+
+  const remaining = balance.remainingHalfDays;
+  return {
+    value:
+      remaining === null ? 'Balance unavailable' : formatHalfDays(remaining),
+    detail: `of ${formatHalfDays(balance.allowanceHalfDays)} left`,
+    progress:
+      remaining === null || balance.allowanceHalfDays <= 0
+        ? 0
+        : clamp((remaining / balance.allowanceHalfDays) * 100),
+  };
 };
 
-type BalanceResult = {
-  readonly team?: string;
-  readonly userId?: string;
-  // balances is keyed by userId, then by leave type.
-  readonly balances?: Record<string, Record<string, Balance>>;
+const balanceSummary = (state: BalanceViewState) => {
+  if (state.kind !== 'ready' && state.kind !== 'partial') return state.kind;
+  return state.data.balances
+    .map((balance) => {
+      const shown = balancePresentation(balance);
+      return `${balance.label}: ${shown.value}`;
+    })
+    .join(', ');
 };
 
-const TYPES = ['VACATION', 'SICK', 'PERSONAL', 'UNPAID'] as const;
-const LABEL: Record<string, string> = {
-  VACATION: 'Vacation',
-  SICK: 'Sick',
-  PERSONAL: 'Personal',
-  UNPAID: 'Unpaid',
-};
+export function TimeOffBalanceView({
+  theme,
+  state,
+}: {
+  readonly theme: WidgetTheme;
+  readonly state: BalanceViewState;
+}) {
+  const data =
+    state.kind === 'ready' || state.kind === 'partial' ? state.data : undefined;
 
-// Tivmark stores allowances in half-days; show whole days (1 day = 2 half-days).
-const days = (halfDays: number) => {
-  const value = halfDays / 2;
-  return Number.isInteger(value) ? String(value) : value.toFixed(1);
-};
+  return (
+    <WidgetFrame
+      theme={theme}
+      title="Your time-off balance"
+      subtitle={`Team ${data?.team ?? '—'} · this year`}
+      icon={<CalendarIcon />}
+      dataLlm={`Time-off balance: ${balanceSummary(state)}`}
+    >
+      {state.kind === 'loading' ? (
+        <WidgetFeedback kind="loading">
+          Loading your time-off balance…
+        </WidgetFeedback>
+      ) : null}
+      {state.kind === 'error' ? (
+        <WidgetFeedback kind="error">{state.message}</WidgetFeedback>
+      ) : null}
+      {state.kind === 'empty' ? (
+        <WidgetFeedback kind="empty">{state.message}</WidgetFeedback>
+      ) : null}
+      {state.kind === 'partial' ? (
+        <WidgetFeedback kind="partial">{state.message}</WidgetFeedback>
+      ) : null}
+      {data ? (
+        <div className="tv-grid">
+          {data.balances.map((balance) => {
+            const shown = balancePresentation(balance);
+            return (
+              <BalanceTile
+                key={balance.type}
+                label={balance.label}
+                value={shown.value}
+                detail={shown.detail}
+                progress={shown.progress}
+                pending={
+                  balance.pendingHalfDays > 0
+                    ? `${formatHalfDays(balance.pendingHalfDays)} pending`
+                    : undefined
+                }
+              />
+            );
+          })}
+        </div>
+      ) : null}
+    </WidgetFrame>
+  );
+}
 
 export default function TimeOffBalance() {
   const { theme } = useLayout();
-  const shown = useToolInfo('time_off_balance').structuredContent as
-    | BalanceResult
-    | undefined;
-  const mine =
-    (shown?.userId && shown?.balances?.[shown.userId]) || ({} as Record<string, Balance>);
-
-  const summary = TYPES.filter((t) => mine[t])
-    .map((t) => `${LABEL[t]} ${days(mine[t]!.remainingHalfDays)} left`)
-    .join(', ');
-
-  return (
-    <main
-      className={`tv-shell${theme === 'dark' ? ' dark' : ''}`}
-      data-llm={`Time-off balance for team ${shown?.team ?? '—'}: ${summary || 'no policies'}`}
-    >
-      <section className="tv-card">
-        <header className="tv-header">
-          <span className="tv-mark" aria-hidden="true">
-            <CalendarIcon />
-          </span>
-          <div className="tv-title-block">
-            <h1 className="tv-title">Your time-off balance</h1>
-            <p className="tv-subtitle">Team {shown?.team ?? '—'} · this year</p>
-          </div>
-        </header>
-        <div className="tv-body">
-          {summary ? (
-            <div className="tv-grid">
-              {TYPES.filter((t) => mine[t]).map((t) => {
-                const b = mine[t]!;
-                const allowance = b.allowanceHalfDays;
-                const pct =
-                  allowance && allowance > 0
-                    ? Math.max(0, Math.min(100, (b.remainingHalfDays / allowance) * 100))
-                    : 0;
-                return (
-                  <div className="tv-cell" key={t}>
-                    <div className="tv-cell-label">{LABEL[t]}</div>
-                    <div className="tv-cell-value">
-                      {allowance === null ? (
-                        <>
-                          {days(b.approvedHalfDays)} <small>days used</small>
-                        </>
-                      ) : (
-                        <>
-                          {days(b.remainingHalfDays)}{' '}
-                          <small>of {days(allowance)} days left</small>
-                        </>
-                      )}
-                    </div>
-                    {allowance !== null && (
-                      <div className="tv-meter" aria-hidden="true">
-                        <span style={{ width: `${pct}%` }} />
-                      </div>
-                    )}
-                    {b.pendingHalfDays > 0 && (
-                      <div className="tv-row-meta">{days(b.pendingHalfDays)} days pending</div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <p className="tv-empty">No time-off policies are configured for this team yet.</p>
-          )}
-        </div>
-      </section>
-    </main>
-  );
+  const toolInfo = useToolInfo('time_off_balance');
+  const pending = Object.keys(toolInfo).length === 0;
+  const state = normalizeBalanceResult(toolInfo.structuredContent, {
+    pending,
+    error: toolInfo.isError,
+  });
+  return <TimeOffBalanceView theme={theme} state={state} />;
 }
 
 function CalendarIcon() {
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true">
-      <rect x="3" y="4.5" width="18" height="16" rx="2" />
+      <rect x="3" y="4.5" width="18" height="16" />
       <path d="M3 9h18M8 3v3M16 3v3" />
     </svg>
   );
