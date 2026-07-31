@@ -20,6 +20,8 @@ assert_classification() {
 assert_classification $'web=false\nassistant=false' \
   'docs/read me.md' \
   'AGENTS.md'
+# This literal proves shell syntax in a filename is never evaluated.
+# shellcheck disable=SC2016
 assert_classification $'web=true\nassistant=false' \
   'apps/web/components/$(not-executed).tsx'
 assert_classification $'web=true\nassistant=false' \
