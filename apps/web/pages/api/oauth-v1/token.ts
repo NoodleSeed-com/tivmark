@@ -3,7 +3,8 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import { z } from 'zod';
 
 import {
-  ALLOWED_RESOURCES,
+  API_AUDIENCE,
+  DEFAULT_MCP_RESOURCE,
   consumeOAuthPayload,
   createOAuthPayload,
   hashToken,
@@ -86,25 +87,28 @@ const refreshResponse = async (
   // RFC 8707 resource indicator, when the client sends one (validated against ALLOWED_RESOURCES).
   resource?: string
 ) => {
-  if (resource && !isAllowedResource(resource)) {
+  // Resolve the binding before minting so the stored grant and the token always agree: a client that
+  // omitted `resource` (e.g. Gemini) is pinned to the canonical MCP URL rather than left unbound.
+  // Re-validated here even though authorize/token already checked it — this is the last gate before
+  // a resource reaches `aud`, and a client-supplied value must never be copied in unchecked.
+  const boundResource = resource ?? DEFAULT_MCP_RESOURCE;
+  if (!isAllowedResource(boundResource)) {
     throw new ApiError(400, 'invalid_target: unknown resource');
   }
-  // Tokens from this (host) flow are only ever presented to the MCP resource server (Noodle), which
-  // verifies aud == the MCP URL. Bind aud to the requested resource, or default to the canonical MCP
-  // resource when the client omits `resource` (e.g. Gemini) — otherwise Noodle rejects the token.
-  // (The v1 API's own `tivmark-api` audience is minted separately by the delegated-exchange endpoint.)
-  const tokenAudience = resource ?? ALLOWED_RESOURCES[0];
-  const accessToken = await issueAccessToken(
-    userId,
-    clientId,
-    scopes,
-    tokenAudience
-  );
+  // Two audiences, both required: API_AUDIENCE is the stable (issuer, audience) pair Noodle's
+  // customerAuth.oidc is configured with, and boundResource is the exact MCP resource URL per
+  // RFC 8707. Audience verification is set membership, so one token satisfies both checks.
+  const accessToken = await issueAccessToken(userId, clientId, scopes, [
+    API_AUDIENCE,
+    boundResource,
+  ]);
   const refreshToken = randomToken();
   await createOAuthPayload(
     'REFRESH_TOKEN',
     refreshToken,
-    { userId, clientId, scopes, ...(resource ? { resource } : {}) },
+    // Persist the RESOLVED resource so a refresh reproduces the same `aud` pair even when the original
+    // request omitted `resource` and the default was applied.
+    { userId, clientId, scopes, resource: boundResource },
     new Date(Date.now() + 30 * 86_400_000)
   );
   return res.status(200).json({
@@ -172,7 +176,9 @@ export default async function handler(
           'invalid_target: resource does not match the authorization request'
         );
       }
-      return refreshResponse(
+      // `await` is load-bearing: a bare `return` of the promise escapes this try/catch, so a rejection
+      // inside refreshResponse (e.g. invalid_target) would surface as a 500 instead of its problem doc.
+      return await refreshResponse(
         res,
         String(payload.userId),
         String(payload.clientId),
@@ -208,7 +214,7 @@ export default async function handler(
         'invalid_target: resource does not match the original grant'
       );
     }
-    return refreshResponse(
+    return await refreshResponse(
       res,
       String(payload.userId),
       input.client_id,

@@ -14,20 +14,51 @@ import { prisma } from '@/lib/prisma';
 import type { Prisma } from '@prisma/client';
 
 const issuer = `${env.appUrl}/oauth`;
-// Default audience for tokens minted for Tivmark's OWN v1 API (direct API clients and the
-// delegated token-exchange the assistant connector uses). `verifyAccessToken` (the v1 API) checks
-// this exact value — do not change it.
-const audience = 'tivmark-api';
+// The stable, environment-specific audience for every access token this server mints: Tivmark's own
+// v1 API (direct clients + the delegated token-exchange) and the customer-OIDC tokens Noodle verifies.
+// Noodle requires an (issuer, audience) pair to belong to exactly one app environment, so the `-prod`
+// suffix keeps this pair unique to the production deployment. It must match `customerAuth.oidc`'s
+// audience in apps/assistant/src/server.ts, and it deliberately does NOT vary by server version.
+export const API_AUDIENCE = 'tivmark-api-prod';
 
 // RFC 8707 resource indicators. Standards-based MCP hosts (Gemini, ChatGPT, Claude) request a token
-// bound to the MCP server's canonical URL; we mint the access token with `aud` set to that resource
-// so Noodle (the resource server fronting the MCP endpoint) accepts it. A request with no `resource`
-// falls back to the `tivmark-api` audience above (backward compatible with direct v1 API clients).
-export const ALLOWED_RESOURCES = [
+// bound to the MCP server's canonical URL. Every entry is an EXACT canonical URL served by our own
+// Noodle deployment — matching is strict string equality with no normalization, so a foreign host,
+// another app or environment, an unexpected path, a trailing slash, or a case variant all fail closed.
+// Versioned endpoints get their own entry (they are distinct resources) but share API_AUDIENCE.
+//
+// Keep in lockstep with the ACTIVE Noodle deployments (`noodle deployments list --env prod`): every
+// active version whose manifest names us as its authorization server sends clients here for a token,
+// and a version missing from this list would get `invalid_target` instead. v8 through v18 are those
+// versions — v1-v7 predate the switch to customerAuth.oidc (they used customerAuth.bridge) and route
+// to Noodle's own AS, so they must NOT be listed. Add the new /vN/mcp entry whenever a version ships;
+// the audience itself never changes.
+const ALLOWED_RESOURCE_LIST = [
   'https://noodleseed.cloud.noodleseed.dev/tivmark-assistant/mcp',
-];
+  'https://noodleseed.cloud.noodleseed.dev/tivmark-assistant/v8/mcp',
+  'https://noodleseed.cloud.noodleseed.dev/tivmark-assistant/v9/mcp',
+  'https://noodleseed.cloud.noodleseed.dev/tivmark-assistant/v10/mcp',
+  'https://noodleseed.cloud.noodleseed.dev/tivmark-assistant/v11/mcp',
+  'https://noodleseed.cloud.noodleseed.dev/tivmark-assistant/v12/mcp',
+  'https://noodleseed.cloud.noodleseed.dev/tivmark-assistant/v13/mcp',
+  'https://noodleseed.cloud.noodleseed.dev/tivmark-assistant/v14/mcp',
+  'https://noodleseed.cloud.noodleseed.dev/tivmark-assistant/v15/mcp',
+  'https://noodleseed.cloud.noodleseed.dev/tivmark-assistant/v16/mcp',
+  'https://noodleseed.cloud.noodleseed.dev/tivmark-assistant/v17/mcp',
+  'https://noodleseed.cloud.noodleseed.dev/tivmark-assistant/v18/mcp',
+] as const;
+
+// A Set, not an object map — a plain object would match inherited keys like `__proto__`.
+export const ALLOWED_RESOURCES: ReadonlySet<string> = new Set(
+  ALLOWED_RESOURCE_LIST
+);
+
+// Where a client that omits `resource` entirely (e.g. Gemini) gets bound. The unversioned canonical
+// URL, which the Noodle deployment always routes to the current active version.
+export const DEFAULT_MCP_RESOURCE = ALLOWED_RESOURCE_LIST[0];
+
 export const isAllowedResource = (resource: string) =>
-  ALLOWED_RESOURCES.includes(resource);
+  ALLOWED_RESOURCES.has(resource);
 
 let signingKeysPromise: ReturnType<typeof createSigningKeys> | null = null;
 
@@ -111,9 +142,10 @@ export const issueAccessToken = async (
   userId: string,
   clientId: string,
   scopes: string[],
-  // RFC 8707: MCP-host tokens bind `aud` to the requested resource; everything else (the v1 API /
-  // delegated exchange) keeps the default `tivmark-api`.
-  tokenAudience: string = audience
+  // RFC 8707: MCP-host tokens pass `[API_AUDIENCE, <exact resource URL>]` so one token satisfies both
+  // Noodle's configured-audience check and the resource binding (audience checks are set membership).
+  // Everything else (the v1 API / delegated exchange) keeps the scalar default.
+  tokenAudience: string | string[] = API_AUDIENCE
 ) => {
   const keys = await signingKeys();
   return new SignJWT({
@@ -134,7 +166,8 @@ export const verifyAccessToken = async (token: string) => {
   const keys = await signingKeys();
   const result = await jwtVerify(token, keys.publicKey, {
     issuer,
-    audience,
+    // Set membership: an MCP token whose `aud` is [API_AUDIENCE, <resource>] satisfies this too.
+    audience: API_AUDIENCE,
     algorithms: ['ES256'],
   });
   if (!result.payload.sub) throw new ApiError(401, 'Invalid access token');

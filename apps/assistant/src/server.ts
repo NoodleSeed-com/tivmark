@@ -294,15 +294,23 @@ export default server(
     // 'customers' access with Tivmark's own OAuth server as the identity provider. Generic MCP clients
     // (Gemini/ChatGPT/Claude) discover it via protected-resource-metadata, sign the user in at
     // app.tivmark.com, and present the resulting token; Noodle (as resource server) verifies it
-    // against Tivmark's JWKS. Per the MCP authorization spec (RFC 8707), the access token's `aud` is
-    // the canonical MCP resource URL, so this audience is that URL (NOT the internal `tivmark-api`,
-    // which stays the audience of the delegated-exchange token the connector uses for the v1 API).
+    // against Tivmark's JWKS.
+    //
+    // The audience is a STABLE, ENVIRONMENT-SPECIFIC name — not the MCP resource URL. Noodle requires
+    // an (issuer, audience) pair to belong to exactly one app environment, so a pair shared across
+    // environments quarantines all of them; the `-prod` suffix keeps this pair unique to prod. It also
+    // has to stay stable across server versions, which a resource URL cannot (that URL carries /vN/).
+    // Tivmark mints `aud` as a two-element array — this audience plus the exact resource URL the
+    // client requested per RFC 8707 — and the verifier's audience check is set membership, so both
+    // this declaration and the MCP resource binding are satisfied by one token. See
+    // apps/web/lib/api/oauth.ts (API_AUDIENCE / ALLOWED_RESOURCES), which must stay in lockstep.
+    //
     // The portal embed works via createAssistantSession (session exchange is independent of this auth
     // kind). Both inbound paths normalize to the same verified customer identity, so the
     // delegatedTokenExchange connector calls the API as that user.
     auth: customerAuth.oidc({
       issuer: 'https://app.tivmark.com/oauth',
-      audience: 'https://noodleseed.cloud.noodleseed.dev/tivmark-assistant/mcp',
+      audience: 'tivmark-api-prod',
     }),
     assistant: embeddedAssistant({
       model: openAICompatible({
