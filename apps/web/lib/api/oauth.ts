@@ -26,9 +26,25 @@ export const API_AUDIENCE = 'tivmark-api-prod';
 // Noodle deployment — matching is strict string equality with no normalization, so a foreign host,
 // another app or environment, an unexpected path, a trailing slash, or a case variant all fail closed.
 // Versioned endpoints get their own entry (they are distinct resources) but share API_AUDIENCE.
-// Keep in lockstep with the deployed Noodle versions: each active /vN/mcp needs an entry here.
+//
+// Keep in lockstep with the ACTIVE Noodle deployments (`noodle deployments list --env prod`): every
+// active version whose manifest names us as its authorization server sends clients here for a token,
+// and a version missing from this list would get `invalid_target` instead. v8 through v18 are those
+// versions — v1-v7 predate the switch to customerAuth.oidc (they used customerAuth.bridge) and route
+// to Noodle's own AS, so they must NOT be listed. Add the new /vN/mcp entry whenever a version ships;
+// the audience itself never changes.
 const ALLOWED_RESOURCE_LIST = [
   'https://noodleseed.cloud.noodleseed.dev/tivmark-assistant/mcp',
+  'https://noodleseed.cloud.noodleseed.dev/tivmark-assistant/v8/mcp',
+  'https://noodleseed.cloud.noodleseed.dev/tivmark-assistant/v9/mcp',
+  'https://noodleseed.cloud.noodleseed.dev/tivmark-assistant/v10/mcp',
+  'https://noodleseed.cloud.noodleseed.dev/tivmark-assistant/v11/mcp',
+  'https://noodleseed.cloud.noodleseed.dev/tivmark-assistant/v12/mcp',
+  'https://noodleseed.cloud.noodleseed.dev/tivmark-assistant/v13/mcp',
+  'https://noodleseed.cloud.noodleseed.dev/tivmark-assistant/v14/mcp',
+  'https://noodleseed.cloud.noodleseed.dev/tivmark-assistant/v15/mcp',
+  'https://noodleseed.cloud.noodleseed.dev/tivmark-assistant/v16/mcp',
+  'https://noodleseed.cloud.noodleseed.dev/tivmark-assistant/v17/mcp',
   'https://noodleseed.cloud.noodleseed.dev/tivmark-assistant/v18/mcp',
 ] as const;
 

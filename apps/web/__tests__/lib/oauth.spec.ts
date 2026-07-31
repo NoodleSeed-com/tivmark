@@ -171,6 +171,23 @@ describe('OAuth 2.1 helpers', () => {
     expect(ALLOWED_RESOURCES.has(DEFAULT_MCP_RESOURCE)).toBe(true);
   });
 
+  it('covers exactly the versions that name us as their authorization server', () => {
+    // v8-v18 declare customerAuth.oidc against https://app.tivmark.com/oauth, so their clients come
+    // here for a token and each needs an entry. v1-v7 predate that switch (customerAuth.bridge) and
+    // route to Noodle's own AS — listing them would widen the allowlist for no one.
+    const url = (v: number) =>
+      `https://noodleseed.cloud.noodleseed.dev/tivmark-assistant/v${v}/mcp`;
+
+    for (let v = 8; v <= 18; v += 1) {
+      expect([v, isAllowedResource(url(v))]).toEqual([v, true]);
+    }
+    for (let v = 1; v <= 7; v += 1) {
+      expect([v, isAllowedResource(url(v))]).toEqual([v, false]);
+    }
+    // Every versioned entry shares the one audience; none of them IS the audience.
+    expect(ALLOWED_RESOURCES.has(API_AUDIENCE)).toBe(false);
+  });
+
   it('rejects a resource for another host, app, environment, or path', () => {
     for (const rejected of [
       // Foreign host.
