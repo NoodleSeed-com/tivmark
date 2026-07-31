@@ -427,12 +427,17 @@ button {
 
 @media (max-width: 359px) {
   .tv-header {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
     align-items: flex-start;
-    flex-wrap: wrap;
+  }
+
+  .tv-mark {
+    display: none;
   }
 
   .tv-header-badge {
-    margin-left: 46px;
+    margin-left: 0;
   }
 
   .tv-row {
