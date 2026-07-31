@@ -1,0 +1,70 @@
+name: pr-gate
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  changes:
+    name: detect changes
+    runs-on: ubuntu-latest
+    outputs:
+      web: ${{ steps.classify.outputs.web }}
+      assistant: ${{ steps.classify.outputs.assistant }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+      - name: Classify changed paths
+        id: classify
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          git diff --name-only -z "$BASE_SHA" "$HEAD_SHA" |
+            .github/scripts/classify-pr-paths.sh >> "$GITHUB_OUTPUT"
+
+  web:
+    needs: changes
+    if: needs.changes.outputs.web == 'true'
+    uses: ./.github/workflows/web-ci.yml
+
+  assistant:
+    needs: changes
+    if: needs.changes.outputs.assistant == 'true'
+    uses: ./.github/workflows/assistant-ci.yml
+
+  gate:
+    name: pr-gate
+    if: ${{ always() }}
+    needs:
+      - changes
+      - web
+      - assistant
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require every applicable suite
+        env:
+          CHANGES_RESULT: ${{ needs.changes.result }}
+          WEB_RESULT: ${{ needs.web.result }}
+          ASSISTANT_RESULT: ${{ needs.assistant.result }}
+        run: |
+          if [[ "$CHANGES_RESULT" != "success" ]]; then
+            echo "Path detection did not succeed: $CHANGES_RESULT" >&2
+            exit 1
+          fi
+
+          for result in "$WEB_RESULT" "$ASSISTANT_RESULT"; do
+            case "$result" in
+              success | skipped) ;;
+              *)
+                echo "An applicable validation suite did not succeed: $result" >&2
+                exit 1
+                ;;
+            esac
+          done

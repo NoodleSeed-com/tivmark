@@ -6,16 +6,11 @@
 name: assistant-ci
 
 on:
+  workflow_call:
   push:
     branches:
       - main
       - release
-    paths:
-      - 'apps/assistant/**'
-      - '.github/workflows/assistant-ci.yml'
-  pull_request:
-    branches:
-      - main
     paths:
       - 'apps/assistant/**'
       - '.github/workflows/assistant-ci.yml'
