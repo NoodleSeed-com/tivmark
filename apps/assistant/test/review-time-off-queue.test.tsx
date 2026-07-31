@@ -1,6 +1,12 @@
 // @vitest-environment jsdom
 
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import { expect, it, vi } from 'vitest';
 
 import { ReviewTimeOffQueueView } from '../src/views/review-time-off-queue.js';
@@ -84,6 +90,64 @@ it('keeps the row actionable and announces a retryable failure', async () => {
   expect(screen.getByRole('button', { name: 'Decline' })).toBeEnabled();
 });
 
+it('keeps simultaneous review actions pending on their own rows', async () => {
+  const resolvers = new Map<string, () => void>();
+  const onDecision = vi.fn(
+    (id: string) =>
+      new Promise<void>((resolve) => {
+        resolvers.set(id, resolve);
+      })
+  );
+  const secondRequest = {
+    id: 'leave-2',
+    type: 'SICK',
+    typeLabel: 'Sick',
+    status: 'PENDING',
+    statusLabel: 'Pending',
+    startDate: '2026-08-03',
+    endDate: '2026-08-03',
+    requesterName: 'Grace Hopper',
+  };
+  const state: TimeOffRequestsViewState = {
+    kind: 'ready',
+    data: {
+      ...(reviewState.kind === 'ready' ? reviewState.data : neverData()),
+      pendingCount: 2,
+      requests: [
+        ...(reviewState.kind === 'ready'
+          ? reviewState.data.requests
+          : neverData()),
+        secondRequest,
+      ],
+    },
+  };
+
+  render(
+    <ReviewTimeOffQueueView
+      theme="light"
+      state={state}
+      onDecision={onDecision}
+    />
+  );
+
+  const rows = screen.getAllByRole('listitem');
+  fireEvent.click(within(rows[0]).getByRole('button', { name: 'Approve' }));
+  fireEvent.click(within(rows[1]).getByRole('button', { name: 'Decline' }));
+
+  expect(
+    within(rows[0]).getByRole('button', { name: 'Approving…' })
+  ).toBeDisabled();
+  expect(
+    within(rows[1]).getByRole('button', { name: 'Declining…' })
+  ).toBeDisabled();
+
+  resolvers.get('leave-1')?.();
+  resolvers.get('leave-2')?.();
+  await waitFor(() =>
+    expect(screen.queryByRole('listitem')).not.toBeInTheDocument()
+  );
+});
+
 it('renders caught-up and partial-data states explicitly', () => {
   const { rerender } = render(
     <ReviewTimeOffQueueView
@@ -107,7 +171,7 @@ it('renders caught-up and partial-data states explicitly', () => {
       onDecision={vi.fn()}
     />
   );
-  expect(screen.getByRole('status')).toHaveTextContent(
+  expect(screen.getByRole('alert')).toHaveTextContent(
     'One request could not be displayed.'
   );
   expect(screen.getByText('Ada Lovelace')).toBeVisible();

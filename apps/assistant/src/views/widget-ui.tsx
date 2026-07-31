@@ -61,7 +61,12 @@ export function WidgetFeedback({
   readonly kind: FeedbackKind;
   readonly children: ReactNode;
 }) {
-  const role = kind === 'error' ? 'alert' : kind === 'empty' ? undefined : 'status';
+  const role =
+    kind === 'error' || kind === 'partial'
+      ? 'alert'
+      : kind === 'empty'
+        ? undefined
+        : 'status';
   return (
     <div className={`tv-feedback tv-feedback-${kind}`} role={role}>
       {kind === 'loading' ? <span className="tv-feedback-pulse" aria-hidden="true" /> : null}

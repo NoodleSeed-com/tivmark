@@ -57,6 +57,15 @@ it('gives failures alert semantics and loading status semantics', () => {
   expect(screen.getByRole('alert')).toHaveTextContent(
     'Could not load your balance.'
   );
+
+  rerender(
+    <WidgetFeedback kind="partial">
+      One request could not be displayed.
+    </WidgetFeedback>
+  );
+  expect(screen.getByRole('alert')).toHaveTextContent(
+    'One request could not be displayed.'
+  );
 });
 
 it('preserves native pending and disabled action behavior', () => {

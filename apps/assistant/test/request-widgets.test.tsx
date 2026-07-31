@@ -116,7 +116,7 @@ it('keeps valid requests visible while announcing partial data', () => {
     />
   );
 
-  expect(screen.getByRole('status')).toHaveTextContent(
+  expect(screen.getByRole('alert')).toHaveTextContent(
     'One request could not be displayed.'
   );
   expect(screen.getByText('Vacation · Jul 30, 2026')).toBeVisible();

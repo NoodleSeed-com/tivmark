@@ -95,6 +95,17 @@ const isFiniteNumber = (value: unknown): value is number =>
 const isNumberOrNull = (value: unknown): value is number | null =>
   value === null || isFiniteNumber(value);
 
+const isDateOnly = (value: unknown): value is string => {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return false;
+  }
+  const date = new Date(`${value}T00:00:00.000Z`);
+  return (
+    !Number.isNaN(date.getTime()) &&
+    date.toISOString().slice(0, 10) === value
+  );
+};
+
 const optionalString = (value: unknown): string | undefined =>
   typeof value === 'string' && value.trim() ? value : undefined;
 
@@ -121,7 +132,8 @@ const parseBalance = (value: unknown): Omit<BalanceItem, 'type' | 'label'> | und
     !isNumberOrNull(value.allowanceHalfDays) ||
     !isFiniteNumber(value.approvedHalfDays) ||
     !isFiniteNumber(value.pendingHalfDays) ||
-    !isNumberOrNull(value.remainingHalfDays)
+    !isNumberOrNull(value.remainingHalfDays) ||
+    (value.allowanceHalfDays === null) !== (value.remainingHalfDays === null)
   ) {
     return undefined;
   }
@@ -198,8 +210,8 @@ const parseTimeOffRequest = (value: unknown): TimeOffRequestItem | undefined => 
     typeof value.id !== 'string' ||
     typeof value.type !== 'string' ||
     typeof value.status !== 'string' ||
-    typeof value.startDate !== 'string' ||
-    typeof value.endDate !== 'string'
+    !isDateOnly(value.startDate) ||
+    !isDateOnly(value.endDate)
   ) {
     return undefined;
   }

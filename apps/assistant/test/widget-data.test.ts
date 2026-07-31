@@ -89,6 +89,43 @@ describe('balance result normalization', () => {
     });
   });
 
+  it('rejects inconsistent limited and unlimited balance fields', () => {
+    expect(
+      normalizeBalanceResult({
+        team: 'acme',
+        userId: 'user-1',
+        balances: {
+          'user-1': {
+            VACATION: { ...limitedBalance, remainingHalfDays: null },
+          },
+        },
+      })
+    ).toEqual({
+      kind: 'error',
+      message: 'The balance result was incomplete.',
+    });
+
+    expect(
+      normalizeBalanceResult({
+        team: 'acme',
+        userId: 'user-1',
+        balances: {
+          'user-1': {
+            SICK: {
+              allowanceHalfDays: null,
+              approvedHalfDays: 4,
+              pendingHalfDays: 0,
+              remainingHalfDays: 20,
+            },
+          },
+        },
+      })
+    ).toEqual({
+      kind: 'error',
+      message: 'The balance result was incomplete.',
+    });
+  });
+
   it('distinguishes loading, host error, missing result, and no policies', () => {
     expect(normalizeBalanceResult(undefined, { pending: true })).toEqual({
       kind: 'loading',
@@ -197,6 +234,36 @@ describe('request result normalization', () => {
             requesterName: 'Ada Lovelace',
           },
         ],
+      },
+    });
+  });
+
+  it('omits invalid calendar dates before they can crash a widget render', () => {
+    expect(
+      normalizeTimeOffRequests({
+        team: 'acme',
+        requests: [
+          {
+            id: 'leave-1',
+            type: 'VACATION',
+            status: 'APPROVED',
+            startDate: '2026-07-30',
+            endDate: '2026-07-31',
+          },
+          {
+            id: 'leave-bad-date',
+            type: 'SICK',
+            status: 'PENDING',
+            startDate: '2026-02-30',
+            endDate: 'not-a-date',
+          },
+        ],
+      })
+    ).toMatchObject({
+      kind: 'partial',
+      message: 'One request could not be displayed.',
+      data: {
+        requests: [{ id: 'leave-1' }],
       },
     });
   });

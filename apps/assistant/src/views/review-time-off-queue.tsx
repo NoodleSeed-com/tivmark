@@ -29,10 +29,7 @@ export function ReviewTimeOffQueueView({
   onDecision,
 }: ReviewTimeOffQueueViewProps) {
   const [resolved, setResolved] = useState<Record<string, Decision>>({});
-  const [busy, setBusy] = useState<{
-    readonly id: string;
-    readonly decision: Decision;
-  }>();
+  const [busy, setBusy] = useState<Record<string, Decision>>({});
   const [feedback, setFeedback] = useState<{
     readonly kind: 'success' | 'error';
     readonly message: string;
@@ -45,7 +42,7 @@ export function ReviewTimeOffQueueView({
   );
 
   async function decide(request: TimeOffRequestItem, decision: Decision) {
-    setBusy({ id: request.id, decision });
+    setBusy((current) => ({ ...current, [request.id]: decision }));
     setFeedback(undefined);
     try {
       await onDecision(request.id, decision);
@@ -62,7 +59,11 @@ export function ReviewTimeOffQueueView({
         message: "Couldn't apply the decision. Try again.",
       });
     } finally {
-      setBusy(undefined);
+      setBusy((current) => {
+        const next = { ...current };
+        delete next[request.id];
+        return next;
+      });
     }
   }
 
@@ -96,7 +97,8 @@ export function ReviewTimeOffQueueView({
       {requests.length > 0 ? (
         <ul className="tv-list">
           {requests.map((request) => {
-            const rowBusy = busy?.id === request.id;
+            const rowDecision = busy[request.id];
+            const rowBusy = rowDecision !== undefined;
             return (
               <RequestRow
                 key={request.id}
@@ -110,7 +112,7 @@ export function ReviewTimeOffQueueView({
                   <>
                     <WidgetAction
                       tone="success"
-                      pending={rowBusy && busy.decision === 'APPROVED'}
+                      pending={rowDecision === 'APPROVED'}
                       pendingLabel="Approving…"
                       disabled={rowBusy}
                       onClick={() => void decide(request, 'APPROVED')}
@@ -119,7 +121,7 @@ export function ReviewTimeOffQueueView({
                     </WidgetAction>
                     <WidgetAction
                       tone="danger"
-                      pending={rowBusy && busy.decision === 'DECLINED'}
+                      pending={rowDecision === 'DECLINED'}
                       pendingLabel="Declining…"
                       disabled={rowBusy}
                       onClick={() => void decide(request, 'DECLINED')}
