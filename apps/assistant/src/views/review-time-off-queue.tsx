@@ -1,118 +1,167 @@
 import { useState } from 'react';
 import { useCallTool, useLayout, useToolInfo } from '../helpers.js';
+import {
+  formatDateRange,
+  normalizeTimeOffRequests,
+  type TimeOffRequestItem,
+  type TimeOffRequestsViewState,
+} from './widget-data.js';
+import {
+  RequestRow,
+  WidgetAction,
+  WidgetFeedback,
+  WidgetFrame,
+  type WidgetTheme,
+} from './widget-ui.js';
 import './widget-style.css';
 
-type Requester = { readonly id?: string; readonly name?: string | null };
+type Decision = 'APPROVED' | 'DECLINED';
 
-type TimeOffRequest = {
-  readonly id: string;
-  readonly type: string;
-  readonly status: string;
-  readonly startDate: string;
-  readonly endDate: string;
-  readonly requestedHalfDays?: number;
-  readonly reason?: string | null;
-  readonly requester?: Requester;
+type ReviewTimeOffQueueViewProps = {
+  readonly theme: WidgetTheme;
+  readonly state: TimeOffRequestsViewState;
+  readonly onDecision: (id: string, decision: Decision) => Promise<void>;
 };
 
-type Result = { readonly team?: string; readonly requests?: readonly TimeOffRequest[] };
+export function ReviewTimeOffQueueView({
+  theme,
+  state,
+  onDecision,
+}: ReviewTimeOffQueueViewProps) {
+  const [resolved, setResolved] = useState<Record<string, Decision>>({});
+  const [busy, setBusy] = useState<{
+    readonly id: string;
+    readonly decision: Decision;
+  }>();
+  const [feedback, setFeedback] = useState<{
+    readonly kind: 'success' | 'error';
+    readonly message: string;
+  }>();
 
-const LABEL: Record<string, string> = {
-  VACATION: 'Vacation',
-  SICK: 'Sick',
-  PERSONAL: 'Personal',
-  UNPAID: 'Unpaid',
-};
+  const data =
+    state.kind === 'ready' || state.kind === 'partial' ? state.data : undefined;
+  const requests = (data?.requests ?? []).filter(
+    (request) => !resolved[request.id]
+  );
 
-const range = (r: TimeOffRequest) =>
-  r.startDate === r.endDate ? r.startDate : `${r.startDate} → ${r.endDate}`;
-
-export default function ReviewTimeOffQueue() {
-  const { theme } = useLayout();
-  const shown = useToolInfo('team_time_off_queue').structuredContent as Result | undefined;
-  const team = shown?.team ?? '';
-  const review = useCallTool('review_time_off_app');
-
-  const [resolved, setResolved] = useState<Record<string, string>>({});
-  const [busy, setBusy] = useState<string | null>(null);
-  const [status, setStatus] = useState('');
-
-  const requests = (shown?.requests ?? []).filter((r) => !resolved[r.id]);
-
-  async function decide(r: TimeOffRequest, decision: 'APPROVED' | 'DECLINED') {
-    setBusy(r.id);
-    setStatus('');
+  async function decide(request: TimeOffRequestItem, decision: Decision) {
+    setBusy({ id: request.id, decision });
+    setFeedback(undefined);
     try {
-      await review.callTool({ team, id: r.id, decision });
-      setResolved((cur) => ({ ...cur, [r.id]: decision }));
-      setStatus(`${decision === 'APPROVED' ? 'Approved' : 'Declined'} ${r.requester?.name ?? 'request'}.`);
+      await onDecision(request.id, decision);
+      setResolved((current) => ({ ...current, [request.id]: decision }));
+      setFeedback({
+        kind: 'success',
+        message: `${decision === 'APPROVED' ? 'Approved' : 'Declined'} ${
+          request.requesterName ?? 'request'
+        }.`,
+      });
     } catch {
-      setStatus("Couldn't apply the decision — please try again.");
+      setFeedback({
+        kind: 'error',
+        message: "Couldn't apply the decision. Try again.",
+      });
     } finally {
-      setBusy(null);
+      setBusy(undefined);
     }
   }
 
   return (
-    <main
-      className={`tv-shell${theme === 'dark' ? ' dark' : ''}`}
-      data-llm={`Time-off review queue (team ${team || '—'}): ${requests.length} pending`}
+    <WidgetFrame
+      theme={theme}
+      title="Time-off approvals"
+      subtitle={`Team ${data?.team ?? '—'} · pending review`}
+      icon={<CheckIcon />}
+      badge={
+        data ? <span className="tv-chip">{requests.length} pending</span> : null
+      }
+      dataLlm={`Time-off review queue: ${requests.length} pending`}
     >
-      <section className="tv-card">
-        <header className="tv-header">
-          <span className="tv-mark" aria-hidden="true">
-            <CheckIcon />
-          </span>
-          <div className="tv-title-block">
-            <h1 className="tv-title">Time-off approvals</h1>
-            <p className="tv-subtitle">Team {team || '—'} · pending review</p>
-          </div>
-          <span className="tv-chip">{requests.length} pending</span>
-        </header>
-        <div className="tv-body">
-          {requests.length === 0 ? (
-            <p className="tv-empty">Nothing awaiting review. You’re all caught up.</p>
-          ) : (
-            <ul className="tv-list">
-              {requests.map((r) => (
-                <li className="tv-row" key={r.id}>
-                  <div className="tv-row-main">
-                    <div className="tv-row-title">{r.requester?.name ?? 'Teammate'}</div>
-                    <div className="tv-row-meta">
-                      {LABEL[r.type] ?? r.type} · {range(r)}
-                      {r.reason ? ` · ${r.reason}` : ''}
-                    </div>
-                  </div>
-                  <div className="tv-actions">
-                    <button
-                      type="button"
-                      className="tv-btn tv-btn-sm tv-btn-ok"
-                      disabled={busy === r.id}
-                      onClick={() => decide(r, 'APPROVED')}
+      {state.kind === 'loading' ? (
+        <WidgetFeedback kind="loading">
+          Loading the review queue…
+        </WidgetFeedback>
+      ) : null}
+      {state.kind === 'error' ? (
+        <WidgetFeedback kind="error">{state.message}</WidgetFeedback>
+      ) : null}
+      {state.kind === 'partial' ? (
+        <WidgetFeedback kind="partial">{state.message}</WidgetFeedback>
+      ) : null}
+      {(state.kind === 'empty' || (data && requests.length === 0)) ? (
+        <WidgetFeedback kind="empty">
+          Nothing awaiting review. You're all caught up.
+        </WidgetFeedback>
+      ) : null}
+      {requests.length > 0 ? (
+        <ul className="tv-list">
+          {requests.map((request) => {
+            const rowBusy = busy?.id === request.id;
+            return (
+              <RequestRow
+                key={request.id}
+                title={request.requesterName ?? 'Teammate'}
+                meta={`${request.typeLabel} · ${formatDateRange(
+                  request.startDate,
+                  request.endDate
+                )}`}
+                detail={request.reason}
+                actions={
+                  <>
+                    <WidgetAction
+                      tone="success"
+                      pending={rowBusy && busy.decision === 'APPROVED'}
+                      pendingLabel="Approving…"
+                      disabled={rowBusy}
+                      onClick={() => void decide(request, 'APPROVED')}
                     >
                       Approve
-                    </button>
-                    <button
-                      type="button"
-                      className="tv-btn tv-btn-sm tv-btn-bad"
-                      disabled={busy === r.id}
-                      onClick={() => decide(r, 'DECLINED')}
+                    </WidgetAction>
+                    <WidgetAction
+                      tone="danger"
+                      pending={rowBusy && busy.decision === 'DECLINED'}
+                      pendingLabel="Declining…"
+                      disabled={rowBusy}
+                      onClick={() => void decide(request, 'DECLINED')}
                     >
                       Decline
-                    </button>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-          {status && (
-            <p className="tv-note" aria-live="polite">
-              {status}
-            </p>
-          )}
+                    </WidgetAction>
+                  </>
+                }
+              />
+            );
+          })}
+        </ul>
+      ) : null}
+      {feedback ? (
+        <div className="tv-action-feedback">
+          <WidgetFeedback kind={feedback.kind}>{feedback.message}</WidgetFeedback>
         </div>
-      </section>
-    </main>
+      ) : null}
+    </WidgetFrame>
+  );
+}
+
+export default function ReviewTimeOffQueue() {
+  const { theme } = useLayout();
+  const toolInfo = useToolInfo('team_time_off_queue');
+  const pending = Object.keys(toolInfo).length === 0;
+  const state = normalizeTimeOffRequests(toolInfo.structuredContent, {
+    pending,
+    error: toolInfo.isError,
+  });
+  const review = useCallTool('review_time_off_app');
+  const data =
+    state.kind === 'ready' || state.kind === 'partial' ? state.data : undefined;
+
+  return (
+    <ReviewTimeOffQueueView
+      theme={theme}
+      state={state}
+      onDecision={async (id, decision) => {
+        await review.callTool({ team: data?.team ?? '', id, decision });
+      }}
+    />
   );
 }
 

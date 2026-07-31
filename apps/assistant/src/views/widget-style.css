@@ -398,6 +398,15 @@ button {
   text-align: left;
 }
 
+.tv-action-feedback {
+  margin-top: 10px;
+}
+
+.tv-action-feedback .tv-feedback {
+  min-height: auto;
+  padding: 9px 10px;
+}
+
 .tv-feedback-pulse {
   width: 8px;
   height: 8px;
