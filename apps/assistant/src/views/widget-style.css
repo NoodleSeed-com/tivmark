@@ -142,6 +142,19 @@ button {
   flex: none;
 }
 
+.tv-chip {
+  display: inline-flex;
+  min-height: 26px;
+  align-items: center;
+  padding: 4px 8px;
+  border: 1px solid var(--tv-border);
+  background: var(--tv-surface-muted);
+  color: var(--tv-heading);
+  font-size: 11.5px;
+  font-weight: 600;
+  line-height: 1;
+}
+
 .tv-body {
   min-width: 0;
   padding: 14px 16px 16px;
