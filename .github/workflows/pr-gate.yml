@@ -16,7 +16,7 @@ jobs:
       web: ${{ steps.classify.outputs.web }}
       assistant: ${{ steps.classify.outputs.assistant }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
