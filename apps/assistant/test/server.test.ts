@@ -48,6 +48,17 @@ describe('tivmark_assistant', () => {
     expect(text).toContain('tiv.review_time_off');
   });
 
+  it('publishes the verified Tivmark subject for balance lookup', async () => {
+    const manifest = await app.toManifest();
+    const balanceTool = manifest.tools.find(
+      (tool: { name: string }) => tool.name === 'time_off_balance'
+    ) as {
+      fulfilment?: { output?: { userId?: string } };
+    };
+
+    expect(balanceTool.fulfilment?.output?.userId).toBe('${user.subject}');
+  });
+
   it('presents the embedded assistant as Mark with focused starter prompts', async () => {
     const manifest = await app.toManifest();
 

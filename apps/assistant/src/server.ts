@@ -368,7 +368,7 @@ export default server(
       }),
       fulfil: ({ input, user, connectors }) => {
         const res = connectors.tiv.get_balances({ team: input.team });
-        return { team: input.team, userId: user.id, balances: res.balances };
+        return { team: input.team, userId: user.subject, balances: res.balances };
       },
       viewTitle: 'Your time-off balance',
       viewDescription: 'Vacation, sick, personal, and unpaid balances for the year.',
