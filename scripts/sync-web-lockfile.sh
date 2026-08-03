@@ -41,13 +41,40 @@ cp "$lockfile" "$work_dir/package-lock.json"
 ( cd "$work_dir" && npm install --package-lock-only --ignore-scripts >/dev/null )
 
 if $check_only; then
-  if ! diff -q "$lockfile" "$work_dir/package-lock.json" >/dev/null; then
-    echo "apps/web/package-lock.json is out of date with apps/web/package.json." >&2
-    echo "Run scripts/sync-web-lockfile.sh and commit the result." >&2
-    diff -u "$lockfile" "$work_dir/package-lock.json" | head -40 >&2 || true
-    exit 1
-  fi
-  echo "apps/web/package-lock.json is up to date."
+  # Compare what `npm ci` actually depends on -- the resolved version of every
+  # entry -- rather than the file byte-for-byte. npm writes cosmetic metadata
+  # (`libc`, field ordering) that varies by npm version and host platform, so a
+  # textual diff reports drift on any runner whose npm differs from the author's.
+  node - "$lockfile" "$work_dir/package-lock.json" <<'NODE'
+const { resolve } = require('node:path');
+const [, , committedPath, freshPath] = process.argv;
+const versions = (p) =>
+  Object.fromEntries(
+    Object.entries(require(resolve(p)).packages ?? {}).map(([k, v]) => [
+      k,
+      v.version ?? '',
+    ]),
+  );
+
+const committed = versions(committedPath);
+const fresh = versions(freshPath);
+const drift = [...new Set([...Object.keys(committed), ...Object.keys(fresh)])]
+  .filter((k) => committed[k] !== fresh[k])
+  .sort();
+
+if (drift.length === 0) {
+  console.log('apps/web/package-lock.json is up to date.');
+  process.exit(0);
+}
+
+console.error('apps/web/package-lock.json is out of date with apps/web/package.json.');
+console.error('Run scripts/sync-web-lockfile.sh and commit the result.\n');
+for (const k of drift.slice(0, 40)) {
+  console.error(`  ${k || '(root)'}: ${committed[k] ?? '(absent)'} -> ${fresh[k] ?? '(absent)'}`);
+}
+if (drift.length > 40) console.error(`  ...and ${drift.length - 40} more`);
+process.exit(1);
+NODE
   exit 0
 fi
 
