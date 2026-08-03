@@ -77,16 +77,33 @@ export default async function POST(req: NextApiRequest, res: NextApiResponse) {
   return res.status(200).json({ received: true });
 }
 
+// Stripe API version 2025-03-31.basil moved the billing period off the
+// subscription and onto each subscription item. Every subscription here carries a
+// single item, so the first item's period is the subscription's period.
+//
+// Webhook payloads are serialized with the API version pinned on the endpoint,
+// not the one the SDK requests, so an endpoint still on a pre-basil version keeps
+// sending the legacy top-level fields. Read the item first and fall back, so the
+// handler works either side of that dashboard change.
+function getBillingPeriod(subscription: Stripe.Subscription) {
+  const item = subscription.items?.data?.[0];
+  const legacy = subscription as unknown as {
+    current_period_start?: number;
+    current_period_end?: number;
+  };
+
+  return {
+    current_period_start:
+      item?.current_period_start ?? legacy.current_period_start,
+    current_period_end: item?.current_period_end ?? legacy.current_period_end,
+  };
+}
+
 async function handleSubscriptionUpdated(event: Stripe.Event) {
-  const {
-    cancel_at,
-    id,
-    status,
-    current_period_end,
-    current_period_start,
-    customer,
-    items,
-  } = event.data.object as Stripe.Subscription;
+  const subscriptionObject = event.data.object as Stripe.Subscription;
+  const { cancel_at, id, status, customer, items } = subscriptionObject;
+  const { current_period_start, current_period_end } =
+    getBillingPeriod(subscriptionObject);
 
   const subscription = await getBySubscriptionId(id);
   if (!subscription) {
@@ -114,8 +131,14 @@ async function handleSubscriptionUpdated(event: Stripe.Event) {
 }
 
 async function handleSubscriptionCreated(event: Stripe.Event) {
-  const { customer, id, current_period_start, current_period_end, items } =
-    event.data.object as Stripe.Subscription;
+  const subscriptionObject = event.data.object as Stripe.Subscription;
+  const { customer, id, items } = subscriptionObject;
+  const { current_period_start, current_period_end } =
+    getBillingPeriod(subscriptionObject);
+
+  if (current_period_start === undefined || current_period_end === undefined) {
+    throw new Error(`Subscription ${id} has no items to read a period from`);
+  }
 
   await createStripeSubscription({
     customerId: customer as string,
