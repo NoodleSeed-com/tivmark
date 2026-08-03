@@ -5,6 +5,7 @@ import {
   formatDateOnly,
   halfDaysToDays,
   parseDateOnly,
+  serializeTimeOffRequest,
 } from '@/lib/timeOff';
 
 describe('time-off date and allowance rules', () => {
@@ -66,5 +67,49 @@ describe('time-off date and allowance rules', () => {
     expect(formatDateOnly(new Date('2026-07-10T23:30:00.000Z'))).toBe(
       '2026-07-10'
     );
+  });
+
+  it('serializes mutation records with the same date-only contract as list records', () => {
+    expect(
+      serializeTimeOffRequest({
+        id: 'leave-1',
+        type: 'UNPAID',
+        status: 'PENDING',
+        startDate: new Date('2026-08-07T00:00:00.000Z'),
+        endDate: new Date('2026-08-07T00:00:00.000Z'),
+        duration: 'FULL_DAY',
+        halfDayPeriod: null,
+        requestedHalfDays: 2,
+        reason: null,
+        reviewNote: null,
+        reviewedAt: null,
+        createdAt: new Date('2026-08-03T18:00:00.000Z'),
+        requester: {
+          id: 'user-1',
+          name: 'Ada',
+          email: 'ada@example.com',
+        },
+        reviewer: null,
+      })
+    ).toEqual({
+      id: 'leave-1',
+      type: 'UNPAID',
+      status: 'PENDING',
+      startDate: '2026-08-07',
+      endDate: '2026-08-07',
+      duration: 'FULL_DAY',
+      halfDayPeriod: null,
+      requestedHalfDays: 2,
+      reason: null,
+      reviewNote: null,
+      reviewedAt: null,
+      createdAt: '2026-08-03T18:00:00.000Z',
+      requester: {
+        id: 'user-1',
+        name: 'Ada',
+        email: 'ada@example.com',
+      },
+      reviewer: null,
+    });
   });
 });

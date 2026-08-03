@@ -12,8 +12,8 @@ import { prisma } from '@/lib/prisma';
 import {
   calculateRequestedHalfDays,
   DEFAULT_TIME_OFF_ALLOWANCES,
-  formatDateOnly,
   getYearBounds,
+  serializeTimeOffRequest,
   TIME_OFF_TYPES,
 } from '@/lib/timeOff';
 import type {
@@ -28,6 +28,11 @@ type MemberWithIdentity = TeamMember & {
   team: { id: string; slug: string; name: string };
   user: { id: string; name?: string | null; email?: string | null };
 };
+
+const timeOffRequestPeople = {
+  requester: { select: { id: true, name: true, email: true } },
+  reviewer: { select: { id: true, name: true, email: true } },
+} as const;
 
 export interface TimeOffRequestInput {
   type: TimeOffTypeValue;
@@ -120,7 +125,7 @@ export const createTimeOffRequest = async (
     endDate: normalized.endDate,
   });
 
-  return prisma.timeOffRequest.create({
+  const request = await prisma.timeOffRequest.create({
     data: {
       teamId: member.teamId,
       requesterId: member.userId,
@@ -128,7 +133,9 @@ export const createTimeOffRequest = async (
       reason: input.reason?.trim() || null,
       ...normalized,
     },
+    include: timeOffRequestPeople,
   });
+  return serializeTimeOffRequest(request);
 };
 
 export const updateTimeOffRequest = async (
@@ -164,14 +171,16 @@ export const updateTimeOffRequest = async (
     excludeId: request.id,
   });
 
-  return prisma.timeOffRequest.update({
+  const updated = await prisma.timeOffRequest.update({
     where: { id: request.id },
     data: {
       type: input.type as TimeOffType,
       reason: input.reason?.trim() || null,
       ...normalized,
     },
+    include: timeOffRequestPeople,
   });
+  return serializeTimeOffRequest(updated);
 };
 
 export const cancelTimeOffRequest = async (
@@ -202,10 +211,12 @@ export const cancelTimeOffRequest = async (
     throw new ApiError(409, 'Past approved time off cannot be canceled.');
   }
 
-  return prisma.timeOffRequest.update({
+  const canceled = await prisma.timeOffRequest.update({
     where: { id: request.id },
     data: { status: TimeOffStatus.CANCELED },
+    include: timeOffRequestPeople,
   });
+  return serializeTimeOffRequest(canceled);
 };
 
 export const reviewTimeOffRequest = async (
@@ -227,7 +238,7 @@ export const reviewTimeOffRequest = async (
     throw new ApiError(409, 'Only pending requests can be reviewed.');
   }
 
-  return prisma.timeOffRequest.update({
+  const reviewed = await prisma.timeOffRequest.update({
     where: { id: request.id },
     data: {
       status: decision as TimeOffStatus,
@@ -235,7 +246,9 @@ export const reviewTimeOffRequest = async (
       reviewedAt: new Date(),
       reviewNote: reviewNote?.trim() || null,
     },
+    include: timeOffRequestPeople,
   });
+  return serializeTimeOffRequest(reviewed);
 };
 
 export const updateTimeOffPolicies = async (
@@ -291,10 +304,7 @@ export const getTimeOffWorkspace = async (
         requesterId: canApprove ? undefined : member.userId,
         startDate: { gte: start, lt: end },
       },
-      include: {
-        requester: { select: { id: true, name: true, email: true } },
-        reviewer: { select: { id: true, name: true, email: true } },
-      },
+      include: timeOffRequestPeople,
       orderBy: [{ startDate: 'desc' }, { createdAt: 'desc' }],
     }),
     prisma.teamMember.findMany({
@@ -346,21 +356,6 @@ export const getTimeOffWorkspace = async (
       role: teamMember.role,
     })),
     balances,
-    requests: requests.map((request) => ({
-      id: request.id,
-      type: request.type,
-      status: request.status,
-      startDate: formatDateOnly(request.startDate),
-      endDate: formatDateOnly(request.endDate),
-      duration: request.duration,
-      halfDayPeriod: request.halfDayPeriod,
-      requestedHalfDays: request.requestedHalfDays,
-      reason: request.reason,
-      reviewNote: request.reviewNote,
-      reviewedAt: request.reviewedAt?.toISOString() || null,
-      createdAt: request.createdAt.toISOString(),
-      requester: request.requester,
-      reviewer: request.reviewer,
-    })),
+    requests: requests.map(serializeTimeOffRequest),
   };
 };
