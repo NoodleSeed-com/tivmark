@@ -1,27 +1,99 @@
 version: 2
+
+# Routine updates arrive as a single grouped pull request per ecosystem per week
+# and merge themselves once pr-gate passes, via
+# .github/workflows/dependabot-auto-merge.yml. Majors are never grouped and never
+# auto-merged: they land as individual pull requests for a human to look at, so
+# one breaking bump cannot hold up the routine updates behind it.
+#
+# `ignore` entries below are majors blocked by something outside this repository.
+# Each was attempted and reverted rather than assumed, and the reason is recorded
+# so the next person does not repeat the work. Remove an entry once its upstream
+# blocker clears. None of this affects Dependabot security alerts, which are
+# configured separately.
 updates:
   - package-ecosystem: 'npm'
     directory: '/apps/web'
     schedule:
-      interval: 'daily'
-    open-pull-requests-limit: 10
+      interval: 'weekly'
+      day: 'monday'
+    open-pull-requests-limit: 5
     groups:
-      typescript-eslint:
+      web-routine:
         patterns:
-          - '@typescript-eslint/*'
-      react-email:
-        patterns:
-          - '@react-email/*'
-          - 'react-email'
-      next:
-        patterns:
-          - 'next'
-          - 'eslint-config-next'
-      prisma:
-        patterns:
-          - '@prisma/client'
-          - 'prisma'
+          - '*'
+        update-types:
+          - 'minor'
+          - 'patch'
+    ignore:
+      # next-auth@4 declares `peerOptional nodemailer@^7.0.7`. Resolving
+      # apps/web/package-lock.json standalone -- which is what the Docker build
+      # installs from -- fails with ERESOLVE on nodemailer 9. Needs next-auth v5.
+      - dependency-name: 'nodemailer'
+        update-types: ['version-update:semver-major']
+      - dependency-name: '@types/nodemailer'
+        update-types: ['version-update:semver-major']
+
+      # react-i18next v17 types `Trans` as a conditional on
+      # TypeOptions['enableSelector'], which widens to `any` here, so the
+      # conditional yields `TransSelector | TransLegacy` and JSX cannot pick a
+      # call signature (TS2604). next-i18next@15 also pins its own nested
+      # react-i18next@17, so all three move together -- and next-i18next@16
+      # breaks imports across ~20 pages. A migration, not a bump.
+      - dependency-name: 'i18next'
+        update-types: ['version-update:semver-major']
+      - dependency-name: 'react-i18next'
+        update-types: ['version-update:semver-major']
+      - dependency-name: 'next-i18next'
+        update-types: ['version-update:semver-major']
+
+      # Prisma 7 removes `url` from the schema datasource: connection config
+      # moves to prisma.config.ts and PrismaClient requires a driver adapter.
+      # That reworks how the app reaches Postgres, on a repo that deploys and
+      # pushes the prod schema on every merge to main. Needs its own change.
+      - dependency-name: 'prisma'
+        update-types: ['version-update:semver-major']
+      - dependency-name: '@prisma/client'
+        update-types: ['version-update:semver-major']
+
+      # Tailwind 4 requires daisyUI 5. react-daisyui@5.0.5 peers
+      # `daisyui: ^4.12.10` and was last published in September 2024, so moving
+      # to daisyUI 5 means dropping react-daisyui -- which 44 files import.
+      - dependency-name: 'tailwindcss'
+        update-types: ['version-update:semver-major']
+      - dependency-name: 'daisyui'
+        update-types: ['version-update:semver-major']
+      - dependency-name: 'react-daisyui'
+        update-types: ['version-update:semver-major']
+
+      # @boxyhq/react-ui@3.5.3 declares react and react-dom as *dependencies*
+      # capped at ^18 (its peerDependencies do allow ^19), so npm keeps a second
+      # React 18 copy in the tree and prerendering dies on "Cannot read
+      # properties of null (reading 'useRef')". npm overrides do not collapse it.
+      # Next 16 additionally rewrites tsconfig to moduleResolution "bundler",
+      # which breaks several deep imports, and eslint-config-next 16 enables
+      # React Compiler rules that flag 10 existing spots. React 19 and Next 16
+      # have to land together, deliberately.
+      - dependency-name: 'react'
+        update-types: ['version-update:semver-major']
+      - dependency-name: 'react-dom'
+        update-types: ['version-update:semver-major']
+      - dependency-name: '@types/react'
+        update-types: ['version-update:semver-major']
+      - dependency-name: '@types/react-dom'
+        update-types: ['version-update:semver-major']
+      - dependency-name: 'next'
+        update-types: ['version-update:semver-major']
+      - dependency-name: 'eslint-config-next'
+        update-types: ['version-update:semver-major']
+
   - package-ecosystem: 'github-actions'
     directory: '/'
     schedule:
       interval: 'weekly'
+      day: 'monday'
+    open-pull-requests-limit: 5
+    groups:
+      github-actions:
+        patterns:
+          - '*'
