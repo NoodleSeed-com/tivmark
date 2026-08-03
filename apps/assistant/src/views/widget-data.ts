@@ -1,3 +1,9 @@
+import {
+  balanceItemSchema,
+  equipmentRequestSchema,
+  timeOffRequestSchema,
+} from './widget-contracts.js';
+
 export type ToolResultStatus = {
   readonly pending?: boolean;
   readonly error?: boolean;
@@ -127,21 +133,24 @@ const statusState = <T>(
 };
 
 const parseBalance = (value: unknown): Omit<BalanceItem, 'type' | 'label'> | undefined => {
-  if (!isRecord(value)) return undefined;
+  const parsed = balanceItemSchema.safeParse(value);
+  if (!parsed.success) return undefined;
+  const balance = parsed.data;
   if (
-    !isNumberOrNull(value.allowanceHalfDays) ||
-    !isFiniteNumber(value.approvedHalfDays) ||
-    !isFiniteNumber(value.pendingHalfDays) ||
-    !isNumberOrNull(value.remainingHalfDays) ||
-    (value.allowanceHalfDays === null) !== (value.remainingHalfDays === null)
+    !isNumberOrNull(balance.allowanceHalfDays) ||
+    !isFiniteNumber(balance.approvedHalfDays) ||
+    !isFiniteNumber(balance.pendingHalfDays) ||
+    !isNumberOrNull(balance.remainingHalfDays) ||
+    (balance.allowanceHalfDays === null) !==
+      (balance.remainingHalfDays === null)
   ) {
     return undefined;
   }
   return {
-    allowanceHalfDays: value.allowanceHalfDays,
-    approvedHalfDays: value.approvedHalfDays,
-    pendingHalfDays: value.pendingHalfDays,
-    remainingHalfDays: value.remainingHalfDays,
+    allowanceHalfDays: balance.allowanceHalfDays,
+    approvedHalfDays: balance.approvedHalfDays,
+    pendingHalfDays: balance.pendingHalfDays,
+    remainingHalfDays: balance.remainingHalfDays,
   };
 };
 
@@ -205,44 +214,32 @@ const requesterName = (value: unknown) => {
 };
 
 const parseTimeOffRequest = (value: unknown): TimeOffRequestItem | undefined => {
+  const parsed = timeOffRequestSchema.safeParse(value);
   if (
-    !isRecord(value) ||
-    typeof value.id !== 'string' ||
-    typeof value.type !== 'string' ||
-    typeof value.status !== 'string' ||
-    !isDateOnly(value.startDate) ||
-    !isDateOnly(value.endDate)
+    !parsed.success ||
+    !isDateOnly(parsed.data.startDate) ||
+    !isDateOnly(parsed.data.endDate)
   ) {
     return undefined;
   }
-  if (
-    value.requestedHalfDays !== undefined &&
-    !isFiniteNumber(value.requestedHalfDays)
-  ) {
-    return undefined;
-  }
-  if (
-    value.reason !== undefined &&
-    value.reason !== null &&
-    typeof value.reason !== 'string'
-  ) {
-    return undefined;
-  }
+  const request = parsed.data;
   return {
-    id: value.id,
-    type: value.type,
+    id: request.id,
+    type: request.type,
     typeLabel:
-      TIME_OFF_LABELS[value.type as TimeOffType] ?? statusLabel(value.type),
-    status: value.status,
-    statusLabel: statusLabel(value.status),
-    startDate: value.startDate,
-    endDate: value.endDate,
-    ...(value.requestedHalfDays !== undefined
-      ? { requestedHalfDays: value.requestedHalfDays }
+      TIME_OFF_LABELS[request.type as TimeOffType] ?? statusLabel(request.type),
+    status: request.status,
+    statusLabel: statusLabel(request.status),
+    startDate: request.startDate,
+    endDate: request.endDate,
+    ...(request.requestedHalfDays !== undefined
+      ? { requestedHalfDays: request.requestedHalfDays }
       : {}),
-    ...(optionalString(value.reason) ? { reason: optionalString(value.reason) } : {}),
-    ...(requesterName(value.requester)
-      ? { requesterName: requesterName(value.requester) }
+    ...(optionalString(request.reason)
+      ? { reason: optionalString(request.reason) }
+      : {}),
+    ...(requesterName(request.requester)
+      ? { requesterName: requesterName(request.requester) }
       : {}),
   };
 };
@@ -250,38 +247,23 @@ const parseTimeOffRequest = (value: unknown): TimeOffRequestItem | undefined => 
 const parseEquipmentRequest = (
   value: unknown
 ): EquipmentRequestItem | undefined => {
-  if (
-    !isRecord(value) ||
-    typeof value.id !== 'string' ||
-    typeof value.category !== 'string' ||
-    typeof value.item !== 'string' ||
-    !Number.isInteger(value.quantity) ||
-    (value.quantity as number) < 1 ||
-    typeof value.status !== 'string'
-  ) {
-    return undefined;
-  }
-  if (
-    value.justification !== undefined &&
-    value.justification !== null &&
-    typeof value.justification !== 'string'
-  ) {
-    return undefined;
-  }
+  const parsed = equipmentRequestSchema.safeParse(value);
+  if (!parsed.success) return undefined;
+  const request = parsed.data;
   return {
-    id: value.id,
-    category: value.category,
+    id: request.id,
+    category: request.category,
     categoryLabel:
-      EQUIPMENT_LABELS[value.category] ?? statusLabel(value.category),
-    item: value.item,
-    quantity: value.quantity as number,
-    status: value.status,
-    statusLabel: statusLabel(value.status),
-    ...(optionalString(value.justification)
-      ? { justification: optionalString(value.justification) }
+      EQUIPMENT_LABELS[request.category] ?? statusLabel(request.category),
+    item: request.item,
+    quantity: request.quantity,
+    status: request.status,
+    statusLabel: statusLabel(request.status),
+    ...(optionalString(request.justification)
+      ? { justification: optionalString(request.justification) }
       : {}),
-    ...(requesterName(value.requester)
-      ? { requesterName: requesterName(value.requester) }
+    ...(requesterName(request.requester)
+      ? { requesterName: requesterName(request.requester) }
       : {}),
   };
 };

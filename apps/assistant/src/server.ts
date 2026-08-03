@@ -31,6 +31,63 @@ const equipmentCategory = z.enum([
 ]);
 const decision = z.enum(['APPROVED', 'DECLINED']);
 
+// Noodle compiles server.ts independently from widget entry modules. Keep these server-side output
+// contracts self-contained; the manifest contract-coverage test verifies that they remain compatible
+// with the widget-side parsers in views/widget-contracts.ts.
+const widgetDateOnly = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+const widgetNonEmptyString = z.string().min(1);
+const widgetRequester = z
+  .object({
+    id: z.string(),
+    name: z.string().nullable().optional(),
+    email: z.string().nullable().optional(),
+  })
+  .passthrough();
+const timeOffRequestSchema = z
+  .object({
+    id: z.string(),
+    type: widgetNonEmptyString,
+    status: widgetNonEmptyString,
+    startDate: widgetDateOnly,
+    endDate: widgetDateOnly,
+    requestedHalfDays: z.number().int().nonnegative().optional(),
+    reason: z.string().nullable().optional(),
+    requester: widgetRequester.optional(),
+  })
+  .passthrough();
+const equipmentRequestSchema = z
+  .object({
+    id: z.string(),
+    category: widgetNonEmptyString,
+    item: widgetNonEmptyString,
+    quantity: z.number().int().min(1).max(20),
+    status: widgetNonEmptyString,
+    justification: z.string().nullable().optional(),
+    requester: widgetRequester.optional(),
+  })
+  .passthrough();
+const widgetBalance = z
+  .object({
+    allowanceHalfDays: z.number().nonnegative().nullable(),
+    approvedHalfDays: z.number().nonnegative(),
+    pendingHalfDays: z.number().nonnegative(),
+    remainingHalfDays: z.number().nullable(),
+  })
+  .passthrough();
+const timeOffRequestsOutputSchema = z.object({
+  team: z.string(),
+  requests: z.array(timeOffRequestSchema),
+});
+const equipmentRequestsOutputSchema = z.object({
+  team: z.string(),
+  requests: z.array(equipmentRequestSchema),
+});
+const timeOffBalanceOutputSchema = z.object({
+  team: z.string(),
+  userId: z.string(),
+  balances: z.record(z.record(widgetBalance)),
+});
+
 // Connector output validation is strict, and real Tivmark objects (teams, requests, balances) carry
 // more fields than we render, so bind whole objects/arrays as `z.unknown()` and let tools/widgets read
 // the fields they need.
@@ -369,11 +426,7 @@ export default server(
         "Show the signed-in user's time-off balances (vacation, sick, personal, unpaid) for a team.",
       annotations: readOnly,
       input: z.object({ team: z.string() }),
-      output: z.object({
-        team: z.string(),
-        userId: z.string(),
-        balances: z.record(z.record(z.unknown())),
-      }),
+      output: timeOffBalanceOutputSchema,
       fulfil: ({ input, user, connectors }) => {
         const res = connectors.tiv.get_balances({ team: input.team });
         return { team: input.team, userId: user.subject, balances: res.balances };
@@ -391,7 +444,7 @@ export default server(
         "List the signed-in user's own time-off requests and their status for a team.",
       annotations: readOnly,
       input: z.object({ team: z.string() }),
-      output: z.object({ team: z.string(), requests: z.array(z.unknown()) }),
+      output: timeOffRequestsOutputSchema,
       fulfil: ({ input, user, connectors }) => {
         const res = connectors.tiv.list_time_off({
           team: input.team,
@@ -426,11 +479,9 @@ export default server(
       // Return the refreshed request list so the shared time-off-requests widget renders the just-created
       // request as the confirmed result (the widget reads the invoking tool's own output via no-arg
       // useToolInfo()).
-      output: z.object({
-        team: z.string(),
+      output: timeOffRequestsOutputSchema.extend({
         status: z.string(),
-        request: z.unknown(),
-        requests: z.array(z.unknown()),
+        request: timeOffRequestSchema,
       }),
       // A confirmable flow may contain at most one connector op, so render the just-created request
       // itself (not a re-fetched list) as the result widget's single row.
@@ -514,7 +565,7 @@ export default server(
         "List the signed-in user's own equipment requests and their status for a team.",
       annotations: readOnly,
       input: z.object({ team: z.string() }),
-      output: z.object({ team: z.string(), requests: z.array(z.unknown()) }),
+      output: equipmentRequestsOutputSchema,
       fulfil: ({ input, user, connectors }) => {
         const res = connectors.tiv.list_equipment({
           team: input.team,
@@ -545,11 +596,9 @@ export default server(
       // Return the refreshed request list so the shared equipment-requests widget renders the just-created
       // request as the confirmed result (the widget reads the invoking tool's own output via no-arg
       // useToolInfo()).
-      output: z.object({
-        team: z.string(),
+      output: equipmentRequestsOutputSchema.extend({
         status: z.string(),
-        request: z.unknown(),
-        requests: z.array(z.unknown()),
+        request: equipmentRequestSchema,
       }),
       // A confirmable flow may contain at most one connector op, so render the just-created request
       // itself (not a re-fetched list) as the result widget's single row.
@@ -635,7 +684,7 @@ export default server(
         'ADMIN reviewer — Tivmark returns only the caller-visible requests.',
       annotations: readOnly,
       input: z.object({ team: z.string() }),
-      output: z.object({ team: z.string(), requests: z.array(z.unknown()) }),
+      output: timeOffRequestsOutputSchema,
       fulfil: ({ input, connectors }) => {
         const res = connectors.tiv.list_time_off({
           team: input.team,

@@ -22,6 +22,7 @@
     "react": "latest",
     "react-dom": "latest",
     "vite": "latest",
-    "vitest": "latest"
+    "vitest": "latest",
+    "zod": "^4.4.3"
   }
 }
