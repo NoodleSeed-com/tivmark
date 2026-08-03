@@ -1,4 +1,8 @@
-import type { TimeOffDurationValue, TimeOffTypeValue } from 'types/time-off';
+import type {
+  TimeOffDurationValue,
+  TimeOffRequestData,
+  TimeOffTypeValue,
+} from 'types/time-off';
 
 export const TIME_OFF_TYPES: TimeOffTypeValue[] = [
   'VACATION',
@@ -38,6 +42,38 @@ export const parseDateOnly = (value: string) => {
 
 export const formatDateOnly = (date: Date | string) =>
   new Date(date).toISOString().slice(0, 10);
+
+type TimeOffRequestRecord = Omit<
+  TimeOffRequestData,
+  'startDate' | 'endDate' | 'reviewedAt' | 'createdAt'
+> & {
+  startDate: Date | string;
+  endDate: Date | string;
+  reviewedAt: Date | string | null;
+  createdAt: Date | string;
+};
+
+export const serializeTimeOffRequest = (
+  request: TimeOffRequestRecord
+): TimeOffRequestData => ({
+  id: request.id,
+  type: request.type,
+  status: request.status,
+  startDate: formatDateOnly(request.startDate),
+  endDate: formatDateOnly(request.endDate),
+  duration: request.duration,
+  halfDayPeriod: request.halfDayPeriod,
+  requestedHalfDays: request.requestedHalfDays,
+  reason: request.reason,
+  reviewNote: request.reviewNote,
+  reviewedAt:
+    request.reviewedAt === null
+      ? null
+      : new Date(request.reviewedAt).toISOString(),
+  createdAt: new Date(request.createdAt).toISOString(),
+  requester: request.requester,
+  reviewer: request.reviewer,
+});
 
 export const countWeekdays = (startDate: string, endDate: string) => {
   const start = parseDateOnly(startDate);

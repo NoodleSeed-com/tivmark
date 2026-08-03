@@ -126,6 +126,23 @@ describe('balance result normalization', () => {
     });
   });
 
+  it('rejects negative balance counters', () => {
+    expect(
+      normalizeBalanceResult({
+        team: 'acme',
+        userId: 'user-1',
+        balances: {
+          'user-1': {
+            VACATION: { ...limitedBalance, pendingHalfDays: -1 },
+          },
+        },
+      })
+    ).toEqual({
+      kind: 'error',
+      message: 'The balance result was incomplete.',
+    });
+  });
+
   it('distinguishes loading, host error, missing result, and no policies', () => {
     expect(normalizeBalanceResult(undefined, { pending: true })).toEqual({
       kind: 'loading',
@@ -265,6 +282,47 @@ describe('request result normalization', () => {
       data: {
         requests: [{ id: 'leave-1' }],
       },
+    });
+  });
+
+  it('rejects negative requested time that cannot be displayed truthfully', () => {
+    expect(
+      normalizeTimeOffRequests({
+        team: 'acme',
+        requests: [
+          {
+            id: 'leave-1',
+            type: 'UNPAID',
+            status: 'PENDING',
+            startDate: '2026-08-07',
+            endDate: '2026-08-07',
+            requestedHalfDays: -2,
+          },
+        ],
+      })
+    ).toEqual({
+      kind: 'error',
+      message: 'The time-off request result was incomplete.',
+    });
+  });
+
+  it('rejects blank equipment fields consumed as row labels', () => {
+    expect(
+      normalizeEquipmentRequests({
+        team: 'acme',
+        requests: [
+          {
+            id: 'equipment-1',
+            category: 'LAPTOP',
+            item: '',
+            quantity: 1,
+            status: 'PENDING',
+          },
+        ],
+      })
+    ).toEqual({
+      kind: 'error',
+      message: 'The equipment request result was incomplete.',
     });
   });
 
