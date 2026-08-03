@@ -7,6 +7,7 @@ assistant=false
 while IFS= read -r -d '' path; do
   case "$path" in
     apps/web/* | package.json | package-lock.json | \
+      scripts/sync-web-lockfile.sh | \
       .github/workflows/web-ci.yml)
       web=true
       ;;

@@ -11,6 +11,7 @@ on:
       - release
     paths:
       - 'apps/web/**'
+      - 'scripts/sync-web-lockfile.sh'
       - '.github/workflows/web-ci.yml'
 
 defaults:
@@ -82,6 +83,12 @@ jobs:
           cache: 'npm'
           cache-dependency-path: apps/web/package-lock.json
           check-latest: true
+      # `npm install` below only ever writes the workspace-root lockfile, but the
+      # Docker build context is apps/web alone and its `npm ci` reads the
+      # standalone one. Catch the drift here rather than at deploy time.
+      - name: Verify apps/web standalone lockfile
+        working-directory: ${{ github.workspace }}
+        run: ./scripts/sync-web-lockfile.sh --check
       - run: npm install
       - run: npm run check-lint
       - run: npm run check-format
