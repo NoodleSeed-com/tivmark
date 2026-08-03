@@ -1,0 +1,39 @@
+# Queues Dependabot's routine updates for merge so they stop accumulating as
+# open branches. Auto-merge waits for the required pr-gate check, so this grants
+# no more trust than the branch protection already enforces -- it only removes
+# the manual click.
+#
+# Dependabot-triggered runs get a read-only GITHUB_TOKEN on `pull_request`, so
+# enabling auto-merge needs `pull_request_target`. Nothing here checks out or
+# executes pull request code: the job reads Dependabot's own metadata and asks
+# GitHub to queue the merge, so the elevated token never reaches PR content.
+name: dependabot-auto-merge
+
+on:
+  pull_request_target:
+    branches:
+      - main
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  auto-merge:
+    if: github.event.pull_request.user.login == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetch Dependabot metadata
+        id: metadata
+        uses: dependabot/fetch-metadata@v2
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      # Majors are left for a human. Everything else merges itself once pr-gate
+      # is green. Merge commits only, per AGENTS.md.
+      - name: Enable auto-merge
+        if: steps.metadata.outputs.update-type != 'version-update:semver-major'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: gh pr merge --auto --merge "$PR_URL"
