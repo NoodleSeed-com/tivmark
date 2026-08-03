@@ -130,4 +130,3 @@ Required local validation:
 - assistant smoke validation through `noodle test --json`;
 - relevant web type, lint, and OpenAPI checks;
 - all applicable GitHub checks before merge.
-
