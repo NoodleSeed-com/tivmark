@@ -26,6 +26,8 @@ assert_classification $'web=true\nassistant=false' \
   'apps/web/components/$(not-executed).tsx'
 assert_classification $'web=true\nassistant=false' \
   'package-lock.json'
+assert_classification $'web=true\nassistant=false' \
+  'scripts/sync-web-lockfile.sh'
 assert_classification $'web=false\nassistant=true' \
   'apps/assistant/src/server.ts'
 assert_classification $'web=true\nassistant=true' \
