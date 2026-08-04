@@ -83,12 +83,21 @@ jobs:
           cache: 'npm'
           cache-dependency-path: apps/web/package-lock.json
           check-latest: true
-      # `npm install` below only ever writes the workspace-root lockfile, but the
-      # Docker build context is apps/web alone and its `npm ci` reads the
-      # standalone one. Catch the drift here rather than at deploy time.
+      # apps/web has two lockfiles and a dependency change can desync either one.
+      #
+      # The standalone apps/web/package-lock.json is what `npm ci` reads in the
+      # Docker build, whose context is apps/web alone. `npm install` never writes
+      # it, so a human bumping a dependency leaves it behind.
       - name: Verify apps/web standalone lockfile
         working-directory: ${{ github.workspace }}
         run: ./scripts/sync-web-lockfile.sh --check
+      # The workspace-root lockfile is what `npm ci` resolves to from apps/web,
+      # which is what deploy-web.yml runs. Dependabot writes only the standalone
+      # one, so it desyncs the root in the opposite direction. `npm install`
+      # below would silently paper over that and the failure would land on the
+      # deploy instead, so assert the deploy's exact command first.
+      - name: Verify workspace-root lockfile
+        run: npm ci --dry-run
       - run: npm install
       - run: npm run check-lint
       - run: npm run check-format
