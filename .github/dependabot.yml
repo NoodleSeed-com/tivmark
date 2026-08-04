@@ -1,10 +1,14 @@
 version: 2
 
-# Routine updates arrive as a single grouped pull request per ecosystem per week
-# and merge themselves once pr-gate passes, via
-# .github/workflows/dependabot-auto-merge.yml. Majors are never grouped and never
-# auto-merged: they land as individual pull requests for a human to look at, so
-# one breaking bump cannot hold up the routine updates behind it.
+# Two grouped pull requests per ecosystem per week, never more:
+#
+#   web-routine  minor + patch. Auto-merged once pr-gate passes, via
+#                .github/workflows/dependabot-auto-merge.yml.
+#   web-majors   majors. Grouped too, but never auto-merged -- a human looks at
+#                it. Grouping majors matters beyond branch count: packages that
+#                have to move together (zod and @asteasolutions/zod-to-openapi,
+#                whose peer ranges are mutually exclusive across the boundary)
+#                each fail to resolve alone and only succeed in one PR.
 #
 # `ignore` entries below are majors blocked by something outside this repository.
 # Each was attempted and reverted rather than assumed, and the reason is recorded
@@ -25,6 +29,11 @@ updates:
         update-types:
           - 'minor'
           - 'patch'
+      web-majors:
+        patterns:
+          - '*'
+        update-types:
+          - 'major'
     ignore:
       # next-auth@4 declares `peerOptional nodemailer@^7.0.7`. Resolving
       # apps/web/package-lock.json standalone -- which is what the Docker build
@@ -85,6 +94,11 @@ updates:
       - dependency-name: 'next'
         update-types: ['version-update:semver-major']
       - dependency-name: 'eslint-config-next'
+        update-types: ['version-update:semver-major']
+
+      # Downstream of the same blocker: eslint-config-next@15 peers
+      # `eslint ^7 || ^8 || ^9`, so eslint 10 cannot resolve until Next 16 lands.
+      - dependency-name: 'eslint'
         update-types: ['version-update:semver-major']
 
   - package-ecosystem: 'github-actions'
