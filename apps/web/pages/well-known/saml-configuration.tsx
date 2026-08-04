@@ -1,12 +1,25 @@
 import type { InferGetStaticPropsType } from 'next';
 import Link from 'next/link';
 import React, { ReactElement, useEffect } from 'react';
-import { useTranslation, Trans } from 'next-i18next';
+import { useTranslation, Trans as TransBase } from 'next-i18next';
 import jackson from '@/lib/jackson';
 import InputWithCopyButton from '@/components/shared/InputWithCopyButton';
 import { serverSideTranslations } from 'next-i18next/serverSideTranslations';
 import type { NextPageWithLayout } from 'types';
 import env from '@/lib/env';
+
+// react-i18next 15.7 types `Trans` as a conditional on
+// TypeOptions['enableSelector']. That conditional collapses under `tsc` here but
+// not under the type-check pass inside `next build`, which then sees a union of
+// two call signatures and cannot pick one for JSX (TS2604). Declaring the props
+// this page actually passes keeps them checked while sidestepping the
+// unresolved overload set. Remove once the i18n cluster migration lands.
+type TransProps = {
+  i18nKey: string;
+  t: ReturnType<typeof useTranslation>['t'];
+  components: Record<string, ReactElement>;
+};
+const Trans = TransBase as unknown as React.ComponentType<TransProps>;
 
 const SPConfig: NextPageWithLayout<
   InferGetStaticPropsType<typeof getServerSideProps>
