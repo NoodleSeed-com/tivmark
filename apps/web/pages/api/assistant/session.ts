@@ -9,7 +9,7 @@ import { getSession } from '@/lib/session';
 // The browser widget (components/shared/shell/AssistantWidget.tsx) calls this endpoint. We verify the
 // logged-in NextAuth session, then mint a short-lived assistant session bound to the request origin
 // using the deployment-bound client credentials. The clientSecret never leaves the server. The
-// verified name is forwarded as a session claim so the assistant can greet the real user.
+// verified identity remains available for authentication and delegated downstream authorization.
 
 // Validate a browser-supplied locale / IANA time zone, dropping anything invalid so a bad cookie can
 // never break session creation (the assistant then falls back to server defaults).
@@ -96,10 +96,6 @@ export default async function handler(
         email: session.user.email ?? undefined,
         name: session.user.name ?? undefined,
       },
-      // Declared in the MCP app's embeddedAssistant.sessionClaims; undeclared claims are dropped.
-      claims: session.user.name
-        ? { displayName: session.user.name }
-        : undefined,
       ...(preferences ? { preferences } : {}),
     });
 
