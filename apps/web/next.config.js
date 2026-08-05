@@ -16,6 +16,20 @@ const nextConfig = {
   reactStrictMode: true,
   output: 'standalone',
   outputFileTracingRoot,
+  // @sentry/nextjs pulls in @apm-js-collab/code-transformer, which does `require('meriyah')` in the
+  // server runtime. meriyah's exports map lists "module-sync" (./dist/meriyah.mjs) BEFORE "require"
+  // (./dist/meriyah.cjs), so Node 24 resolves require() to the .mjs — but nft traces the "require"
+  // condition and copies only the .cjs. The .mjs never reaches .next/standalone and every request
+  // 500s with MODULE_NOT_FOUND. code-transformer ships a `vercel.nft.include` hint for exactly this,
+  // but its glob is relative to its own package dir and npm hoists meriyah to the install root, so
+  // it matches nothing. Both globs below are listed because the install root differs: the Docker
+  // build context is apps/web alone (node_modules/), the monorepo hoists to the root (../../).
+  outputFileTracingIncludes: {
+    '**/*': [
+      'node_modules/meriyah/dist/**/*',
+      '../../node_modules/meriyah/dist/**/*',
+    ],
+  },
   images: {
     remotePatterns: [
       {
