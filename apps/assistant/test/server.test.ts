@@ -8,11 +8,14 @@ describe('tivmark_assistant', () => {
 
   it('exposes only the operational people-ops tool surface', async () => {
     const manifest = await app.toManifest();
-    const toolNames = manifest.tools
-      .map((tool: { name: string }) => tool.name)
-      .sort();
+    const modelVisibleTools = manifest.tools.filter(
+      (tool: { visibility?: string[] }) =>
+        !tool.visibility || tool.visibility.includes('model'),
+    );
 
-    expect(toolNames).toEqual(
+    expect(
+      modelVisibleTools.map((tool: { name: string }) => tool.name).sort(),
+    ).toEqual(
       [
         // identity / teams
         'my_teams',
@@ -30,12 +33,17 @@ describe('tivmark_assistant', () => {
         // admin review (OWNER/ADMIN)
         'team_time_off_queue',
         'team_equipment_queue',
-        'review_time_off_app',
         'review_time_off',
         'review_equipment',
         'fulfill_equipment',
       ].sort(),
     );
+
+    const appOnlyReviewTool = manifest.tools.find(
+      (tool: { name: string }) => tool.name === 'review_time_off_app',
+    ) as { visibility?: string[] };
+    expect(appOnlyReviewTool.visibility).toEqual(['app']);
+    expect(manifest.tools).toHaveLength(modelVisibleTools.length + 1);
   });
 
   it('publishes business-facing titles for every tool', async () => {
