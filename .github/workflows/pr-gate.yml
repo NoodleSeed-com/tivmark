@@ -15,6 +15,7 @@ jobs:
     outputs:
       web: ${{ steps.classify.outputs.web }}
       assistant: ${{ steps.classify.outputs.assistant }}
+      marketing: ${{ steps.classify.outputs.marketing }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -39,6 +40,11 @@ jobs:
     if: needs.changes.outputs.assistant == 'true'
     uses: ./.github/workflows/assistant-ci.yml
 
+  marketing:
+    needs: changes
+    if: needs.changes.outputs.marketing == 'true'
+    uses: ./.github/workflows/marketing-ci.yml
+
   gate:
     name: pr-gate
     if: ${{ always() }}
@@ -46,6 +52,7 @@ jobs:
       - changes
       - web
       - assistant
+      - marketing
     runs-on: ubuntu-latest
     steps:
       - name: Require every applicable suite
@@ -53,13 +60,14 @@ jobs:
           CHANGES_RESULT: ${{ needs.changes.result }}
           WEB_RESULT: ${{ needs.web.result }}
           ASSISTANT_RESULT: ${{ needs.assistant.result }}
+          MARKETING_RESULT: ${{ needs.marketing.result }}
         run: |
           if [[ "$CHANGES_RESULT" != "success" ]]; then
             echo "Path detection did not succeed: $CHANGES_RESULT" >&2
             exit 1
           fi
 
-          for result in "$WEB_RESULT" "$ASSISTANT_RESULT"; do
+          for result in "$WEB_RESULT" "$ASSISTANT_RESULT" "$MARKETING_RESULT"; do
             case "$result" in
               success | skipped) ;;
               *)

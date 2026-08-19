@@ -19,10 +19,8 @@
         } catch (_) {}
       })();
     </script>
-    <meta
-      http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self' 'unsafe-inline' https://app.noodleseed.com; style-src 'self' 'unsafe-inline' https://app.noodleseed.com https://fonts.googleapis.com; font-src 'self' data: https://app.noodleseed.com https://fonts.gstatic.com; img-src 'self' data: https:; frame-src https://app.noodleseed.com https://*.mcp.noodleseed.com; child-src https://app.noodleseed.com https://*.mcp.noodleseed.com; worker-src 'self' blob: https://app.noodleseed.com; connect-src 'self' https://app.noodleseed.com https://*.mcp.noodleseed.com https://fonts.googleapis.com https://fonts.gstatic.com; base-uri 'self'; form-action 'self'"
-    />
+    <!-- Content-Security-Policy is served as a response header by nginx.conf. Policies
+         combine restrictively, so a second copy here would silently intersect with it. -->
     <title>Tivmark | Time off & equipment, handled</title>
     <meta
       name="description"
@@ -889,6 +887,11 @@
         loading="lazy"
       />
       &copy; 2026 Tivmark. All rights reserved.
+      <br /><a
+        href="/privacy"
+        style="color: var(--accent); text-decoration: none"
+        >Privacy</a
+      >
       <br /><span style="opacity: 0.7"
         >This is a fictional sample business and website created by
         <a

@@ -47,6 +47,10 @@ const widgetContracts = {
     component: 'equipment-requests',
     itemFields: ['id', 'category', 'item', 'quantity', 'status'],
   },
+  team_equipment_queue: {
+    component: 'review-equipment-queue',
+    itemFields: ['id', 'category', 'item', 'quantity', 'status'],
+  },
   team_time_off_queue: {
     component: 'review-time-off-queue',
     itemFields: ['id', 'type', 'status', 'startDate', 'endDate'],
