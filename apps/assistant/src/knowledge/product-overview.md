@@ -28,8 +28,8 @@ so large that they want a full HRIS rollout. Typically 20–500 people.
 - **One-click approvals.** A reviewer sees the request, the requester, the dates or the
   item, and the remaining balance in one place, and approves or declines without leaving
   the queue.
-- **Enterprise-ready foundations.** SAML single sign-on, SCIM user provisioning, audit
-  logs, API keys, and a REST API are part of the product rather than an upgrade tier.
+- **Enterprise-ready foundations.** SAML single sign-on, SCIM user provisioning, API
+  keys, webhooks, and a REST API are part of the product rather than an upgrade tier.
 - **Agent-accessible.** Tivmark's capabilities are available to AI assistants through the
   Model Context Protocol, so people can ask for a balance or book leave in conversation
   instead of navigating the UI.

@@ -184,6 +184,27 @@ export async function getTeamRoles(userId: string) {
   });
 }
 
+// Team memberships carrying the slug, which is what the assistant's tools take as their
+// `team` argument. `session.user.roles` is only populated on the legacy API-key path, so a
+// browser session has to read this from the database rather than off the session object.
+export async function getTeamMembershipsWithSlug(userId: string) {
+  const memberships = await prisma.teamMember.findMany({
+    where: {
+      userId,
+    },
+    select: {
+      role: true,
+      team: {
+        select: {
+          slug: true,
+        },
+      },
+    },
+  });
+
+  return memberships.map(({ role, team }) => ({ slug: team.slug, role }));
+}
+
 // Check if the user is an admin or owner of the team
 export async function isTeamAdmin(userId: string, teamId: string) {
   const teamMember = await prisma.teamMember.findUniqueOrThrow({
