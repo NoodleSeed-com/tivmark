@@ -122,6 +122,30 @@ describe('public website surface', () => {
     ]);
   });
 
+  it('greets both audiences, because copy is per-assistant not per-surface', async () => {
+    // `labels` and `suggestedPrompts` sit on the assistant, so the marketing site and the
+    // signed-in product show the SAME copy. A prompt that only a signed-in user can act on
+    // is, for a visitor on tivmark.com, a button whose only possible answer is "sign in".
+    const manifest = await app.toManifest();
+    const prompts = manifest.server.assistant?.suggestedPrompts ?? [];
+
+    expect(prompts.length).toBeGreaterThan(0);
+
+    // At least half must be answerable with no account at all -- i.e. from the knowledge
+    // component -- so the public surface opens with something that actually works.
+    const firstPersonPrompt = /\bmy\b|\bI\b|\bme\b/i;
+    const anonymousAnswerable = prompts.filter(
+      (prompt) => !firstPersonPrompt.test(prompt),
+    );
+    expect(
+      anonymousAnswerable.length,
+      `most starter prompts must work without an account; got ${JSON.stringify(prompts)}`,
+    ).toBeGreaterThanOrEqual(Math.ceil(prompts.length / 2));
+
+    // The first prompt is the most prominent one, so it must be the safe one.
+    expect(firstPersonPrompt.test(prompts[0] ?? '')).toBe(false);
+  });
+
   it('discloses a privacy policy to anonymous visitors', async () => {
     const manifest = await app.toManifest();
     // A public assistant collects whatever a stranger types into it. `noodle check` warns
