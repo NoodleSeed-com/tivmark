@@ -98,6 +98,31 @@
         --heading: #1a2744;
       }
 
+      /* The public embed takes no `appearance` prop, but CSS custom properties inherit
+         through the assistant host. Mapping the page's own tokens means the assistant
+         tracks the theme toggle automatically instead of duplicating hex values. */
+      noodle-assistant {
+        --ns-assistant-canvas: var(--canvas);
+        --ns-assistant-text: var(--text);
+        --ns-assistant-muted-text: var(--text-light);
+        --ns-assistant-link: var(--accent);
+        --ns-assistant-focus: var(--accent);
+        --ns-assistant-panel: var(--surface);
+        --ns-assistant-panel-text: var(--text);
+        --ns-assistant-panel-border: var(--border);
+        --ns-assistant-header: var(--surface-muted);
+        --ns-assistant-header-text: var(--heading);
+        --ns-assistant-launcher: var(--navy);
+        --ns-assistant-launcher-text: var(--cream);
+        --ns-assistant-primary-button: var(--navy);
+        --ns-assistant-primary-button-text: var(--cream);
+      }
+      [data-theme="tivmark-dark"] noodle-assistant {
+        --ns-assistant-launcher: var(--accent);
+        --ns-assistant-launcher-text: var(--navy-deep);
+        --ns-assistant-primary-button: var(--accent);
+        --ns-assistant-primary-button-text: var(--navy-deep);
+      }
       [data-theme="tivmark-dark"] {
         --canvas: #0b1222;
         --surface: #111c33;
@@ -902,9 +927,15 @@
       >
     </footer>
 
+    <!-- Mark, Tivmark's assistant, on its public front door.
+         The embed id is not a credential: it is safe in page source and stable across
+         deploys, so a redeploy or rollback swaps the projection under this unchanged page.
+         The loader derives its service origin from its own src, so this snippet works in
+         every environment without a data-service-url.
+         The id is the one `noodle deploy` printed for the v19 public surface. -->
     <script
-      src="https://app.noodleseed.com/widget/loader.js"
-      data-share-code="Z2G688FI"
+      src="https://cloud.noodleseed.dev/v1/assistant/embed.js"
+      data-embed-id="pub_1xtgg5kc470zcficg7iksw7e"
       async
     ></script>
     <script>
@@ -924,6 +955,42 @@
           button.setAttribute("aria-label", `Switch to ${next} mode`);
           button.setAttribute("title", `Switch to ${next} mode`);
         };
+        // The public embed loader never sets `theme`, so without this the assistant would
+        // follow the operating system while the page follows this toggle -- the two can
+        // disagree, and a light panel on the dark page is the visible result. `theme` is an
+        // observed attribute, so setting it repaints in place.
+        const syncAssistantTheme = () => {
+          document
+            .querySelector("noodle-assistant")
+            ?.setAttribute("theme", resolvedTheme());
+        };
+        if (window.customElements) {
+          customElements.whenDefined("noodle-assistant").then(syncAssistantTheme);
+        }
+
+        // Mid-conversation sign-in. The widget raises this when a visitor reaches for
+        // something that needs an account; the ticket names a conversation and nothing more,
+        // and is worthless without Tivmark's own client credentials.
+        //
+        // The handoff has to be a redirect: the widget calls its session endpoint with
+        // credentials: "same-origin", so a session endpoint on app.tivmark.com would send no
+        // cookie from here and always 401. So we hand the ticket over on a short-lived
+        // parent-domain cookie -- never a URL, which would land in access logs, in the
+        // Referer of every subresource, and in browser history -- and let app.tivmark.com
+        // sign the visitor in and spend it there, on the origin the conversation continues on.
+        document.addEventListener("assistant-sign-in-requested", (event) => {
+          const ticket =
+            event.detail && (event.detail.signInTicket || event.detail.continuation);
+          if (!ticket) return;
+          const production =
+            location.hostname === "tivmark.com" ||
+            location.hostname.endsWith(".tivmark.com");
+          if (!production) return;
+          document.cookie =
+            `tiv_assistant_signin=${encodeURIComponent(ticket)}` +
+            "; Path=/; Max-Age=600; SameSite=Lax; Domain=.tivmark.com; Secure";
+          location.href = "https://app.tivmark.com/mark";
+        });
         const applyTheme = (preference, persist = true) => {
           const dark =
             preference === "dark" || (preference === "system" && media.matches);
@@ -938,6 +1005,7 @@
             document.cookie = `tivmark_theme=${preference}; Path=/; Max-Age=31536000; SameSite=Lax${production ? "; Domain=.tivmark.com; Secure" : ""}`;
           }
           updateButton();
+          syncAssistantTheme();
         };
         button.addEventListener("click", () =>
           applyTheme(resolvedTheme() === "light" ? "dark" : "light"),
