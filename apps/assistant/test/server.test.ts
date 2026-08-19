@@ -134,13 +134,46 @@ describe('tivmark_assistant', () => {
     ]);
   });
 
-  it('does not expose conversational personalization', async () => {
+  it('declares the verified session claims it personalizes with', async () => {
+    // This deliberately reverses the guard added in PR #63, which pinned the assistant to
+    // no personalization. It is safe to reverse now because the claims are an explicit
+    // allowlist: the backend cannot introduce a claim the server has not declared here,
+    // and an undeclared claim is dropped at exchange rather than reaching the model.
     const manifest = await app.toManifest();
+    const claims = manifest.server.assistant?.sessionClaims;
 
-    expect(manifest.server.assistant?.sessionClaims).toBeUndefined();
-    expect(manifest.server.instructions).not.toContain(
-      'Address the user by name.',
-    );
+    expect(claims).toBeDefined();
+    expect(claims?.displayName?.exposeToModel).toBe(true);
+    expect(claims?.teamSlugs?.exposeToModel).toBe(true);
+    expect(claims?.reviewerTeamSlugs?.exposeToModel).toBe(true);
+
+    expect(manifest.server.instructions).toContain('Address the user by name');
+  });
+
+  it('keeps session claims on the authenticated surface only', async () => {
+    // A public visitor is an anonymous principal -- there is no verified backend to pass
+    // claims, so a public surface must never carry them.
+    const manifest = await app.toManifest();
+    for (const surface of manifest.server.assistant?.surfaces ?? []) {
+      if (surface.mode === 'authenticated') continue;
+      expect(
+        surface.sessionClaims,
+        `${surface.mode} surface must not declare session claims`,
+      ).toBeUndefined();
+    }
+  });
+
+  it('never treats a claim as authorization', async () => {
+    // Claims decide what Mark offers. Tivmark's API decides what is permitted, and every
+    // tool reaches it through delegated token exchange. If a claim ever appeared in a
+    // tool's compiled fulfilment, that line would have moved.
+    const manifest = await app.toManifest();
+    for (const tool of manifest.tools) {
+      expect(
+        JSON.stringify(tool.fulfilment ?? {}),
+        `${tool.name} reads a session claim in its fulfilment`,
+      ).not.toContain('user.claims');
+    }
   });
 
   it('gates every write behind an end-user confirmation', async () => {

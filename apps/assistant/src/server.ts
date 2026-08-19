@@ -96,6 +96,20 @@ export default server(
         // flat `allowedOrigins` list had before 0.127 replaced it.
         authenticatedWebsite({
           origins: ['http://localhost:4002', 'https://app.tivmark.com'],
+          // What Tivmark's backend may tell the assistant about the signed-in person.
+          // This is the allowlist: a claim the backend passes but does not appear here is
+          // dropped at session exchange rather than rejected, so the two can deploy in
+          // either order without breaking. `exposeToModel` additionally puts the value in
+          // the assistant's identity context so it can use it directly in conversation.
+          //
+          // None of this authorizes anything. Every tool still reaches the Tivmark API
+          // through delegated token exchange, and that API remains the boundary --
+          // `reviewerTeamSlugs` decides what Mark *offers*, never what Tivmark permits.
+          sessionClaims: {
+            displayName: { exposeToModel: true },
+            teamSlugs: { exposeToModel: true },
+            reviewerTeamSlugs: { exposeToModel: true },
+          },
         }),
       ],
       privacyUrl: 'https://tivmark.com/privacy',
@@ -977,7 +991,9 @@ function createInstructions() {
     'there are several, and never invent one. ' +
     'Use book_time_off or order_equipment when every required detail is known; otherwise use the ' +
     'matching guided tool to collect missing details before confirmation. ' +
-    'Only offer team queues, reviews, and fulfillment to an OWNER or ADMIN of the relevant team. ' +
+    'Only offer team queues, reviews, and fulfillment to an OWNER or ADMIN of the relevant team; ' +
+    'reviewerTeamSlugs lists the teams where the signed-in user is one, and it decides what you ' +
+    'offer, never what Tivmark permits. Address the user by name when their name is known. ' +
     // The same assistant also answers on Tivmark's public marketing site, where there is no
     // signed-in person at all. Ambient team context is the tell: it is only available to a
     // signed-in user, so its absence means treat the visitor as anonymous.
