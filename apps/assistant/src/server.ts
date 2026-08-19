@@ -1,5 +1,6 @@
 import {
   annotations,
+  authenticatedWebsite,
   connector,
   customerAuth,
   embeddedAssistant,
@@ -57,7 +58,15 @@ export default server(
         model: variable('ASSISTANT_MODEL'),
         apiKey: secret('ASSISTANT_MODEL_API_KEY'),
       }),
-      allowedOrigins: ['http://localhost:4002', 'https://app.tivmark.com'],
+      // `access` replaced the flat `allowedOrigins` list in @noodleseed/one 0.127: one
+      // assistant projects onto as many surfaces as the product has front doors, and the
+      // surface decides who may open a session. Today Mark has exactly one front door --
+      // the signed-in product -- so this is the same two origins it always allowed.
+      // `capabilities` is omitted deliberately: an authenticated surface with no narrowing
+      // projects the whole server, which is the behaviour this replaces.
+      access: authenticatedWebsite({
+        origins: ['http://localhost:4002', 'https://app.tivmark.com'],
+      }),
       layout: { mode: 'floating', position: 'bottom-right' },
       labels: {
         welcomeHeading: 'How can Mark help?',
