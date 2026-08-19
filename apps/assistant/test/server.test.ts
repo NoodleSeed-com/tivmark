@@ -41,11 +41,16 @@ describe('tivmark_assistant', () => {
       ].sort(),
     );
 
-    const appOnlyReviewTool = manifest.tools.find(
-      (tool: { name: string }) => tool.name === 'review_time_off_app',
-    ) as { visibility?: string[] };
-    expect(appOnlyReviewTool.visibility).toEqual(['app']);
-    expect(manifest.tools).toHaveLength(modelVisibleTools.length + 1);
+    // Each review queue widget drives its decisions through an app-only helper, so the
+    // model never sees a second, unconfirmed way to approve.
+    for (const name of ['review_time_off_app', 'review_equipment_app']) {
+      const appOnlyReviewTool = manifest.tools.find(
+        (tool: { name: string }) => tool.name === name,
+      ) as { visibility?: string[] } | undefined;
+      expect(appOnlyReviewTool, `missing app-only tool ${name}`).toBeDefined();
+      expect(appOnlyReviewTool?.visibility).toEqual(['app']);
+    }
+    expect(manifest.tools).toHaveLength(modelVisibleTools.length + 2);
   });
 
   it('publishes business-facing titles for every tool', async () => {
@@ -72,6 +77,7 @@ describe('tivmark_assistant', () => {
       review_equipment: 'Review equipment request',
       review_time_off: 'Review time-off request',
       review_time_off_app: 'Review time-off request in app',
+      review_equipment_app: 'Review equipment request in app',
       team_equipment_queue: 'Open equipment review queue',
       team_time_off_queue: 'Open time-off review queue',
       time_off_balance: 'Check time-off balance',
