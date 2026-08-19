@@ -4,9 +4,13 @@ import {
   connector,
   customerAuth,
   embeddedAssistant,
+  file,
+  knowledge,
   openAICompatible,
+  publicWebsite,
   secret,
   server,
+  site,
   tool,
   variable,
   z,
@@ -15,6 +19,12 @@ import {
 const contracts = createContracts();
 const tivmark = createTivmarkConnector(contracts);
 const toolConfig = createToolConfig();
+
+// The public half of Mark. Built before server(...) so the website surface can reference
+// the real declarations rather than repeating their names as strings -- a typo becomes a
+// compile error instead of an `assistant_capability_unknown` at validate time.
+const tivmarkHelp = createKnowledge();
+const publicTools = createPublicTools(toolConfig);
 
 // Mark is one portable Noodle Seed app: the same tools power Tivmark's embed
 // and direct MCP connections from ChatGPT, Claude, Gemini, and other hosts.
@@ -34,6 +44,10 @@ export default server(
       },
       radius: 'lg',
       density: 'comfortable',
+    },
+    knowledge: [tivmarkHelp],
+    handoff: {
+      allowedDomains: ['https://tivmark.com', 'https://app.tivmark.com'],
     },
     context: {
       defaults: { locale: 'en-US', timeZone: 'UTC' },
@@ -58,15 +72,33 @@ export default server(
         model: variable('ASSISTANT_MODEL'),
         apiKey: secret('ASSISTANT_MODEL_API_KEY'),
       }),
-      // `access` replaced the flat `allowedOrigins` list in @noodleseed/one 0.127: one
-      // assistant projects onto as many surfaces as the product has front doors, and the
-      // surface decides who may open a session. Today Mark has exactly one front door --
-      // the signed-in product -- so this is the same two origins it always allowed.
-      // `capabilities` is omitted deliberately: an authenticated surface with no narrowing
-      // projects the whole server, which is the behaviour this replaces.
-      access: authenticatedWebsite({
-        origins: ['http://localhost:4002', 'https://app.tivmark.com'],
-      }),
+      // One assistant, two front doors. The same brand, model, and tool set project onto
+      // the marketing site and the signed-in product; the surface decides who may open a
+      // session and what they can reach.
+      access: [
+        // A stranger on tivmark.com. `capabilities` IS the externally reachable surface --
+        // short enough to read in one screenful, and closed by default: a tool added to
+        // this server later stays unreachable here until someone lists it. Both the apex
+        // and www serve the marketing site with no redirect between them, so both are
+        // listed; an unlisted origin is refused character-for-character.
+        //
+        // Deliberately no `signIn: true` yet. Mid-conversation elevation needs the host
+        // backend to spend a continuation, and @noodleseed/assistant exposes no way to do
+        // that (see docs/noodle-assistant-elevation-gap.md). Shipping it now would draw a
+        // sign-in card the visitor cannot complete, so the public surface stays honestly
+        // anonymous until that lands.
+        publicWebsite({
+          origins: ['https://tivmark.com', 'https://www.tivmark.com'],
+          capabilities: [tivmarkHelp, publicTools.talkToSales],
+        }),
+        // The signed-in product. `capabilities` is omitted deliberately: an authenticated
+        // surface with no narrowing projects the whole server, which is the behaviour the
+        // flat `allowedOrigins` list had before 0.127 replaced it.
+        authenticatedWebsite({
+          origins: ['http://localhost:4002', 'https://app.tivmark.com'],
+        }),
+      ],
+      privacyUrl: 'https://tivmark.com/privacy',
       layout: { mode: 'floating', position: 'bottom-right' },
       labels: {
         welcomeHeading: 'How can Mark help?',
@@ -86,6 +118,7 @@ export default server(
   },
   [
     createTeamContextTool(toolConfig),
+    publicTools.talkToSales,
     ...createTimeOffTools(contracts, toolConfig),
     ...createEquipmentTools(contracts, toolConfig),
     ...createReviewTools(contracts, toolConfig),
@@ -371,6 +404,103 @@ function createToolConfig() {
 }
 
 type ToolConfig = ReturnType<typeof createToolConfig>;
+
+// Tivmark's own product documentation, plus its live marketing site. The compiler validates
+// and hashes every document at build time; deployment publishes them with the app, crawls
+// the declared site, and re-crawls on the refresh cadence. One declaration compiles to a
+// bounded `search_tivmark_help` capability with cited results -- no handwritten search/fetch
+// pair, no index to operate, and no provider keys (the managed crawler and index are the
+// defaults).
+function createKnowledge() {
+  return knowledge('tivmark_help', {
+    title: 'Tivmark help',
+    description:
+      'How Tivmark works: what the product does, time-off and equipment workflows, teams ' +
+      'and roles, getting started, and security and privacy. Use this to answer questions ' +
+      'about Tivmark itself, and cite what it returns.',
+    documents: [
+      file('./knowledge/product-overview.md', {
+        title: 'What Tivmark does',
+        sourceUrl: 'https://tivmark.com/#features',
+      }),
+      file('./knowledge/time-off.md', { title: 'Time off in Tivmark' }),
+      file('./knowledge/equipment.md', { title: 'Equipment requests in Tivmark' }),
+      file('./knowledge/teams-and-roles.md', { title: 'Teams, roles, and access' }),
+      file('./knowledge/getting-started.md', { title: 'Getting started with Tivmark' }),
+      file('./knowledge/security-and-privacy.md', { title: 'Security and privacy' }),
+    ],
+    // The marketing site is a single page, and nginx serves it for every path, so a wider
+    // glob would crawl the same document under unbounded URLs. Scope it to the one page.
+    sites: [
+      site({
+        origin: 'https://tivmark.com',
+        include: ['/'],
+        refresh: '24h',
+      }),
+    ],
+  });
+}
+
+// The only tool a stranger can actually run. It touches no connector, so it clears both
+// public-surface rules: `anonymousBehavior` sees no `${user}` reference and no authorization
+// requirement, and `assistant_public_effect_unconfirmed` cannot fire on a tool with no
+// connector operation. Every other Tivmark tool reaches the API through a delegated
+// token exchange, which has no credential to use without a signed-in person.
+function createPublicTools({ readOnly, widgetCsp }: ToolConfig) {
+  return {
+    talkToSales: tool('talk_to_sales', {
+      title: 'Talk to the Tivmark team',
+      description:
+        'Show the ways to reach Tivmark: book a walkthrough, start a workspace, or contact ' +
+        'support. Use this when someone wants to try Tivmark or talk to a person, rather ' +
+        'than asking how the product works.',
+      annotations: readOnly,
+      input: z.object({}),
+      output: z.object({
+        options: z.array(
+          z.object({
+            id: z.string(),
+            label: z.string(),
+            url: z.string(),
+            detail: z.string(),
+          }),
+        ),
+      }),
+      fulfil: () => ({
+        options: [
+          {
+            id: 'demo',
+            label: 'Book a walkthrough',
+            url: 'https://tivmark.com/#contact',
+            detail: 'A short tour of Tivmark with the team.',
+          },
+          {
+            id: 'start',
+            label: 'Start a workspace',
+            url: 'https://app.tivmark.com/?tab=join',
+            detail: 'Set up your first team in minutes.',
+          },
+          {
+            id: 'support',
+            label: 'Contact support',
+            url: 'https://tivmark.com/#contact',
+            detail: 'Questions about a workspace you already have.',
+          },
+        ],
+      }),
+      viewTitle: 'Talk to Tivmark',
+      viewDescription: 'Ways to reach the Tivmark team.',
+      invoking: 'Finding the right next step…',
+      invoked: 'Here are your options',
+      domain: 'https://tivmark.com',
+      csp: widgetCsp,
+      view: {
+        component: 'contact-options',
+        entry: './views/contact-options.tsx',
+      },
+    }),
+  };
+}
 
 function createTeamContextTool({ readOnly }: ToolConfig) {
   return tool('my_teams', {
@@ -847,6 +977,15 @@ function createInstructions() {
     'there are several, and never invent one. ' +
     'Use book_time_off or order_equipment when every required detail is known; otherwise use the ' +
     'matching guided tool to collect missing details before confirmation. ' +
-    'Only offer team queues, reviews, and fulfillment to an OWNER or ADMIN of the relevant team.'
+    'Only offer team queues, reviews, and fulfillment to an OWNER or ADMIN of the relevant team. ' +
+    // The same assistant also answers on Tivmark's public marketing site, where there is no
+    // signed-in person at all. Ambient team context is the tell: it is only available to a
+    // signed-in user, so its absence means treat the visitor as anonymous.
+    'ANONYMOUS VISITORS: when ambient team context is unavailable, you are talking to someone ' +
+    'on the public Tivmark website who is not signed in. Answer their questions about how ' +
+    'Tivmark works from search_tivmark_help and cite what it returns, and use talk_to_sales ' +
+    'when they want a walkthrough, a workspace, or support. Do not guess a team, a balance, or ' +
+    'a request, and do not call my_teams to compensate. If they ask about their own time off or ' +
+    'equipment, say plainly that they need to sign in at app.tivmark.com and offer talk_to_sales.'
   );
 }

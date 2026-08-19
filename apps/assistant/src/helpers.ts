@@ -9,4 +9,5 @@ export const {
   useToolInfo,
   useViewState,
   useBranding,
+  useOpenExternal,
 } = generateHelpers<AppType>();

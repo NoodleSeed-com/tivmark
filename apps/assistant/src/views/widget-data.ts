@@ -394,3 +394,70 @@ export function formatDateRange(startDate: string, endDate: string) {
     ? `${shortDate(startDate)} – ${fullDate(endDate)}`
     : `${fullDate(startDate)} – ${fullDate(endDate)}`;
 }
+
+export type ContactOption = {
+  readonly id: string;
+  readonly label: string;
+  readonly url: string;
+  readonly detail: string;
+};
+
+export type ContactOptionsViewData = {
+  readonly options: readonly ContactOption[];
+};
+
+export type ContactOptionsViewState = LoadState<ContactOptionsViewData>;
+
+const parseContactOption = (value: unknown): ContactOption | undefined => {
+  if (!isRecord(value)) return undefined;
+  const { id, label, url, detail } = value;
+  if (
+    typeof id !== 'string' ||
+    typeof label !== 'string' ||
+    typeof url !== 'string' ||
+    typeof detail !== 'string' ||
+    id.length === 0 ||
+    label.length === 0
+  ) {
+    return undefined;
+  }
+  // The host opens these, and the server declares which domains it may open. Anything that
+  // is not an absolute https URL is dropped rather than rendered as a dead control.
+  if (!url.startsWith('https://')) return undefined;
+  return { id, label, url, detail };
+};
+
+export function normalizeContactOptions(
+  input: unknown,
+  status?: ToolResultStatus
+): ContactOptionsViewState {
+  const currentState = statusState<ContactOptionsViewData>(
+    status,
+    "We couldn't load the ways to reach Tivmark."
+  );
+  if (currentState) return currentState;
+  if (!isRecord(input) || !Array.isArray(input.options)) {
+    return { kind: 'error', message: 'The contact options were incomplete.' };
+  }
+
+  const options: ContactOption[] = [];
+  let dropped = 0;
+  for (const raw of input.options) {
+    const option = parseContactOption(raw);
+    if (option) options.push(option);
+    else dropped += 1;
+  }
+
+  if (options.length === 0) {
+    return dropped > 0
+      ? { kind: 'error', message: 'The contact options were incomplete.' }
+      : { kind: 'empty', message: 'No contact options are configured.' };
+  }
+  return dropped > 0
+    ? {
+        kind: 'partial',
+        data: { options },
+        message: 'Some options could not be shown.',
+      }
+    : { kind: 'ready', data: { options } };
+}
