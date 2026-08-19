@@ -18,7 +18,7 @@ free to defer all of it.
 
 Priority order:
 
-1. **§1 — Restore the deploy preflight** (P0 outage, ~9 hours). Blocks literally everything,
+1. **§1 — Restore the deploy preflight** (P0 outage, ~17 hours and counting). Blocks literally everything,
    including work of yours we have already integrated.
 2. **§2 — Release the mixed-mode sign-in fixes to production**, with acceptance criteria per fix
    so they can be cherry-picked if the full release is slower.
@@ -27,7 +27,7 @@ Priority order:
 
 ---
 
-## 1 — P0: the deploy preflight has returned 503 for ~9 hours
+## 1 — P0: the deploy preflight has returned 503 for ~17 hours
 
 ### 1.1 The failure
 
@@ -39,9 +39,9 @@ $ noodle deploy --org noodleseed --app tivmark-assistant --env prod --access cus
  "detail":{"status":503,"target":{"org":"noodleseed","app":"tivmark-assistant","env":"prod"}}}}
 ```
 
-First observed ~2026-08-19T05:30Z. Still failing at time of writing. Retried automatically every
-2–3 minutes throughout — roughly 200 attempts — with a monitor that alerts on any change of
-error signature. It has alerted once (§1.2).
+First observed ~2026-08-19T05:30Z. Last verified still failing 2026-08-19T22:15Z (~17 hours).
+Retried automatically every 2–3 minutes throughout — several hundred attempts — with a monitor
+that alerts on any change of error signature. It has alerted once (§1.2).
 
 ### 1.2 Reproduction matrix — every axis we could vary
 
@@ -50,7 +50,7 @@ error signature. It has alerted once (§1.2).
 | Environment | `prod`, `dev` | 503 on both |
 | `--version` | omitted, `18` (current active), `19` (next) | 503 whenever the request reaches the service |
 | `--access` | omitted, `customers` | 503 on both |
-| CLI version | `0.127.0`, `0.127.2`, `0.128.0` | 503 on all three |
+| CLI version | `0.127.0`, `0.127.2`, `0.128.0`, `0.129.0` | 503 on all four |
 | `knowledge()` declared | yes, no | 503 both ways |
 | `NOODLE_KNOWLEDGE_ENABLED` | unset, `true` | 503 both ways |
 
@@ -58,6 +58,10 @@ The signature changed **exactly once** in ~9 hours: it briefly became
 `client_version_unsupported` (HTTP 409, requiring `@noodleseed/one@0.127.2`), then reverted to
 503 after we upgraded. That is the only variation observed and suggests a service roll-forward
 happened during the window without clearing the underlying condition.
+
+**`0.129.0` was published mid-outage (2026-08-19T17:39Z) and fails identically** — verified via a
+pinned `npx -y -p @noodleseed/one@0.129.0`, so this cannot be resolved by a client upgrade and is
+not the version-treadmill pattern from earlier in the incident.
 
 Two rows carry most of the diagnostic weight:
 
