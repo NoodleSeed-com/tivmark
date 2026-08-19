@@ -3,6 +3,8 @@ import { createAssistantSession } from '@noodleseed/assistant/server';
 
 import env from '@/lib/env';
 import { getSession } from '@/lib/session';
+import { getTeamMembershipsWithSlug } from 'models/team';
+import { Role } from '@prisma/client';
 
 // Backend session exchange for the embedded Tivmark assistant.
 //
@@ -56,6 +58,39 @@ function resolveOrigin(req: NextApiRequest): string {
   return appOrigin ?? 'http://localhost:4002';
 }
 
+// Verified session context for the assistant. The server declares which of these it accepts
+// in `embeddedAssistant({ sessionClaims })`; anything not declared there is dropped at
+// exchange, so this cannot widen what the model sees on its own.
+//
+// These ground the conversation -- which teams, which slug, whether to offer reviewer
+// actions. They authorize nothing: every tool still reaches Tivmark through delegated token
+// exchange, and this API remains the boundary.
+//
+// Fails open on purpose. A database hiccup should degrade Mark's grounding to the ambient
+// team lookup, not fail the session and leave the user with no assistant at all.
+async function resolveClaims(userId: string, name?: string | null) {
+  try {
+    const memberships = await getTeamMembershipsWithSlug(userId);
+    const reviewer = memberships.filter(
+      (membership) =>
+        membership.role === Role.OWNER || membership.role === Role.ADMIN
+    );
+
+    const claims: Record<string, string> = {};
+    if (name) claims.displayName = name;
+    if (memberships.length) {
+      claims.teamSlugs = memberships.map((m) => m.slug).join(',');
+    }
+    if (reviewer.length) {
+      claims.reviewerTeamSlugs = reviewer.map((m) => m.slug).join(',');
+    }
+
+    return Object.keys(claims).length > 0 ? claims : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
@@ -85,6 +120,8 @@ export default async function handler(
     req.cookies.tiv_tz
   );
 
+  const claims = await resolveClaims(session.user.id, session.user.name);
+
   try {
     const assistantSession = await createAssistantSession({
       serviceUrl,
@@ -97,6 +134,7 @@ export default async function handler(
         name: session.user.name ?? undefined,
       },
       ...(preferences ? { preferences } : {}),
+      ...(claims ? { claims } : {}),
     });
 
     // Forward the helper response unchanged — the browser client chooses the advertised endpoints.
