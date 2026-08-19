@@ -114,18 +114,26 @@ export default server(
       ],
       privacyUrl: 'https://tivmark.com/privacy',
       layout: { mode: 'floating', position: 'bottom-right' },
+      // Labels and prompts belong to the assistant, not to a surface, so this copy greets
+      // an anonymous visitor on tivmark.com and a signed-in user on app.tivmark.com alike.
+      // It has to work for both: "How much vacation do I have?" offered to a stranger is a
+      // prompt whose only possible answer is "please sign in".
       labels: {
         welcomeHeading: 'How can Mark help?',
-        welcomeMessage: 'Ask about your time off or equipment.',
+        welcomeMessage:
+          'Ask how Tivmark works, or — once you are signed in — about your own time off and equipment.',
         composerPlaceholder: 'Message Mark…',
         open: 'Open Mark',
         close: 'Close Mark',
       },
       suggestedPrompts: [
-        'How much vacation do I have?',
-        'Book time off',
-        'Show my equipment requests',
-        'Request equipment',
+        // Answerable by anyone, from the knowledge component.
+        'What can Tivmark do?',
+        'How does booking time off work?',
+        'Who can approve requests?',
+        // Answerable only when signed in; on the public site Mark says so and offers
+        // talk_to_sales rather than pretending to look.
+        'Show my time off',
       ],
     }),
     use: { tiv: tivmark },
