@@ -21,11 +21,12 @@ Permissions are enforced by the Tivmark API. Any interface — the web app, the 
 AI assistant — is subject to the same checks, so a client asking for something it should
 not have is refused rather than trusted.
 
-## Audit logs
+## Request history
 
-Tivmark records what happened and who did it: requests raised, approvals and declines,
-fulfilment, and administrative changes. Audit logs are readable by workspace
-administrators and through the API.
+Every request keeps its own history: who raised it, who decided it, and what the decision
+was. A declined request is kept rather than removed, so the record of what was asked for
+survives the answer. Workspace administrators can read the same data through the REST API
+and subscribe to changes over webhooks.
 
 ## The assistant and your data
 
