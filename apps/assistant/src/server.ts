@@ -82,14 +82,34 @@ export default server(
         // and www serve the marketing site with no redirect between them, so both are
         // listed; an unlisted origin is refused character-for-character.
         //
-        // Deliberately no `signIn: true` yet. Mid-conversation elevation needs the host
-        // backend to spend a continuation, and @noodleseed/assistant exposes no way to do
-        // that (see docs/noodle-assistant-elevation-gap.md). Shipping it now would draw a
-        // sign-in card the visitor cannot complete, so the public surface stays honestly
-        // anonymous until that lands.
+        // `signIn: true` makes this a `mixed` surface: anonymous visitors start immediately,
+        // and reaching an identity-dependent capability raises a sign-in card instead of
+        // executing. The login is Tivmark's own on app.tivmark.com -- the marketing page
+        // carries the single-use ticket over on a parent-domain cookie and redirects, and
+        // apps/web spends it at session exchange, joining the signed-in person to the
+        // conversation they already started. Enabled 2026-08-19 with Noodle Seed's r601:
+        // origin re-pin, connector-auth-kind interception, issuer rebind, and the elevation
+        // store are all in production (docs/noodle-seed-response-aug-19-2026.md).
         publicWebsite({
           origins: ['https://tivmark.com', 'https://www.tivmark.com'],
-          capabilities: [tivmarkHelp, publicTools.talkToSales],
+          signIn: true,
+          capabilities: [
+            // Anonymous-safe: no connector, no identity.
+            tivmarkHelp,
+            publicTools.talkToSales,
+            // Identity-gated: delegated-connector-backed, so for an anonymous visitor the
+            // service intercepts the call into the sign-in card (r601 classifies on the
+            // connector's auth kind -- no `${user}` trick needed). Listing them here is what
+            // lets Mark OFFER them to a visitor; Tivmark's API still decides what a
+            // signed-in user may actually do. Named as string refs because the tool
+            // factories return arrays; a typo fails `noodle validate` with
+            // assistant_capability_unknown, and test/public-surface.test.ts pins the list.
+            { kind: 'tool', name: 'my_teams' },
+            { kind: 'tool', name: 'time_off_balance' },
+            { kind: 'tool', name: 'my_time_off' },
+            { kind: 'tool', name: 'my_equipment' },
+            { kind: 'tool', name: 'book_time_off' },
+          ],
         }),
         // The signed-in product. `capabilities` is omitted deliberately: an authenticated
         // surface with no narrowing projects the whole server, which is the behaviour the
@@ -1046,8 +1066,10 @@ function createInstructions() {
     'ANONYMOUS VISITORS: when ambient team context is unavailable, you are talking to someone ' +
     'on the public Tivmark website who is not signed in. Answer their questions about how ' +
     'Tivmark works from search_tivmark_help and cite what it returns, and use talk_to_sales ' +
-    'when they want a walkthrough, a workspace, or support. Do not guess a team, a balance, or ' +
-    'a request, and do not call my_teams to compensate. If they ask about their own time off or ' +
-    'equipment, say plainly that they need to sign in at app.tivmark.com and offer talk_to_sales.'
+    'when they want a walkthrough, a workspace, or support. Never guess a team, a balance, or ' +
+    'a request. When they ask about their own time off or equipment, call the matching tool: ' +
+    'for a visitor it raises a sign-in card instead of running, and after they sign in the ' +
+    'conversation continues with you remembering it. Mention that signing in keeps the ' +
+    'conversation; never promise the messages will reappear on screen.'
   );
 }
