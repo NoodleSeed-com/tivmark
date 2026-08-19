@@ -6,6 +6,10 @@ jest.mock('../../lib/session', () => ({
   getSession: jest.fn(),
 }));
 
+jest.mock('../../models/team', () => ({
+  getTeamMembershipsWithSlug: jest.fn(),
+}));
+
 jest.mock('../../lib/env', () => ({
   __esModule: true,
   default: {
@@ -21,9 +25,11 @@ jest.mock('../../lib/env', () => ({
 import { createAssistantSession } from '@noodleseed/assistant/server';
 import handler from '../../pages/api/assistant/session';
 import { getSession } from '../../lib/session';
+import { getTeamMembershipsWithSlug } from '../../models/team';
 
 const mockedCreateAssistantSession = jest.mocked(createAssistantSession);
 const mockedGetSession = jest.mocked(getSession);
+const mockedGetTeamMemberships = jest.mocked(getTeamMembershipsWithSlug);
 
 const invoke = async () => {
   const captured = { status: 0, body: undefined as unknown };
@@ -55,6 +61,7 @@ const invoke = async () => {
 describe('POST /api/assistant/session', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockedGetTeamMemberships.mockResolvedValue([]);
     mockedGetSession.mockResolvedValue({
       user: {
         id: 'user-1',
@@ -74,7 +81,12 @@ describe('POST /api/assistant/session', () => {
     });
   });
 
-  it('exchanges verified identity and preferences without personalization claims', async () => {
+  it('exchanges verified identity, preferences, and declared team claims', async () => {
+    mockedGetTeamMemberships.mockResolvedValue([
+      { slug: 'engineering', role: 'OWNER' },
+      { slug: 'design', role: 'MEMBER' },
+    ] as any);
+
     const response = await invoke();
 
     expect(response.status).toBe(200);
@@ -100,6 +112,43 @@ describe('POST /api/assistant/session', () => {
         locale: 'en-US',
         timeZone: 'America/Los_Angeles',
       },
+      claims: {
+        displayName: 'Pat',
+        // Slugs, not ids: `team` is what every assistant tool takes as its argument.
+        teamSlugs: 'engineering,design',
+        // Only where the user is an OWNER or ADMIN. This decides what Mark offers; the
+        // Tivmark API still decides what it permits.
+        reviewerTeamSlugs: 'engineering',
+      },
+    });
+  });
+
+  it('still mints a session when team lookup fails', async () => {
+    // Claims ground the conversation; they are not required to have one. A database hiccup
+    // must degrade Mark's grounding, not leave the user with no assistant at all.
+    mockedGetTeamMemberships.mockRejectedValue(
+      new Error('database unavailable')
+    );
+
+    const response = await invoke();
+
+    expect(response.status).toBe(200);
+    expect(mockedCreateAssistantSession).toHaveBeenCalledWith(
+      expect.not.objectContaining({ claims: expect.anything() })
+    );
+  });
+
+  it('omits reviewer claims for a member of every team', async () => {
+    mockedGetTeamMemberships.mockResolvedValue([
+      { slug: 'design', role: 'MEMBER' },
+    ] as any);
+
+    await invoke();
+
+    const [input] = mockedCreateAssistantSession.mock.calls.at(-1) ?? [];
+    expect((input as any).claims).toEqual({
+      displayName: 'Pat',
+      teamSlugs: 'design',
     });
   });
 });
