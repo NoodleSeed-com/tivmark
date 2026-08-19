@@ -841,7 +841,7 @@ function createEquipmentTools(
 }
 
 function createReviewTools(
-  { decision, timeOffRequestsOutputSchema }: Contracts,
+  { decision, timeOffRequestsOutputSchema, equipmentRequestsOutputSchema }: Contracts,
   { readOnly, confirmed, widgetCsp, widgetDomain }: ToolConfig,
 ) {
   return [
@@ -876,13 +876,51 @@ function createReviewTools(
         'List pending equipment requests awaiting review for a team. Only useful to an OWNER or ADMIN.',
       annotations: readOnly,
       input: z.object({ team: z.string() }),
-      output: z.object({ team: z.string(), requests: z.array(z.unknown()) }),
+      // Was `z.array(z.unknown())`, which told the model and the widget nothing about the
+      // rows it was about to render. It now declares the same shape every other equipment
+      // tool does.
+      output: equipmentRequestsOutputSchema,
       fulfil: ({ input, connectors }) => {
         const res = connectors.tiv.list_equipment({
           team: input.team,
           status: 'PENDING',
         });
         return { team: input.team, requests: res.requests };
+      },
+      viewTitle: 'Equipment approvals',
+      viewDescription: 'Pending equipment requests to approve or decline.',
+      invoking: 'Loading the review queue…',
+      invoked: 'Queue ready',
+      domain: widgetDomain,
+      csp: widgetCsp,
+      view: {
+        component: 'review-equipment-queue',
+        entry: './views/review-equipment-queue.tsx',
+      },
+    }),
+    tool('review_equipment_app', {
+      title: 'Review equipment request in app',
+      visibility: ['app'],
+      description:
+        'Approve or decline a pending equipment request by id (OWNER/ADMIN only).',
+      annotations: annotations.action(),
+      input: z.object({
+        team: z.string().default(''),
+        id: z.string().default(''),
+        decision: decision.default('APPROVED'),
+      }),
+      output: z.object({ status: z.string(), request: z.unknown() }),
+      fulfil: ({ input, connectors }) => {
+        const res = connectors.tiv.review_equipment({
+          team: input.team,
+          id: input.id,
+          decision: input.decision,
+          reviewNote: '',
+        });
+        return {
+          status: `${input.decision} equipment request ${input.id}.`,
+          request: res.request,
+        };
       },
     }),
     tool('review_time_off_app', {
