@@ -4,6 +4,63 @@
 **Against:** `@noodleseed/one@0.127.0`, `@noodleseed/assistant@1.19.0`, `@noodleseed/agent-kit@0.75.0`
 **Date:** 2026-08-19
 
+---
+
+> ## RESOLVED — 2026-08-19
+>
+> Noodle Seed accepted every item and shipped the blocker the same day. The report below is
+> kept as written; this box records what changed and what it means for our integration.
+>
+> **Shipped in `@noodleseed/assistant@1.20.0`** (verified on npm, not just announced):
+>
+> - **§3.1** — `createAssistantSession` takes the elevation as a discriminated union, exactly
+>   the shape asked for. **The field is `signInTicket`, not `continuation`.**
+> - **§3.2** — `AssistantSessionExchangeError` with an `elevationRefusal` getter narrowed to
+>   `ASSISTANT_ELEVATION_REFUSAL_CODES`. Two refusals were renamed with the field:
+>   `elevation_ticket_invalid` / `elevation_ticket_expired`.
+> - **§3.8** — accepted in full. "Continuation" now refers only to the server-held interaction
+>   state that never reaches browser code. They noted this was the last cheap moment to
+>   rename it.
+>
+> They also found four defects on top of our eight. **Three change how we must build:**
+>
+> 1. **Sessions are origin-pinned at mint, and CORS is emitted only for the pinned origin.**
+>    Our elevated token — minted against `tivmark.com` — would have been unusable from
+>    `app.tivmark.com`: every turn blocked by the browser, *after a sign-in that appeared to
+>    succeed*. Their fix re-pins the session origin to whatever the backend presents at
+>    elevation. So the exchange must present **the origin the conversation will continue on**,
+>    not the one it began on.
+> 2. **The elevated session remembers, but does not replay.** No transcript is ever streamed
+>    to the browser; the `replayed: true` flags we found belong to idempotent re-POSTs of
+>    interaction decisions, not history. After the redirect the visitor sees an *empty panel
+>    attached to an assistant that remembers*. Copy must say "the assistant remembers your
+>    conversation" and never "your conversation will reappear".
+> 3. **Our `${user}`-reference trick is currently the only thing that raises the sign-in
+>    card.** The `authorization` branch of `anonymousBehavior` is dead on the model path.
+>    Their fix classifies on the connector's auth kind too; until it ships, the trick stays
+>    correct and later becomes redundant rather than wrong.
+>
+> Their fourth finding: elevation kept the public session's client id, so a post-elevation
+> delegated token exchange would assert the wrong issuer **while doctor reported green**.
+> Fixed by rebinding the session to the elevating client.
+>
+> ### What we built against it
+>
+> - `apps/web/lib/assistant/elevation.ts` + the session route spend a `signInTicket`, with
+>   refusals handled by kind (four recover into a fresh conversation; `tenant_mismatch` is
+>   escalated and never retried).
+> - `apps/marketing/index.html` carries the ticket to `app.tivmark.com` on a short-lived
+>   parent-domain cookie and redirects, because the widget's `credentials: 'same-origin'`
+>   makes a cross-origin session endpoint a guaranteed 401.
+>
+> ### Still off, deliberately
+>
+> `signIn: true` is **not** enabled. The service-side origin re-pin, issuer rebind, and
+> classification fixes are merged on Noodle Seed's dev environment and ship "in the next
+> approved release". Enabling it against today's production would produce a sign-in that
+> appears to succeed and then breaks — the exact trap in finding 1. Flipping it is one flag
+> plus the identity-gated capabilities once that release lands.
+
 ## Summary
 
 We are adopting the multi-surface embedded assistant on Tivmark — one assistant projected
