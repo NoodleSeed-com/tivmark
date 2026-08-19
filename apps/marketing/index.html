@@ -967,6 +967,30 @@
         if (window.customElements) {
           customElements.whenDefined("noodle-assistant").then(syncAssistantTheme);
         }
+
+        // Mid-conversation sign-in. The widget raises this when a visitor reaches for
+        // something that needs an account; the ticket names a conversation and nothing more,
+        // and is worthless without Tivmark's own client credentials.
+        //
+        // The handoff has to be a redirect: the widget calls its session endpoint with
+        // credentials: "same-origin", so a session endpoint on app.tivmark.com would send no
+        // cookie from here and always 401. So we hand the ticket over on a short-lived
+        // parent-domain cookie -- never a URL, which would land in access logs, in the
+        // Referer of every subresource, and in browser history -- and let app.tivmark.com
+        // sign the visitor in and spend it there, on the origin the conversation continues on.
+        document.addEventListener("assistant-sign-in-requested", (event) => {
+          const ticket =
+            event.detail && (event.detail.signInTicket || event.detail.continuation);
+          if (!ticket) return;
+          const production =
+            location.hostname === "tivmark.com" ||
+            location.hostname.endsWith(".tivmark.com");
+          if (!production) return;
+          document.cookie =
+            `tiv_assistant_signin=${encodeURIComponent(ticket)}` +
+            "; Path=/; Max-Age=600; SameSite=Lax; Domain=.tivmark.com; Secure";
+          location.href = "https://app.tivmark.com/mark";
+        });
         const applyTheme = (preference, persist = true) => {
           const dark =
             preference === "dark" || (preference === "system" && media.matches);
