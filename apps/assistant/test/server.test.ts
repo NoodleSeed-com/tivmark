@@ -127,16 +127,17 @@ describe('tivmark_assistant', () => {
     );
     expect(manifest.server.assistant?.labels).toMatchObject({
       welcomeHeading: 'How can Mark help?',
-      welcomeMessage: 'Ask about your time off or equipment.',
+      welcomeMessage:
+        'Ask how Tivmark works, or — once you are signed in — about your own time off and equipment.',
       composerPlaceholder: 'Message Mark…',
       open: 'Open Mark',
       close: 'Close Mark',
     });
     expect(manifest.server.assistant?.suggestedPrompts).toEqual([
-      'How much vacation do I have?',
-      'Book time off',
-      'Show my equipment requests',
-      'Request equipment',
+      'What can Tivmark do?',
+      'How does booking time off work?',
+      'Who can approve requests?',
+      'Show my time off',
     ]);
   });
 
