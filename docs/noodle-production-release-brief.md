@@ -14,7 +14,7 @@ three fixes gate us so you can scope it.
 `noodle deploy` has returned HTTP 503 from the preflight continuously since ~05:30Z for org
 `noodleseed`, app `tivmark-assistant`.
 
-```
+```json
 {"code":"deploy_preflight_failed","message":"request failed (503)","detail":{"status":503}}
 ```
 
