@@ -3,6 +3,7 @@ import dynamic from 'next/dynamic';
 import type { NoodleAssistantElement } from '@noodleseed/assistant';
 
 import env from '@/lib/env';
+import { ASSISTANT_SIGN_IN_TICKET_COOKIE } from '@/lib/assistant/elevation';
 import useTheme from 'hooks/useTheme';
 import {
   syncAssistantSurface,
@@ -103,6 +104,39 @@ export default function AssistantWidget({ surface }: AssistantWidgetProps) {
     syncAssistantSurface(assistantRef.current, surface);
   }, [surface]);
 
+  // Mid-conversation sign-in, made visible. The marketing page hands the sign-in ticket over
+  // on a parent-domain cookie; the presence of that cookie here means a visitor has just
+  // arrived from tivmark.com to continue a conversation. The service joins them to it but
+  // deliberately replays no transcript ("the assistant remembers; the messages do not
+  // reappear"), so an untouched panel would look like the conversation was lost. Sending one
+  // resume message makes the memory visible: the message triggers the session exchange, the
+  // backend spends the ticket in that same exchange, and Mark's reply carries the context.
+  //
+  // The ticket cookie is read-only here — the session route is what spends and clears it, so
+  // a refused ticket still degrades to a fresh conversation without this code caring.
+  const resumeSentRef = useRef(false);
+  const resumeAfterSignIn = useCallback(() => {
+    if (resumeSentRef.current) return;
+    if (
+      !document.cookie
+        .split('; ')
+        .some((entry) =>
+          entry.startsWith(`${ASSISTANT_SIGN_IN_TICKET_COOKIE}=`)
+        )
+    ) {
+      return;
+    }
+    const element = assistantRef.current;
+    if (!element?.sendMessage) return;
+    resumeSentRef.current = true;
+    element.open?.();
+    void element
+      .sendMessage("I've just signed in — let's pick up where we left off.")
+      .catch(() => {
+        /* the panel surfaces its own error state */
+      });
+  }, []);
+
   useEffect(() => {
     try {
       setPreferenceCookie(
@@ -133,7 +167,10 @@ export default function AssistantWidget({ surface }: AssistantWidgetProps) {
       theme={resolvedTheme}
       appearance={ASSISTANT_APPEARANCE}
       open={surface === 'canvas'}
-      onReady={syncSurface}
+      onReady={() => {
+        syncSurface();
+        resumeAfterSignIn();
+      }}
       onAppearanceWarning={(warning) =>
         // Dev-only signal: the client flags low-contrast launcher colors so we can retune if needed.
         console.warn('[assistant] appearance warning', warning)
