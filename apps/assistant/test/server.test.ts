@@ -19,6 +19,8 @@ describe('tivmark_assistant', () => {
       [
         // identity / teams
         'my_teams',
+        // public website surface (no signed-in user)
+        'talk_to_sales',
         // time off (employee)
         'time_off_balance',
         'my_time_off',
@@ -63,6 +65,7 @@ describe('tivmark_assistant', () => {
       fulfill_equipment: 'Fulfill equipment request',
       my_equipment: 'List my equipment requests',
       my_teams: 'List my teams',
+      talk_to_sales: 'Talk to the Tivmark team',
       my_time_off: 'List my time-off requests',
       order_equipment: 'Request equipment',
       order_equipment_guided: 'Request equipment with a form',

@@ -6,9 +6,22 @@ type WidgetContract = {
   readonly component: string;
   readonly itemFields?: readonly string[];
   readonly balanceFields?: readonly string[];
+  /** The array property the widget iterates. Team-scoped widgets all use `requests`. */
+  readonly collection?: string;
+  /**
+   * Every people-ops widget is scoped to a team. The public-website widgets are not: they
+   * run for an anonymous visitor who has no team, so they must not require one.
+   */
+  readonly teamScoped?: boolean;
 };
 
 const widgetContracts = {
+  talk_to_sales: {
+    component: 'contact-options',
+    collection: 'options',
+    teamScoped: false,
+    itemFields: ['id', 'label', 'url', 'detail'],
+  },
   time_off_balance: {
     component: 'time-off-balance',
     balanceFields: [
@@ -73,13 +86,17 @@ describe('manifest widget contract coverage', () => {
       expect(tool, `missing manifest tool ${toolName}`).toBeDefined();
       const output = tool?.outputSchema as JsonSchema;
 
-      expect(output.required, `${toolName} must require team`).toContain('team');
+      if (contract.teamScoped !== false) {
+        expect(output.required, `${toolName} must require team`).toContain('team');
+      }
 
       if (contract.itemFields) {
-        expect(output.required, `${toolName} must require requests`).toContain(
-          'requests'
-        );
-        const item = output.properties?.requests?.items;
+        const collection = contract.collection ?? 'requests';
+        expect(
+          output.required,
+          `${toolName} must require ${collection}`
+        ).toContain(collection);
+        const item = output.properties?.[collection]?.items;
         for (const field of contract.itemFields) {
           expect(
             item?.properties ?? {},
