@@ -56,7 +56,7 @@ fulfilled independently.
 text.
 
 **What if my request is declined?** The decision is recorded against the request. Raise a
-new request if circumstances change; Tivmark keeps the original for the audit trail.
+new request if circumstances change; Tivmark keeps the original rather than removing it.
 
 **Does Tivmark track serial numbers or asset tags?** Not today. Tivmark tracks the request
 and its fulfilment, not the asset lifecycle after handover.

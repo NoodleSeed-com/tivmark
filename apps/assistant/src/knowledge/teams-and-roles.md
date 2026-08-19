@@ -36,7 +36,7 @@ Tivmark backend, never by the interface asking.
 - **SCIM provisioning** — create, update, and deactivate users automatically from your
   directory, so leavers lose access without a manual step.
 - **API keys and a REST API** — read and write the same data the UI uses.
-- **Audit logs** — a record of what happened and who did it.
+- **Webhooks** — subscribe to events in Tivmark from your own systems.
 
 ## Agent access
 
