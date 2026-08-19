@@ -1,0 +1,101 @@
+name: marketing
+
+on:
+  workflow_call:
+  push:
+    branches: [main, release]
+    paths:
+      - 'apps/marketing/**'
+      - '.github/workflows/marketing-ci.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # `apps/marketing` has no package.json and no build step, so the image IS the artifact.
+      # Everything below tests the container that Cloud Run will actually run.
+      - name: Build the image
+        run: docker build -t tivmark-marketing:ci apps/marketing
+
+      - name: Validate the nginx configuration
+        run: docker run --rm tivmark-marketing:ci nginx -t
+
+      - name: Start the container
+        run: |
+          docker run -d --name marketing-ci -p 8080:8080 tivmark-marketing:ci
+          for _ in $(seq 1 30); do
+            if curl -fsS -o /dev/null http://localhost:8080/; then exit 0; fi
+            sleep 1
+          done
+          echo "container did not become ready" >&2
+          docker logs marketing-ci >&2
+          exit 1
+
+      # Assert the SERVED response, not the file. A policy that is present in the repo but
+      # not emitted (which is exactly what the old Cloudflare `_headers` file was) passes a
+      # file check and fails in production.
+      - name: Content-Security-Policy allows the assistant on every required directive
+        run: |
+          csp=$(curl -sI http://localhost:8080/ | tr -d '\r' \
+            | awk 'BEGIN{IGNORECASE=1} /^content-security-policy:/{sub(/^[^:]*: */,""); print}')
+
+          if [ -z "$csp" ]; then
+            echo "no Content-Security-Policy response header" >&2
+            exit 1
+          fi
+
+          # script-src is the one that matters most: if it blocks the embed script, no widget
+          # code runs at all, so nothing on the page can report the failure.
+          for directive in script-src connect-src frame-src; do
+            value=$(printf '%s' "$csp" | tr ';' '\n' \
+              | awk -v d="$directive" '$1 == d {print}')
+            if [ -z "$value" ]; then
+              echo "CSP is missing the $directive directive" >&2
+              exit 1
+            fi
+            case "$value" in
+              *https://cloud.noodleseed.dev*) ;;
+              *)
+                echo "CSP $directive does not allow the Noodle service origin: $value" >&2
+                exit 1
+                ;;
+            esac
+          done
+
+          echo "CSP allows https://cloud.noodleseed.dev in script-src, connect-src, frame-src"
+
+      - name: The site serves its pages and hides its build files
+        run: |
+          expect() {
+            actual=$(curl -s -o /dev/null -w '%{http_code}' "http://localhost:8080$1")
+            if [ "$actual" != "$2" ]; then
+              echo "$1 expected HTTP $2, got $actual" >&2
+              exit 1
+            fi
+            echo "$1 -> $actual"
+          }
+
+          expect / 200
+          # privacyUrl on the deployed assistant points here; a 404 would send anonymous
+          # visitors from the widget's privacy link to nothing.
+          expect /privacy 200
+          expect /images/favicon-32.png 200
+
+          # `COPY .` used to publish these at the site root, all answering 200 in production.
+          expect /_headers 404
+          expect /Dockerfile 404
+          expect /nginx.conf 404
+
+          # This site is not a single-page app. The old `/index.html` fallback meant every
+          # URL answered 200 with the home page, so there were no 404s at all -- which also
+          # made a crawler index the same document under unbounded URLs.
+          expect /definitely-not-a-real-page 404
+
+      - name: Stop the container
+        if: always()
+        run: docker rm -f marketing-ci || true
