@@ -1,10 +1,17 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { createAssistantSession } from '@noodleseed/assistant/server';
+import {
+  AssistantSessionExchangeError,
+  createAssistantSession,
+} from '@noodleseed/assistant/server';
 
 import env from '@/lib/env';
 import { getSession } from '@/lib/session';
 import { getTeamMembershipsWithSlug } from 'models/team';
 import { Role } from '@prisma/client';
+import {
+  classifySignInRefusal,
+  takeSignInTicket,
+} from '@/lib/assistant/elevation';
 
 // Backend session exchange for the embedded Tivmark assistant.
 //
@@ -122,24 +129,62 @@ export default async function handler(
 
   const claims = await resolveClaims(session.user.id, session.user.name);
 
+  // A visitor arriving from the public marketing embed carries a single-use sign-in ticket.
+  // Spending it binds this signed-in person to the conversation they already started, instead of
+  // minting a new one. Read-and-clear: a presented ticket is spent either way.
+  const signInTicket = takeSignInTicket(req, res);
+
+  const base = {
+    serviceUrl,
+    clientId,
+    clientSecret,
+    // The origin the conversation will CONTINUE on, which is this app — not the marketing origin
+    // it began on. Sessions are origin-pinned, so spending the ticket here is what moves the
+    // conversation onto an origin whose session endpoint the widget can actually reach.
+    origin: resolveOrigin(req),
+    user: {
+      id: session.user.id,
+      email: session.user.email ?? undefined,
+      name: session.user.name ?? undefined,
+    },
+    ...(preferences ? { preferences } : {}),
+    ...(claims ? { claims } : {}),
+  };
+
   try {
-    const assistantSession = await createAssistantSession({
-      serviceUrl,
-      clientId,
-      clientSecret,
-      origin: resolveOrigin(req),
-      user: {
-        id: session.user.id,
-        email: session.user.email ?? undefined,
-        name: session.user.name ?? undefined,
-      },
-      ...(preferences ? { preferences } : {}),
-      ...(claims ? { claims } : {}),
-    });
+    const assistantSession = signInTicket
+      ? await createAssistantSession({ ...base, signInTicket })
+      : await createAssistantSession(base);
 
     // Forward the helper response unchanged — the browser client chooses the advertised endpoints.
     return res.status(200).json(assistantSession);
   } catch (err) {
+    // A refused sign-in must not cost the user their assistant. Every refusal except a tenant
+    // mismatch means "that conversation cannot be joined" -- so start a fresh one, which is
+    // exactly what the user would have got had they never been offered sign-in.
+    const refusal =
+      err instanceof AssistantSessionExchangeError
+        ? err.elevationRefusal
+        : undefined;
+    const handling = refusal ? classifySignInRefusal(refusal) : undefined;
+
+    if (handling?.kind === 'alert') {
+      // Never retried: a ticket presented for another tenant's conversation is a boundary
+      // event, not a transient one.
+      console.error('[assistant] sign-in refused:', refusal, handling.reason);
+    } else if (handling?.kind === 'retry-fresh') {
+      console.warn(
+        '[assistant] sign-in not applied:',
+        refusal,
+        handling.reason
+      );
+      try {
+        return res.status(200).json(await createAssistantSession(base));
+      } catch {
+        // Fall through to the error below with the original failure.
+      }
+    }
+
     const message =
       err instanceof Error ? err.message : 'Failed to create assistant session';
     return res.status(502).json({ error: { message } });
