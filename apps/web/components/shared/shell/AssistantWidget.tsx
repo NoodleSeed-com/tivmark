@@ -132,17 +132,29 @@ export default function AssistantWidget({ surface }: AssistantWidgetProps) {
   const resumeAfterSignIn = useCallback(() => {
     if (resumeSentRef.current || !arrivedWithSignInTicket.current) return;
     const element = assistantRef.current;
-    if (!element) return;
+    // Runtime guard, deliberately defeating TS2774. The wrapper's onReady fires
+    // synchronously from inside the element's connectedCallback, mid-upgrade -- observed in
+    // production as an uncaught "t.sendMessage is not a function" that took the whole page
+    // down. The type says the method always exists; the runtime disagrees mid-upgrade, so
+    // the check must survive the compiler. The poll below retries until it passes.
+    const sendMessage = (element as { sendMessage?: unknown } | null)
+      ?.sendMessage;
+    if (!element || typeof sendMessage !== 'function') return;
     resumeSentRef.current = true;
     console.info('[assistant] resuming the conversation after sign-in');
-    element.open?.();
-    void element
-      .sendMessage(
-        "I've just signed in — please pick up where we left off and answer my last question."
-      )
-      .catch(() => {
-        /* the panel surfaces its own error state */
-      });
+    try {
+      element.open?.();
+      void element
+        .sendMessage(
+          "I've just signed in — please pick up where we left off and answer my last question."
+        )
+        .catch(() => {
+          /* the panel surfaces its own error state */
+        });
+    } catch {
+      // A synchronous throw mid-upgrade must degrade to a silent panel, never a dead page.
+      resumeSentRef.current = false;
+    }
   }, []);
 
   // Drive the resume from mount, not from onReady. Observed in production: onReady never
@@ -165,7 +177,7 @@ export default function AssistantWidget({ surface }: AssistantWidgetProps) {
     if (window.customElements) {
       void customElements.whenDefined('noodle-assistant').then(tryResume);
     }
-    tryResume();
+    setTimeout(tryResume, 0);
     return () => {
       active = false;
     };
@@ -201,10 +213,7 @@ export default function AssistantWidget({ surface }: AssistantWidgetProps) {
       theme={resolvedTheme}
       appearance={ASSISTANT_APPEARANCE}
       open={surface === 'canvas'}
-      onReady={() => {
-        syncSurface();
-        resumeAfterSignIn();
-      }}
+      onReady={syncSurface}
       onAppearanceWarning={(warning) =>
         // Dev-only signal: the client flags low-contrast launcher colors so we can retune if needed.
         console.warn('[assistant] appearance warning', warning)
