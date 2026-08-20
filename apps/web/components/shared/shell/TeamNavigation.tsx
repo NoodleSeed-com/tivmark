@@ -7,6 +7,7 @@ import {
 import { useTranslation } from 'next-i18next';
 import NavigationItems from './NavigationItems';
 import { NavigationProps, MenuItem } from './NavigationItems';
+import { openAssistant } from './assistantSurface';
 
 interface NavigationItemsProps extends NavigationProps {
   slug: string;
@@ -22,7 +23,8 @@ interface TeamNavigationLabels {
 export function buildTeamNavigation(
   slug: string,
   activePathname: string | null,
-  labels: TeamNavigationLabels
+  labels: TeamNavigationLabels,
+  openMark: () => void = () => openAssistant()
 ): MenuItem[] {
   return [
     {
@@ -38,10 +40,11 @@ export function buildTeamNavigation(
       active: activePathname === `/teams/${slug}/equipment`,
     },
     {
+      // Mark is not a page: this opens the assistant drawer in place, keeping the team's
+      // time-off / equipment menu exactly where it was.
       name: labels.mark,
-      href: '/mark',
+      onClick: openMark,
       icon: SparklesIcon,
-      active: activePathname === '/mark',
     },
     {
       name: labels.settings,

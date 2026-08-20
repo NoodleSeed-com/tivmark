@@ -1,43 +1,47 @@
-import Head from 'next/head';
 import type { GetServerSidePropsContext } from 'next';
-import { useTranslation } from 'next-i18next';
-import { serverSideTranslations } from 'next-i18next/serverSideTranslations';
 
-import env from '@/lib/env';
-import type { NextPageWithLayout } from 'types';
+import { getSession } from '@/lib/session';
+import { getTeams } from 'models/team';
 
-const MarkPage: NextPageWithLayout = () => {
-  const { t } = useTranslation('common');
+/**
+ * Mark is not a page. The assistant lives in exactly two modes -- the floating launcher and
+ * the right-side drawer -- and never takes over the canvas or swaps the sidebar.
+ *
+ * This route survives only as the sign-in landing target: the marketing site's sign-in
+ * handoff redirects here with the single-use ticket cookie. It forwards straight to the
+ * user's team page (their only team's time-off view when they have exactly one, the teams
+ * list otherwise), where the widget mounts, spends the ticket, opens the drawer, and Mark
+ * answers the question the visitor asked before signing in -- with the time-off / equipment
+ * menu right where it belongs.
+ */
+export const getServerSideProps = async ({
+  req,
+  res,
+}: GetServerSidePropsContext) => {
+  const session = await getSession(req, res);
+  if (!session?.user?.id) {
+    return {
+      redirect: {
+        destination: '/auth/login?callbackUrl=%2Fmark',
+        permanent: false,
+      },
+    };
+  }
 
-  return (
-    <>
-      <Head>
-        <title>{t('mark-page-title')}</title>
-      </Head>
-      <h1 className="sr-only">{t('mark')}</h1>
-      {!env.assistant.enabled && (
-        <div
-          className="flex h-full min-h-72 items-center justify-center border border-ui-border bg-ui-surface p-8 text-center"
-          role="status"
-        >
-          <div className="max-w-md">
-            <h2 className="text-xl text-ui-heading">{t('mark-unavailable')}</h2>
-            <p className="mt-2 text-sm text-ui-muted">
-              {t('mark-unavailable-description')}
-            </p>
-          </div>
-        </div>
-      )}
-    </>
-  );
+  let destination = '/teams';
+  try {
+    const teams = await getTeams(session.user.id);
+    if (teams.length === 1 && teams[0]?.slug) {
+      destination = `/teams/${teams[0].slug}/time-off`;
+    }
+  } catch {
+    /* the teams list is a fine fallback */
+  }
+
+  return { redirect: { destination, permanent: false } };
 };
 
-export const getServerSideProps = async ({
-  locale,
-}: GetServerSidePropsContext) => ({
-  props: {
-    ...(locale ? await serverSideTranslations(locale, ['common']) : {}),
-  },
-});
-
-export default MarkPage;
+// Never rendered: getServerSideProps always redirects.
+export default function MarkRedirect() {
+  return null;
+}

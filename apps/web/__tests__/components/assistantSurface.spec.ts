@@ -1,55 +1,27 @@
-import {
-  resolveAssistantSurface,
-  syncAssistantSurface,
-  type AssistantSurfaceController,
-} from '@/components/shared/shell/assistantSurface';
+import { openAssistant } from '@/components/shared/shell/assistantSurface';
 
-class FakeAssistantController implements AssistantSurfaceController {
-  state: 'open' | 'closed' = 'closed';
-  focusCount = 0;
+describe('openAssistant', () => {
+  it('opens the drawer and focuses the composer in place', () => {
+    const assistant = { open: jest.fn(), focusComposer: jest.fn() };
+    const root = { querySelector: jest.fn().mockReturnValue(assistant) };
 
-  open() {
-    this.state = 'open';
-  }
-
-  close() {
-    this.state = 'closed';
-  }
-
-  focusComposer() {
-    this.focusCount += 1;
-  }
-}
-
-describe('assistant surface behavior', () => {
-  it('uses the focused canvas only on the global Mark route', () => {
-    expect(resolveAssistantSurface('/mark')).toBe('canvas');
-    expect(resolveAssistantSurface('/teams/acme/time-off')).toBe('floating');
-    expect(resolveAssistantSurface('/settings/account')).toBe('floating');
+    expect(openAssistant(root as any)).toBe(true);
+    expect(root.querySelector).toHaveBeenCalledWith('noodle-assistant');
+    expect(assistant.open).toHaveBeenCalled();
+    expect(assistant.focusComposer).toHaveBeenCalled();
   });
 
-  it('opens and focuses Mark when the canvas becomes active', () => {
-    const assistant = new FakeAssistantController();
+  it('survives the element not being mounted yet', () => {
+    const root = { querySelector: jest.fn().mockReturnValue(null) };
 
-    syncAssistantSurface(assistant, 'canvas');
-
-    expect(assistant.state).toBe('open');
-    expect(assistant.focusCount).toBe(1);
+    expect(openAssistant(root as any)).toBe(false);
   });
 
-  it('returns the shared conversation to its launcher outside Mark', () => {
-    const assistant = new FakeAssistantController();
-    assistant.open();
+  it('survives a mid-upgrade element with no methods', () => {
+    // Custom-element upgrade is async relative to first paint; a bare HTMLElement without
+    // open()/focusComposer() must be a no-op, never a throw.
+    const root = { querySelector: jest.fn().mockReturnValue({}) };
 
-    syncAssistantSurface(assistant, 'floating');
-
-    expect(assistant.state).toBe('closed');
-    expect(assistant.focusCount).toBe(0);
-  });
-
-  it('does not crash while the custom element ref is still upgrading', () => {
-    expect(() =>
-      syncAssistantSurface({} as AssistantSurfaceController, 'canvas')
-    ).not.toThrow();
+    expect(openAssistant(root as any)).toBe(true);
   });
 });

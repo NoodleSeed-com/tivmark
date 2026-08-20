@@ -7,6 +7,7 @@ import {
 import { useTranslation } from 'next-i18next';
 import NavigationItems from './NavigationItems';
 import { MenuItem, NavigationProps } from './NavigationItems';
+import { openAssistant } from './assistantSurface';
 
 interface UserNavigationLabels {
   mark: string;
@@ -17,14 +18,16 @@ interface UserNavigationLabels {
 
 export function buildUserNavigation(
   activePathname: string | null,
-  labels: UserNavigationLabels
+  labels: UserNavigationLabels,
+  openMark: () => void = () => openAssistant()
 ): MenuItem[] {
   return [
     {
+      // Mark is not a page: this opens the assistant drawer in place, so the sidebar the
+      // user is looking at never changes.
       name: labels.mark,
-      href: '/mark',
+      onClick: openMark,
       icon: SparklesIcon,
-      active: activePathname === '/mark',
     },
     {
       name: labels.allTeams,
