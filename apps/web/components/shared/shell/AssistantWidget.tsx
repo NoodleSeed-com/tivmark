@@ -77,19 +77,6 @@ const ASSISTANT_APPEARANCE = {
 
 // One-year cookie so the backend session route can read the browser's IANA time zone / locale and
 // forward them as trusted `preferences` (see pages/api/assistant/session.ts).
-// Sign-in resume state lives at MODULE scope, deliberately. The field showed the widget can
-// unmount and remount during the /mark boot (session settling re-renders AppShell): an
-// instance ref dies with mount #1 -- its poll chain silently killed by cleanup -- while
-// mount #2 re-captures a cookie the first mount's element already spent, sees nothing, and
-// exits without a breadcrumb. Module scope is evaluated once per page load, before any
-// render, and survives every remount.
-let signInResumePending =
-  typeof document !== 'undefined' &&
-  document.cookie
-    .split('; ')
-    .some((entry) => entry.startsWith('tiv_assistant_signin='));
-let signInResumeSent = false;
-let signInResumeMounts = 0;
 
 function setPreferenceCookie(name: string, value: string) {
   if (!value) return;
@@ -103,70 +90,6 @@ export default function AssistantWidget() {
   // on the dark navy background). `resolvedTheme` updates reactively on toggle and OS change.
   const { resolvedTheme } = useTheme();
   const assistantRef = useRef<NoodleAssistantElement | null>(null);
-
-  // Mid-conversation sign-in, made visible. See the module-scope state above for why none
-  // of this lives in refs: the widget remounts during boot, and the resume must survive it.
-  // The element handle comes from the DOM -- assistantRef travels through next/dynamic and
-  // was observed non-null-but-not-the-element in the field (the PR #89 crash signature) --
-  // and the guard requires typeof === 'function' because onReady-era failures proved the
-  // type system's "always defined" wrong mid-upgrade (fb-1178).
-  useEffect(() => {
-    if (!signInResumePending) return;
-    const mount = ++signInResumeMounts;
-    let active = true;
-    const startedAt = Date.now();
-    console.info(
-      `[assistant] sign-in resume: waiting for the assistant element (mount ${mount})`
-    );
-
-    const trySend = (): boolean => {
-      if (signInResumeSent) return true;
-      if (!active) return true; // this mount's chain retires; a remount re-arms
-      const element = document.querySelector('noodle-assistant') as {
-        open?: () => void;
-        sendMessage?: unknown;
-      } | null;
-      if (!element || typeof element.sendMessage !== 'function') return false;
-      signInResumeSent = true;
-      signInResumePending = false;
-      console.info(
-        `[assistant] resuming the conversation after sign-in (mount ${mount}, element ready after ${Date.now() - startedAt}ms)`
-      );
-      try {
-        element.open?.();
-        void (
-          element.sendMessage(
-            "I've just signed in — please pick up where we left off and answer my last question."
-          ) as Promise<void>
-        ).catch(() => {
-          /* the panel surfaces its own error state */
-        });
-        return true;
-      } catch {
-        signInResumeSent = false;
-        signInResumePending = true;
-        return false;
-      }
-    };
-
-    const poll = (remaining: number) => {
-      if (trySend()) return;
-      if (remaining > 0) {
-        setTimeout(() => poll(remaining - 1), 250);
-      } else {
-        console.warn(
-          `[assistant] sign-in resume: element never became sendable (mount ${mount}, ${Date.now() - startedAt}ms)`
-        );
-      }
-    };
-    poll(240);
-    if (window.customElements) {
-      void customElements.whenDefined('noodle-assistant').then(() => poll(240));
-    }
-    return () => {
-      active = false;
-    };
-  }, []);
 
   useEffect(() => {
     try {
