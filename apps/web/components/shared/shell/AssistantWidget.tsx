@@ -3,7 +3,6 @@ import dynamic from 'next/dynamic';
 import type { NoodleAssistantElement } from '@noodleseed/assistant';
 
 import env from '@/lib/env';
-import { ASSISTANT_SIGN_IN_TICKET_COOKIE } from '@/lib/assistant/elevation';
 import useTheme from 'hooks/useTheme';
 import {
   syncAssistantSurface,
@@ -82,6 +81,20 @@ const ASSISTANT_APPEARANCE = {
 
 // One-year cookie so the backend session route can read the browser's IANA time zone / locale and
 // forward them as trusted `preferences` (see pages/api/assistant/session.ts).
+// Sign-in resume state lives at MODULE scope, deliberately. The field showed the widget can
+// unmount and remount during the /mark boot (session settling re-renders AppShell): an
+// instance ref dies with mount #1 -- its poll chain silently killed by cleanup -- while
+// mount #2 re-captures a cookie the first mount's element already spent, sees nothing, and
+// exits without a breadcrumb. Module scope is evaluated once per page load, before any
+// render, and survives every remount.
+let signInResumePending =
+  typeof document !== 'undefined' &&
+  document.cookie
+    .split('; ')
+    .some((entry) => entry.startsWith('tiv_assistant_signin='));
+let signInResumeSent = false;
+let signInResumeMounts = 0;
+
 function setPreferenceCookie(name: string, value: string) {
   if (!value) return;
   document.cookie = `${name}=${encodeURIComponent(value)}; path=/; max-age=31536000; SameSite=Lax`;
@@ -104,54 +117,33 @@ export default function AssistantWidget({ surface }: AssistantWidgetProps) {
     syncAssistantSurface(assistantRef.current, surface);
   }, [surface]);
 
-  // Mid-conversation sign-in, made visible. The marketing page hands the sign-in ticket over
-  // on a parent-domain cookie; its presence at first render means a visitor has just arrived
-  // from tivmark.com to continue a conversation. The service joins them to it but replays no
-  // transcript, so without this the visitor faces an empty panel that silently knows the
-  // answer. One resume message makes the memory visible; the backend spends the ticket in the
-  // very exchange that message rides on, and a refused ticket degrades to a fresh
-  // conversation where the message reads as a normal greeting.
-  //
-  // Hard-won shape, in production, in one night:
-  //  - Captured at FIRST RENDER: the element's own eager session exchange spends the cookie,
-  //    so a live-cookie check races and loses.
-  //  - The element handle comes from the DOM, not the React ref: the component mounts through
-  //    next/dynamic, whose ref forwarding we could not make observable in the field, while
-  //    document.querySelector drove the element correctly every single time.
-  //  - The wrapper's onReady is not used: it fires synchronously from inside
-  //    connectedCallback, mid-upgrade, when calling element methods throws (fb-1178).
-  //  - The guard requires typeof === 'function' (a widened cast so TS2774 cannot force its
-  //    deletion -- the type says the method always exists; mid-upgrade runtime disagrees) and
-  //    a soft failure keeps polling rather than giving up.
-  const arrivedWithSignInTicket = useRef(
-    typeof document !== 'undefined' &&
-      document.cookie
-        .split('; ')
-        .some((entry) =>
-          entry.startsWith(`${ASSISTANT_SIGN_IN_TICKET_COOKIE}=`)
-        )
-  );
-  const resumeSentRef = useRef(false);
-
+  // Mid-conversation sign-in, made visible. See the module-scope state above for why none
+  // of this lives in refs: the widget remounts during boot, and the resume must survive it.
+  // The element handle comes from the DOM -- assistantRef travels through next/dynamic and
+  // was observed non-null-but-not-the-element in the field (the PR #89 crash signature) --
+  // and the guard requires typeof === 'function' because onReady-era failures proved the
+  // type system's "always defined" wrong mid-upgrade (fb-1178).
   useEffect(() => {
-    if (!arrivedWithSignInTicket.current) return;
+    if (!signInResumePending) return;
+    const mount = ++signInResumeMounts;
     let active = true;
     const startedAt = Date.now();
     console.info(
-      '[assistant] sign-in resume: waiting for the assistant element'
+      `[assistant] sign-in resume: waiting for the assistant element (mount ${mount})`
     );
 
     const trySend = (): boolean => {
-      if (!active || resumeSentRef.current) return true;
-      const element = (assistantRef.current ??
-        document.querySelector('noodle-assistant')) as {
+      if (signInResumeSent) return true;
+      if (!active) return true; // this mount's chain retires; a remount re-arms
+      const element = document.querySelector('noodle-assistant') as {
         open?: () => void;
         sendMessage?: unknown;
       } | null;
       if (!element || typeof element.sendMessage !== 'function') return false;
-      resumeSentRef.current = true;
+      signInResumeSent = true;
+      signInResumePending = false;
       console.info(
-        `[assistant] resuming the conversation after sign-in (element ready after ${Date.now() - startedAt}ms)`
+        `[assistant] resuming the conversation after sign-in (mount ${mount}, element ready after ${Date.now() - startedAt}ms)`
       );
       try {
         element.open?.();
@@ -164,25 +156,19 @@ export default function AssistantWidget({ surface }: AssistantWidgetProps) {
         });
         return true;
       } catch {
-        // A synchronous throw mid-upgrade degrades to another retry, never a dead page.
-        resumeSentRef.current = false;
+        signInResumeSent = false;
+        signInResumePending = true;
         return false;
       }
     };
 
-    // Poll with a generous ceiling. The field taught us the real numbers: the dynamic
-    // wrapper can take beyond ten seconds to mount, and the previous version's two retry
-    // chains shared one 40-attempt budget -- the timeout chain exhausted it, and when
-    // whenDefined finally resolved, its one attempt found the budget spent at the exact
-    // moment the element became usable. Each arm now polls independently; the ticket
-    // itself expires server-side in ten minutes, so a sixty-second ceiling is safe.
     const poll = (remaining: number) => {
       if (trySend()) return;
       if (remaining > 0) {
         setTimeout(() => poll(remaining - 1), 250);
       } else {
         console.warn(
-          `[assistant] sign-in resume: element never became sendable (${Date.now() - startedAt}ms)`
+          `[assistant] sign-in resume: element never became sendable (mount ${mount}, ${Date.now() - startedAt}ms)`
         );
       }
     };
