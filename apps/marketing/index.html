@@ -117,6 +117,23 @@
         --ns-assistant-primary-button: var(--navy);
         --ns-assistant-primary-button-text: var(--cream);
       }
+      /* The assistant's ONLY two modes, here as on the product: the floating launcher
+         (element default, bottom right) and, once opened, a full-height drawer docked to
+         the right edge. It never takes over the page. !important is required because the
+         element's own :host rules pin the floating position. */
+      noodle-assistant[open] {
+        position: fixed !important;
+        top: 0 !important;
+        right: 0 !important;
+        bottom: 0 !important;
+        left: auto !important;
+        z-index: 60 !important;
+        --ns-assistant-panel-width: min(420px, 100vw);
+        --ns-assistant-min-height: 100dvh;
+        --ns-assistant-max-height: 100dvh;
+        --ns-assistant-edge-offset: 0px;
+        --ns-assistant-panel-radius: 0px;
+      }
       [data-theme="tivmark-dark"] noodle-assistant {
         --ns-assistant-launcher: var(--accent);
         --ns-assistant-launcher-text: var(--navy-deep);
