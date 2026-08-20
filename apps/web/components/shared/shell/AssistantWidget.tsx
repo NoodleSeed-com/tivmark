@@ -1,13 +1,9 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import type { NoodleAssistantElement } from '@noodleseed/assistant';
 
 import env from '@/lib/env';
 import useTheme from 'hooks/useTheme';
-import {
-  syncAssistantSurface,
-  type AssistantSurface,
-} from './assistantSurface';
 
 // The Noodle assistant renders a custom element and must mount client-side only (it references
 // `HTMLElement` at import time). Load it with ssr:false.
@@ -100,22 +96,13 @@ function setPreferenceCookie(name: string, value: string) {
   document.cookie = `${name}=${encodeURIComponent(value)}; path=/; max-age=31536000; SameSite=Lax`;
 }
 
-interface AssistantWidgetProps {
-  surface: AssistantSurface;
-}
-
-export default function AssistantWidget({ surface }: AssistantWidgetProps) {
+export default function AssistantWidget() {
   // Drive the assistant's light/dark from the app's *resolved* theme (the DaisyUI toggle), not
   // `theme="auto"` — otherwise the assistant follows the OS `prefers-color-scheme`, which can
   // diverge from the app theme and mismatch the launcher against the canvas (e.g. a navy launcher
   // on the dark navy background). `resolvedTheme` updates reactively on toggle and OS change.
   const { resolvedTheme } = useTheme();
   const assistantRef = useRef<NoodleAssistantElement | null>(null);
-
-  const syncSurface = useCallback(() => {
-    if (!assistantRef.current) return;
-    syncAssistantSurface(assistantRef.current, surface);
-  }, [surface]);
 
   // Mid-conversation sign-in, made visible. See the module-scope state above for why none
   // of this lives in refs: the widget remounts during boot, and the resume must survive it.
@@ -193,25 +180,15 @@ export default function AssistantWidget({ surface }: AssistantWidgetProps) {
     }
   }, []);
 
-  useEffect(() => {
-    syncSurface();
-  }, [syncSurface]);
-
   if (!env.assistant.enabled) return null;
 
   return (
     <NoodleAssistant
       ref={assistantRef}
-      className={
-        surface === 'canvas'
-          ? 'tivmark-assistant tivmark-assistant--canvas'
-          : 'tivmark-assistant'
-      }
+      className="tivmark-assistant"
       sessionEndpoint="/api/assistant/session"
       theme={resolvedTheme}
       appearance={ASSISTANT_APPEARANCE}
-      open={surface === 'canvas'}
-      onReady={syncSurface}
       onAppearanceWarning={(warning) =>
         // Dev-only signal: the client flags low-contrast launcher colors so we can retune if needed.
         console.warn('[assistant] appearance warning', warning)

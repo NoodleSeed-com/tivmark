@@ -121,17 +121,20 @@ a {
   display: none;
 }
 
-.tivmark-assistant--canvas {
-  position: absolute !important;
-  inset: 0 !important;
-  display: block;
-  width: 100%;
-  height: 100%;
-  z-index: 1 !important;
-  --ns-assistant-panel-width: 100%;
-  --ns-assistant-min-height: 100%;
-  --ns-assistant-max-height: 100%;
+/* The assistant's ONLY two modes: the floating launcher (element default, bottom right)
+   and, once opened, a full-height drawer docked to the right edge. It never takes over the
+   page. The geometry rides the element's public --ns-assistant-* variables; !important is
+   required because the element's own :host rules pin the floating position. */
+.tivmark-assistant[open] {
+  position: fixed !important;
+  top: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  left: auto !important;
+  z-index: 50 !important;
+  --ns-assistant-panel-width: min(440px, 100vw);
+  --ns-assistant-min-height: 100dvh;
+  --ns-assistant-max-height: 100dvh;
   --ns-assistant-edge-offset: 0px;
   --ns-assistant-panel-radius: 0px;
-  --ns-assistant-z-index: 1;
 }
