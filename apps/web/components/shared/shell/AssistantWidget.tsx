@@ -105,21 +105,24 @@ export default function AssistantWidget({ surface }: AssistantWidgetProps) {
   }, [surface]);
 
   // Mid-conversation sign-in, made visible. The marketing page hands the sign-in ticket over
-  // on a parent-domain cookie; the presence of that cookie here means a visitor has just
-  // arrived from tivmark.com to continue a conversation. The service joins them to it but
-  // deliberately replays no transcript ("the assistant remembers; the messages do not
-  // reappear"), so an untouched panel would look like the conversation was lost. Sending one
-  // resume message makes the memory visible: the message triggers the session exchange, the
-  // backend spends the ticket in that same exchange, and Mark's reply carries the context.
+  // on a parent-domain cookie; its presence at first render means a visitor has just arrived
+  // from tivmark.com to continue a conversation. The service joins them to it but replays no
+  // transcript, so without this the visitor faces an empty panel that silently knows the
+  // answer. One resume message makes the memory visible; the backend spends the ticket in the
+  // very exchange that message rides on, and a refused ticket degrades to a fresh
+  // conversation where the message reads as a normal greeting.
   //
-  // The ticket cookie is read-only here — the session route is what spends and clears it, so
-  // a refused ticket still degrades to a fresh conversation without this code caring.
-  // Captured at FIRST RENDER, before the assistant element exists. The canvas surface opens
-  // the element immediately, and an open element eagerly runs its session exchange -- which is
-  // the very request that spends and clears the ticket cookie. Checking the live cookie at
-  // onReady therefore loses the race: the elevation succeeds silently and the resume message
-  // never sends (observed in production on the first real sign-in). Presence at render time
-  // is the durable fact; whether the ticket is later honoured is the backend's business.
+  // Hard-won shape, in production, in one night:
+  //  - Captured at FIRST RENDER: the element's own eager session exchange spends the cookie,
+  //    so a live-cookie check races and loses.
+  //  - The element handle comes from the DOM, not the React ref: the component mounts through
+  //    next/dynamic, whose ref forwarding we could not make observable in the field, while
+  //    document.querySelector drove the element correctly every single time.
+  //  - The wrapper's onReady is not used: it fires synchronously from inside
+  //    connectedCallback, mid-upgrade, when calling element methods throws (fb-1178).
+  //  - The guard requires typeof === 'function' (a widened cast so TS2774 cannot force its
+  //    deletion -- the type says the method always exists; mid-upgrade runtime disagrees) and
+  //    a soft failure keeps polling rather than giving up.
   const arrivedWithSignInTicket = useRef(
     typeof document !== 'undefined' &&
       document.cookie
@@ -129,50 +132,44 @@ export default function AssistantWidget({ surface }: AssistantWidgetProps) {
         )
   );
   const resumeSentRef = useRef(false);
-  const resumeAfterSignIn = useCallback(() => {
-    if (resumeSentRef.current || !arrivedWithSignInTicket.current) return;
-    const element = assistantRef.current;
-    // Runtime guard, deliberately defeating TS2774. The wrapper's onReady fires
-    // synchronously from inside the element's connectedCallback, mid-upgrade -- observed in
-    // production as an uncaught "t.sendMessage is not a function" that took the whole page
-    // down. The type says the method always exists; the runtime disagrees mid-upgrade, so
-    // the check must survive the compiler. The poll below retries until it passes.
-    const sendMessage = (element as { sendMessage?: unknown } | null)
-      ?.sendMessage;
-    if (!element || typeof sendMessage !== 'function') return;
-    resumeSentRef.current = true;
-    console.info('[assistant] resuming the conversation after sign-in');
-    try {
-      element.open?.();
-      void element
-        .sendMessage(
-          "I've just signed in — please pick up where we left off and answer my last question."
-        )
-        .catch(() => {
-          /* the panel surfaces its own error state */
-        });
-    } catch {
-      // A synchronous throw mid-upgrade must degrade to a silent panel, never a dead page.
-      resumeSentRef.current = false;
-    }
-  }, []);
 
-  // Drive the resume from mount, not from onReady. Observed in production: onReady never
-  // invoked this (the elevation succeeded silently on every attempt while the panel stayed
-  // empty, and a planted ticket cookie that was present the whole time still produced no
-  // send). The element and its methods appear asynchronously -- next/dynamic, then custom
-  // element upgrade -- so poll briefly for a usable handle and stop the moment it exists.
   useEffect(() => {
     if (!arrivedWithSignInTicket.current) return;
     let active = true;
     let attempts = 0;
     const tryResume = () => {
       if (!active || resumeSentRef.current) return;
-      if (assistantRef.current) {
-        resumeAfterSignIn();
+      const element = (assistantRef.current ??
+        document.querySelector('noodle-assistant')) as {
+        open?: () => void;
+        sendMessage?: unknown;
+      } | null;
+      if (element && typeof element.sendMessage === 'function') {
+        resumeSentRef.current = true;
+        console.info('[assistant] resuming the conversation after sign-in');
+        try {
+          element.open?.();
+          void (
+            element.sendMessage(
+              "I've just signed in — please pick up where we left off and answer my last question."
+            ) as Promise<void>
+          ).catch(() => {
+            /* the panel surfaces its own error state */
+          });
+        } catch {
+          // A synchronous throw mid-upgrade degrades to a retry, never a dead page.
+          resumeSentRef.current = false;
+          if (attempts++ < 40) setTimeout(tryResume, 250);
+        }
         return;
       }
-      if (attempts++ < 40) setTimeout(tryResume, 250);
+      if (attempts++ < 40) {
+        setTimeout(tryResume, 250);
+      } else {
+        console.warn(
+          '[assistant] sign-in resume: element never became sendable'
+        );
+      }
     };
     if (window.customElements) {
       void customElements.whenDefined('noodle-assistant').then(tryResume);
@@ -181,7 +178,7 @@ export default function AssistantWidget({ surface }: AssistantWidgetProps) {
     return () => {
       active = false;
     };
-  }, [resumeAfterSignIn]);
+  }, []);
 
   useEffect(() => {
     try {
