@@ -132,9 +132,8 @@ export default function AssistantWidget({ surface }: AssistantWidgetProps) {
   const resumeAfterSignIn = useCallback(() => {
     if (resumeSentRef.current || !arrivedWithSignInTicket.current) return;
     const element = assistantRef.current;
-    if (!element?.sendMessage) return;
+    if (!element) return;
     resumeSentRef.current = true;
-    // eslint-disable-next-line no-console
     console.info('[assistant] resuming the conversation after sign-in');
     element.open?.();
     void element
@@ -157,13 +156,13 @@ export default function AssistantWidget({ surface }: AssistantWidgetProps) {
     let attempts = 0;
     const tryResume = () => {
       if (!active || resumeSentRef.current) return;
-      if (assistantRef.current?.sendMessage) {
+      if (assistantRef.current) {
         resumeAfterSignIn();
         return;
       }
       if (attempts++ < 40) setTimeout(tryResume, 250);
     };
-    if (window.customElements?.whenDefined) {
+    if (window.customElements) {
       void customElements.whenDefined('noodle-assistant').then(tryResume);
     }
     tryResume();
