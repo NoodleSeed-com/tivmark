@@ -126,22 +126,41 @@
         --ns-assistant-user-message: var(--navy);
         --ns-assistant-user-message-text: var(--cream);
       }
-      /* The assistant's ONLY two modes, here as on the product: the floating launcher
-         (element default, bottom right) and, once opened, a full-height drawer docked to
-         the right edge. It never takes over the page. !important is required because the
+      /* The assistant's ONLY two modes: the floating launcher (element default, bottom
+         right) and, once opened, a PUSH drawer on the right -- the page shrinks beside it
+         rather than being covered. The nav is sticky inside body, so the body margin
+         shrinks it too: nav and drawer can never overlap by construction (the previous
+         overlay drawer sat under the nav's z-index 100 and lost its top edge).
+         Push uses margin, never transform -- a transform would create a containing block
+         that captures the fixed-position drawer. !important is required because the
          element's own :host rules pin the floating position. */
-      noodle-assistant[open] {
-        position: fixed !important;
-        top: 0 !important;
-        right: 0 !important;
-        bottom: 0 !important;
-        left: auto !important;
-        z-index: 60 !important;
-        --ns-assistant-panel-width: min(420px, 100vw);
-        --ns-assistant-min-height: 100dvh;
-        --ns-assistant-max-height: 100dvh;
-        --ns-assistant-edge-offset: 0px;
-        --ns-assistant-panel-radius: 0px;
+      @media (min-width: 1024px) {
+        body {
+          transition: margin-right 0.28s ease;
+        }
+        body:has(noodle-assistant[open]) {
+          margin-right: min(420px, 40vw);
+        }
+        noodle-assistant[open] {
+          position: fixed !important;
+          top: 0 !important;
+          right: 0 !important;
+          bottom: 0 !important;
+          left: auto !important;
+          z-index: 110 !important;
+          --ns-assistant-panel-width: min(420px, 40vw);
+          --ns-assistant-min-height: 100dvh;
+          --ns-assistant-max-height: 100dvh;
+          --ns-assistant-edge-offset: 0px;
+          --ns-assistant-panel-radius: 0px;
+        }
+      }
+      /* Narrow screens: the element's own mobile-fullscreen takeover runs; it must paint
+         above the sticky nav (z-index 100), so hand the host back a winning z-index. */
+      @media (max-width: 1023.98px) {
+        noodle-assistant[open] {
+          z-index: 2147483000 !important;
+        }
       }
       [data-theme="tivmark-dark"] noodle-assistant {
         --ns-assistant-launcher: var(--accent);
