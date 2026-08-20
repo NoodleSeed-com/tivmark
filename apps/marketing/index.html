@@ -127,30 +127,36 @@
         --ns-assistant-user-message-text: var(--cream);
       }
       /* The assistant's ONLY two modes: the floating launcher (element default, bottom
-         right) and, once opened, a PUSH drawer on the right -- the page shrinks beside it
-         rather than being covered. The nav is sticky inside body, so the body margin
-         shrinks it too: nav and drawer can never overlap by construction (the previous
-         overlay drawer sat under the nav's z-index 100 and lost its top edge).
-         Push uses margin, never transform -- a transform would create a containing block
-         that captures the fixed-position drawer. !important is required because the
-         element's own :host rules pin the floating position. */
+         right) and, once opened, a centered OVERLAY POPUP -- a scrim dims the page and
+         the panel floats above everything, nav included (scrim z 150 and panel z 200
+         both clear the nav's z-index 100, the failure of the original under-nav drawer).
+         Centering transforms the host itself, which is safe: the trap is a transform on
+         an ANCESTOR of a fixed element, not on the fixed element. The scrim rides
+         body::after so no markup is added; Escape still closes the panel.
+         !important is required because the element's own :host rules pin the floating
+         position. */
       @media (min-width: 1024px) {
-        body {
-          transition: margin-right 0.28s ease;
-        }
         body:has(noodle-assistant[open]) {
-          margin-right: min(420px, 40vw);
+          overflow: hidden; /* modal: the page holds still behind the scrim */
+        }
+        body:has(noodle-assistant[open])::after {
+          content: '';
+          position: fixed;
+          inset: 0;
+          z-index: 150;
+          background: rgba(17, 28, 51, 0.45); /* --navy-deep scrim */
         }
         noodle-assistant[open] {
           position: fixed !important;
-          top: 0 !important;
-          right: 0 !important;
-          bottom: 0 !important;
-          left: auto !important;
-          z-index: 110 !important;
-          --ns-assistant-panel-width: min(420px, 40vw);
-          --ns-assistant-min-height: 100dvh;
-          --ns-assistant-max-height: 100dvh;
+          top: 50% !important;
+          left: 50% !important;
+          right: auto !important;
+          bottom: auto !important;
+          transform: translate(-50%, -50%);
+          z-index: 200 !important;
+          --ns-assistant-panel-width: min(520px, 92vw);
+          --ns-assistant-min-height: min(700px, 86dvh);
+          --ns-assistant-max-height: min(700px, 86dvh);
           --ns-assistant-edge-offset: 0px;
           --ns-assistant-panel-radius: 0px;
         }
