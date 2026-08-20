@@ -1,5 +1,6 @@
 import {
   useId,
+  useState,
   type ButtonHTMLAttributes,
   type ReactNode,
 } from 'react';
@@ -205,5 +206,47 @@ export function WidgetAction({
     >
       {pending ? pendingLabel : children}
     </button>
+  );
+}
+
+type FollowUpChip = {
+  readonly id: string;
+  readonly label: string;
+  readonly prompt: string;
+};
+
+type FollowUpChipsProps = {
+  readonly chips: readonly FollowUpChip[];
+  readonly onSend: (prompt: string) => Promise<void> | void;
+  /** Hidden when the host says follow-up messages are unsupported. */
+  readonly supported?: boolean;
+};
+
+// Conversation chips rendered inside a card. The panel's own suggested prompts are
+// welcome-screen-only (hidden forever once the conversation has messages), so cards carry
+// their own just-in-time follow-ups: clicking one injects a real user turn via the host.
+export function FollowUpChips({ chips, onSend, supported = true }: FollowUpChipsProps) {
+  const [sending, setSending] = useState<string>();
+  if (!supported || chips.length === 0) return null;
+  return (
+    <div className="tv-chips" role="group" aria-label="Suggested next steps">
+      {chips.map((chip) => (
+        <button
+          key={chip.id}
+          type="button"
+          className="tv-chip-btn"
+          disabled={sending !== undefined}
+          aria-busy={sending === chip.id || undefined}
+          onClick={() => {
+            setSending(chip.id);
+            Promise.resolve(onSend(chip.prompt)).finally(() =>
+              setSending(undefined)
+            );
+          }}
+        >
+          {chip.label}
+        </button>
+      ))}
+    </div>
   );
 }

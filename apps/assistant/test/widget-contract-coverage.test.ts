@@ -55,6 +55,36 @@ const widgetContracts = {
     component: 'review-time-off-queue',
     itemFields: ['id', 'type', 'status', 'startDate', 'endDate'],
   },
+  explore_tivmark: {
+    component: 'explore-tivmark',
+    collection: 'features',
+    teamScoped: false,
+    itemFields: ['title', 'detail'],
+  },
+  time_off_guide: {
+    component: 'time-off-guide',
+    collection: 'leaveTypes',
+    teamScoped: false,
+    itemFields: ['type', 'label', 'detail'],
+  },
+  equipment_guide: {
+    component: 'equipment-guide',
+    collection: 'categories',
+    teamScoped: false,
+    itemFields: ['category', 'label', 'examples'],
+  },
+  getting_started_guide: {
+    component: 'getting-started-guide',
+    collection: 'steps',
+    teamScoped: false,
+    itemFields: ['title', 'detail'],
+  },
+  trust_and_security: {
+    component: 'trust-and-security',
+    collection: 'points',
+    teamScoped: false,
+    itemFields: ['title', 'detail'],
+  },
 } satisfies Record<string, WidgetContract>;
 
 type JsonSchema = {
@@ -112,7 +142,12 @@ describe('manifest widget contract coverage', () => {
           ).toContain(field);
         }
 
-        if (contract.component.includes('time-off')) {
+        // Date/status shape applies to the request-row widgets; the public guide
+        // cards reuse the 'time-off' name but carry no request rows.
+        if (
+          contract.component.includes('time-off') &&
+          (contract.collection ?? 'requests') === 'requests'
+        ) {
           expect(item?.properties?.startDate?.pattern).toBe(
             '^\\d{4}-\\d{2}-\\d{2}$'
           );
