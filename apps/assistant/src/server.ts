@@ -97,6 +97,13 @@ export default server(
             // Anonymous-safe: no connector, no identity.
             tivmarkHelp,
             publicTools.talkToSales,
+            // Branded explainer cards -- the card-shaped versions of the knowledge
+            // answers, safe for a stranger because they touch nothing personal.
+            { kind: 'tool', name: 'explore_tivmark' },
+            { kind: 'tool', name: 'time_off_guide' },
+            { kind: 'tool', name: 'equipment_guide' },
+            { kind: 'tool', name: 'getting_started_guide' },
+            { kind: 'tool', name: 'trust_and_security' },
             // Identity-gated: delegated-connector-backed, so for an anonymous visitor the
             // service intercepts the call into the sign-in card (r601 classifies on the
             // connector's auth kind -- no `${user}` trick needed). Listing them here is what
@@ -167,6 +174,7 @@ export default server(
   [
     createTeamContextTool(toolConfig),
     publicTools.talkToSales,
+    ...createGuideTools(toolConfig),
     ...createTimeOffTools(contracts, toolConfig),
     ...createEquipmentTools(contracts, toolConfig),
     ...createReviewTools(contracts, toolConfig),
@@ -550,6 +558,284 @@ function createPublicTools({ readOnly, widgetCsp }: ToolConfig) {
   };
 }
 
+// Branded explainer cards for the public site. Like talk_to_sales they touch no
+// connector and reference no `${user}`, so an anonymous visitor can run them -- they are
+// the card-shaped versions of the knowledge answers, sourced from src/knowledge/*.md.
+// Keep the two in step when either changes.
+function createGuideTools({ readOnly, widgetCsp }: ToolConfig) {
+  return [
+    tool('explore_tivmark', {
+      title: 'Show what Tivmark does',
+      description:
+        'Show an overview card of Tivmark: what it does, its features, and how to open the ' +
+        'portal. Use this when someone asks what Tivmark is or what it can do.',
+      annotations: readOnly,
+      input: z.object({}),
+      output: z.object({
+        tagline: z.string(),
+        features: z.array(z.object({ title: z.string(), detail: z.string() })),
+        stats: z.array(z.object({ value: z.string(), label: z.string() })),
+        portalUrl: z.string(),
+      }),
+      fulfil: () => ({
+        tagline: 'Time off and equipment, handled.',
+        features: [
+          {
+            title: 'Time off',
+            detail: 'Balances, requests, and approvals per team, counted in half-days.',
+          },
+          {
+            title: 'Equipment',
+            detail: 'Request, approve, and fulfil hardware without a spreadsheet.',
+          },
+          {
+            title: 'Approvals',
+            detail: 'Owners and admins review queues with one click.',
+          },
+          {
+            title: 'Teams & roles',
+            detail: 'Per-team policies, members, and reviewer roles.',
+          },
+          {
+            title: 'SSO & SCIM',
+            detail: 'Enterprise sign-on and directory-driven provisioning.',
+          },
+          {
+            title: 'API & webhooks',
+            detail: 'A full REST API, webhooks, and audit history.',
+          },
+        ],
+        stats: [
+          { value: '1-click', label: 'approvals' },
+          { value: 'Per-team', label: 'policies' },
+          { value: 'SSO', label: 'enterprise-ready' },
+        ],
+        portalUrl: 'https://app.tivmark.com/?tab=login',
+      }),
+      viewTitle: 'What Tivmark does',
+      viewDescription: 'Feature overview with a link to the portal.',
+      invoking: 'Sketching the overview…',
+      invoked: 'Here is Tivmark at a glance',
+      domain: 'https://tivmark.com',
+      csp: widgetCsp,
+      view: {
+        component: 'explore-tivmark',
+        entry: './views/explore-tivmark.tsx',
+      },
+    }),
+    tool('time_off_guide', {
+      title: 'Explain time off',
+      description:
+        'Show a card explaining how time off works in Tivmark: the four leave types and how ' +
+        'balances are counted. Use this when someone asks how time off, leave, or balances work.',
+      annotations: readOnly,
+      input: z.object({}),
+      output: z.object({
+        leaveTypes: z.array(
+          z.object({ type: z.string(), label: z.string(), detail: z.string() }),
+        ),
+        balanceParts: z.array(
+          z.object({ term: z.string(), detail: z.string() }),
+        ),
+        note: z.string(),
+      }),
+      fulfil: () => ({
+        leaveTypes: [
+          {
+            type: 'VACATION',
+            label: 'Vacation',
+            detail: "Planned holiday, drawn from the team's annual allowance.",
+          },
+          {
+            type: 'SICK',
+            label: 'Sick',
+            detail: 'Illness, usually on a separate allowance from vacation.',
+          },
+          {
+            type: 'PERSONAL',
+            label: 'Personal',
+            detail: 'Appointments, family matters, and other personal time.',
+          },
+          {
+            type: 'UNPAID',
+            label: 'Unpaid',
+            detail: 'Approved leave taken without pay, typically uncapped.',
+          },
+        ],
+        balanceParts: [
+          { term: 'Allowance', detail: 'what the team grants' },
+          { term: 'Used', detail: 'approved days taken' },
+          { term: 'Pending', detail: 'held until reviewed' },
+        ],
+        note:
+          'Remaining is allowance minus used minus pending, counted in half-days — a ' +
+          'morning off is 0.5. A new request starts as pending and a reviewer approves ' +
+          'or declines it.',
+      }),
+      viewTitle: 'Time off in Tivmark',
+      viewDescription: 'Leave types and how balances are counted.',
+      invoking: 'Preparing the guide…',
+      invoked: 'Here is how time off works',
+      domain: 'https://tivmark.com',
+      csp: widgetCsp,
+      view: {
+        component: 'time-off-guide',
+        entry: './views/time-off-guide.tsx',
+      },
+    }),
+    tool('equipment_guide', {
+      title: 'Explain equipment requests',
+      description:
+        'Show a card explaining equipment requests in Tivmark: the six categories and the ' +
+        'request lifecycle. Use this when someone asks how equipment or hardware requests work.',
+      annotations: readOnly,
+      input: z.object({}),
+      output: z.object({
+        categories: z.array(
+          z.object({
+            category: z.string(),
+            label: z.string(),
+            examples: z.string(),
+          }),
+        ),
+        lifecycle: z.array(z.object({ stage: z.string(), detail: z.string() })),
+      }),
+      fulfil: () => ({
+        categories: [
+          { category: 'LAPTOP', label: 'Laptop', examples: 'Work laptops and docking stations' },
+          { category: 'MONITOR', label: 'Monitor', examples: 'External displays' },
+          { category: 'PHONE', label: 'Phone', examples: 'Work phones and tablets' },
+          {
+            category: 'PERIPHERAL',
+            label: 'Peripheral',
+            examples: 'Keyboards, mice, headsets, webcams',
+          },
+          {
+            category: 'FURNITURE',
+            label: 'Furniture',
+            examples: 'Desks, chairs, standing desk converters',
+          },
+          { category: 'OTHER', label: 'Other', examples: 'Anything that fits no category' },
+        ],
+        lifecycle: [
+          { stage: 'Pending', detail: 'Submitted and waiting for a reviewer.' },
+          {
+            stage: 'Approved or declined',
+            detail: 'A team owner or admin has decided.',
+          },
+          {
+            stage: 'Fulfilled',
+            detail: 'The approved item has actually been handed over.',
+          },
+        ],
+      }),
+      viewTitle: 'Equipment in Tivmark',
+      viewDescription: 'Categories and the request lifecycle.',
+      invoking: 'Preparing the guide…',
+      invoked: 'Here is how equipment works',
+      domain: 'https://tivmark.com',
+      csp: widgetCsp,
+      view: {
+        component: 'equipment-guide',
+        entry: './views/equipment-guide.tsx',
+      },
+    }),
+    tool('getting_started_guide', {
+      title: 'Show the getting-started checklist',
+      description:
+        'Show the five-step checklist for setting up a Tivmark workspace. Use this when ' +
+        'someone asks how to get started, set up, or onboard their team.',
+      annotations: readOnly,
+      input: z.object({}),
+      output: z.object({
+        steps: z.array(z.object({ title: z.string(), detail: z.string() })),
+      }),
+      fulfil: () => ({
+        steps: [
+          {
+            title: 'Create your workspace',
+            detail: 'Sign up at app.tivmark.com and confirm your email.',
+          },
+          {
+            title: 'Create your first team',
+            detail: 'Name it and give it a slug; split into more teams as you grow.',
+          },
+          {
+            title: 'Set allowances',
+            detail: 'Vacation, sick, personal, and unpaid — any type can be unlimited.',
+          },
+          {
+            title: 'Invite people',
+            detail: 'By email, or connect SCIM so your directory does it for you.',
+          },
+          {
+            title: 'Assign reviewers',
+            detail: 'Make the right people owners or admins before members arrive.',
+          },
+        ],
+      }),
+      viewTitle: 'Getting started',
+      viewDescription: 'Workspace setup checklist.',
+      invoking: 'Preparing the checklist…',
+      invoked: 'Here is the setup checklist',
+      domain: 'https://tivmark.com',
+      csp: widgetCsp,
+      view: {
+        component: 'getting-started-guide',
+        entry: './views/getting-started-guide.tsx',
+      },
+    }),
+    tool('trust_and_security', {
+      title: 'Show security and privacy',
+      description:
+        "Show a card summarizing Tivmark's security and privacy posture: sign-in, per-team " +
+        'visibility, and what the assistant can and cannot do. Use this when someone asks ' +
+        'about security, privacy, or data handling.',
+      annotations: readOnly,
+      input: z.object({}),
+      output: z.object({
+        points: z.array(z.object({ title: z.string(), detail: z.string() })),
+        privacyUrl: z.string(),
+      }),
+      fulfil: () => ({
+        points: [
+          {
+            title: 'Sign-in',
+            detail: 'Password or SAML SSO; SCIM keeps accounts in step with your directory.',
+          },
+          {
+            title: 'Visibility',
+            detail: 'Per team, not per company — nobody sees another team\u2019s data.',
+          },
+          {
+            title: 'One boundary',
+            detail: 'The API enforces permissions for every client, the assistant included.',
+          },
+          {
+            title: 'Confirmed writes',
+            detail: 'Every consequential action shows exactly what will happen and waits.',
+          },
+          {
+            title: 'Verified identity',
+            detail: 'Identity comes from Tivmark\u2019s backend, never from the browser.',
+          },
+        ],
+        privacyUrl: 'https://tivmark.com/privacy',
+      }),
+      viewTitle: 'Security and privacy',
+      viewDescription: 'How Tivmark handles access and data.',
+      invoking: 'Preparing the overview…',
+      invoked: 'Here is the security picture',
+      domain: 'https://tivmark.com',
+      csp: widgetCsp,
+      view: {
+        component: 'trust-and-security',
+        entry: './views/trust-and-security.tsx',
+      },
+    }),
+  ];
+}
+
 function createTeamContextTool({ readOnly }: ToolConfig) {
   return tool('my_teams', {
     title: 'List my teams',
@@ -731,6 +1017,29 @@ function createTimeOffTools(
         };
       },
     }),
+      // The widget-facing twin of cancel_time_off_request. `visibility: ['app']` keeps it
+    // out of the model's tool list, and it skips the chat confirmation because the card
+    // renders its own confirm step in place -- the same shape as review_*_app, pinned by
+    // test/server.test.ts.
+    tool('cancel_time_off_app', {
+      title: 'Cancel time-off request in app',
+      visibility: ['app'],
+      description:
+        "Cancel one of the signed-in user's time-off requests by id.",
+      annotations: annotations.action(),
+      input: z.object({ team: z.string().default(''), id: z.string().default('') }),
+      output: z.object({ status: z.string(), request: z.unknown() }),
+      fulfil: ({ input, connectors }) => {
+        const res = connectors.tiv.cancel_time_off({
+          team: input.team,
+          id: input.id,
+        });
+        return {
+          status: `Canceled request ${input.id}.`,
+          request: res.request,
+        };
+      },
+    }),
   ];
 }
 
@@ -859,6 +1168,26 @@ function createEquipmentTools(
         "Cancel one of the signed-in user's equipment requests by id. The user confirms first.",
       annotations: confirmedDestructive,
       input: z.object({ team: z.string(), id: z.string() }),
+      output: z.object({ status: z.string(), request: z.unknown() }),
+      fulfil: ({ input, connectors }) => {
+        const res = connectors.tiv.cancel_equipment({
+          team: input.team,
+          id: input.id,
+        });
+        return {
+          status: `Canceled request ${input.id}.`,
+          request: res.request,
+        };
+      },
+    }),
+    // Widget-facing twin of cancel_equipment_request; see cancel_time_off_app.
+    tool('cancel_equipment_app', {
+      title: 'Cancel equipment request in app',
+      visibility: ['app'],
+      description:
+        "Cancel one of the signed-in user's equipment requests by id.",
+      annotations: annotations.action(),
+      input: z.object({ team: z.string().default(''), id: z.string().default('') }),
       output: z.object({ status: z.string(), request: z.unknown() }),
       fulfil: ({ input, connectors }) => {
         const res = connectors.tiv.cancel_equipment({
@@ -1066,6 +1395,10 @@ function createInstructions() {
     'Prefer tools over prose: when a matching tool exists, call it and let its card carry the '  +
     'data — accompany a card with at most one or two short sentences, and never restate what '  +
     'the card already shows. Keep every reply crisp and concise. ' +
+    'For questions about how Tivmark works, prefer the guide cards — explore_tivmark, ' +
+    'time_off_guide, equipment_guide, getting_started_guide, trust_and_security — and add ' +
+    'one short cited sentence from search_tivmark_help only when it adds something the card ' +
+    'does not show. ' +
     'Only offer team queues, reviews, and fulfillment to an OWNER or ADMIN of the relevant team; ' +
     'reviewerTeamSlugs lists the teams where the signed-in user is one, and it decides what you ' +
     'offer, never what Tivmark permits. Address the user by name when their name is known. ' +
@@ -1074,7 +1407,8 @@ function createInstructions() {
     // signed-in user, so its absence means treat the visitor as anonymous.
     'ANONYMOUS VISITORS: when ambient team context is unavailable, you are talking to someone ' +
     'on the public Tivmark website who is not signed in. Answer their questions about how ' +
-    'Tivmark works from search_tivmark_help and cite what it returns, and use talk_to_sales ' +
+    'Tivmark works with the guide cards first, citing search_tivmark_help alongside when ' +
+    'useful, and use talk_to_sales ' +
     'when they want a walkthrough, a workspace, or support. Never guess a team, a balance, or ' +
     'a request. When they ask about their own time off or equipment, call the matching tool: ' +
     'for a visitor it raises a sign-in card instead of running, and after they sign in the ' +

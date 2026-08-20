@@ -473,3 +473,131 @@ button {
     animation: none;
   }
 }
+
+/* Follow-up chips: conversation continuations offered inside a card. Square corners and
+   gold-on-hover to match the marketing site's shape language. */
+.tv-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.tv-chip-btn {
+  display: inline-flex;
+  min-height: 32px;
+  align-items: center;
+  padding: 6px 10px;
+  border: 1px solid var(--tv-border);
+  background: var(--tv-surface-muted);
+  color: var(--tv-heading);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  transition:
+    background-color 120ms ease,
+    border-color 120ms ease;
+}
+
+.tv-chip-btn:hover:not(:disabled) {
+  border-color: var(--tv-accent);
+}
+
+.tv-chip-btn:focus-visible {
+  outline: 2px solid var(--tv-focus);
+  outline-offset: 2px;
+}
+
+.tv-chip-btn:disabled {
+  cursor: default;
+  opacity: 0.58;
+}
+
+/* Inline confirm strip: a row's own two-step confirmation, so a destructive click
+   completes inside the card instead of bouncing to the transcript. */
+.tv-confirm {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--tv-heading);
+}
+
+/* Guide cards: definition rows and step lists for the public explainer widgets. */
+.tv-guide-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tv-guide-row {
+  display: grid;
+  grid-template-columns: minmax(88px, auto) 1fr;
+  gap: 4px 12px;
+  align-items: baseline;
+  padding: 8px 10px;
+  border: 1px solid var(--tv-border);
+  background: var(--tv-surface);
+}
+
+.tv-guide-term {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--tv-accent);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.tv-guide-detail {
+  font-size: 12.5px;
+  color: var(--tv-text);
+}
+
+.tv-steps {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: tv-step;
+}
+
+.tv-step {
+  display: grid;
+  grid-template-columns: 28px 1fr;
+  gap: 10px;
+  align-items: start;
+  padding: 8px 10px;
+  border: 1px solid var(--tv-border);
+  background: var(--tv-surface);
+  counter-increment: tv-step;
+}
+
+.tv-step::before {
+  content: counter(tv-step);
+  display: inline-flex;
+  width: 24px;
+  height: 24px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--tv-accent);
+  color: var(--tv-accent);
+  font-family: 'Libre Baskerville', Georgia, serif;
+  font-size: 13px;
+}
+
+.tv-step-title {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--tv-heading);
+}
+
+.tv-step-detail {
+  font-size: 12px;
+  color: var(--tv-muted);
+}

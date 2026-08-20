@@ -12,7 +12,14 @@ import app from '../src/server.js';
  * here would compile cleanly and then fail at runtime with `credential_unavailable`. The
  * no-connector assertion below is what actually holds that line.
  */
-const ANONYMOUS_SAFE_TOOLS = new Set(['talk_to_sales']);
+const ANONYMOUS_SAFE_TOOLS = new Set([
+  'talk_to_sales',
+  'explore_tivmark',
+  'time_off_guide',
+  'equipment_guide',
+  'getting_started_guide',
+  'trust_and_security',
+]);
 
 /**
  * Identity-gated tools deliberately offered to visitors. Each is backed by the delegated

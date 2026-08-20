@@ -10,4 +10,5 @@ export const {
   useViewState,
   useBranding,
   useOpenExternal,
+  useSendFollowUpMessage,
 } = generateHelpers<AppType>();
