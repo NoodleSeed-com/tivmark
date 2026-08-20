@@ -116,6 +116,15 @@
         --ns-assistant-launcher-text: var(--cream);
         --ns-assistant-primary-button: var(--navy);
         --ns-assistant-primary-button-text: var(--cream);
+        /* Message bubbles: the assistant bubble's background rides the input token and
+           its border rides the message-border token -- unmapped, both fall back to
+           transparent and the reply reads as bare text. */
+        --ns-assistant-input: var(--surface);
+        --ns-assistant-assistant-message: var(--surface);
+        --ns-assistant-assistant-message-text: var(--text);
+        --ns-assistant-assistant-message-border: var(--border);
+        --ns-assistant-user-message: var(--navy);
+        --ns-assistant-user-message-text: var(--cream);
       }
       /* The assistant's ONLY two modes, here as on the product: the floating launcher
          (element default, bottom right) and, once opened, a full-height drawer docked to
@@ -139,6 +148,8 @@
         --ns-assistant-launcher-text: var(--navy-deep);
         --ns-assistant-primary-button: var(--accent);
         --ns-assistant-primary-button-text: var(--navy-deep);
+        --ns-assistant-user-message: var(--accent);
+        --ns-assistant-user-message-text: var(--navy-deep);
       }
       [data-theme="tivmark-dark"] {
         --canvas: #0b1222;
