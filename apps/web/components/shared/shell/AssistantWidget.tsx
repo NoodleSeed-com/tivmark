@@ -114,24 +114,31 @@ export default function AssistantWidget({ surface }: AssistantWidgetProps) {
   //
   // The ticket cookie is read-only here — the session route is what spends and clears it, so
   // a refused ticket still degrades to a fresh conversation without this code caring.
-  const resumeSentRef = useRef(false);
-  const resumeAfterSignIn = useCallback(() => {
-    if (resumeSentRef.current) return;
-    if (
-      !document.cookie
+  // Captured at FIRST RENDER, before the assistant element exists. The canvas surface opens
+  // the element immediately, and an open element eagerly runs its session exchange -- which is
+  // the very request that spends and clears the ticket cookie. Checking the live cookie at
+  // onReady therefore loses the race: the elevation succeeds silently and the resume message
+  // never sends (observed in production on the first real sign-in). Presence at render time
+  // is the durable fact; whether the ticket is later honoured is the backend's business.
+  const arrivedWithSignInTicket = useRef(
+    typeof document !== 'undefined' &&
+      document.cookie
         .split('; ')
         .some((entry) =>
           entry.startsWith(`${ASSISTANT_SIGN_IN_TICKET_COOKIE}=`)
         )
-    ) {
-      return;
-    }
+  );
+  const resumeSentRef = useRef(false);
+  const resumeAfterSignIn = useCallback(() => {
+    if (resumeSentRef.current || !arrivedWithSignInTicket.current) return;
     const element = assistantRef.current;
     if (!element?.sendMessage) return;
     resumeSentRef.current = true;
     element.open?.();
     void element
-      .sendMessage("I've just signed in — let's pick up where we left off.")
+      .sendMessage(
+        "I've just signed in — please pick up where we left off and answer my last question."
+      )
       .catch(() => {
         /* the panel surfaces its own error state */
       });
