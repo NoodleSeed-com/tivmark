@@ -131,18 +131,58 @@ observability** (§3.1's ask). A service-side resume would eliminate the entire 
 
 ## 3 — Smaller findings from the same night, each separately actionable
 
-### 3.1 The `onReady` contract is undocumented and unobservable
+### 3.1 SOLVED while writing this: `onReady` fires mid-upgrade, before the element is usable
 
-`NoodleAssistantProps.onReady?: () => void` has no documented contract: does it fire once
-per mount? After element upgrade? Is it guaranteed if the element was defined before the
-wrapper mounted? We read the implementation (listener for `assistant-ready` + a synchronous
-`if (element.shadowRoot) ready()` fallback, deduped by a `readyNotified` ref) and *still*
-could not attribute a field failure to it or exonerate it, because nothing it does is
-observable from outside.
+We caught it in production after this document was first drafted. The complete stack, from
+our deployed bundles:
 
-Asks: document the contract; emit one debug-level breadcrumb when ready fires (you already
-log appearance warnings); and cover "element defined before wrapper mount" and "strict-mode
-double-effect" with integration tests.
+```text
+TypeError: t.sendMessage is not a function
+    at <our onReady handler>            (pages/_app-….js)
+    at Object.onReady                   (pages/_app-….js)
+    at HTMLElement.s                    (9036.….js)        ← wrapper's ready() listener
+    at HTMLElement.connectedCallback    (4a4e5870.….js)    ← assistant-ready dispatched here
+    at ra                               (4a4e5870.….js)    ← customElements.define / upgrade
+    at <wrapper effect>                 (9036.….js)
+```
+
+The mechanism, all one synchronous call stack: the wrapper's effect attaches its
+`assistant-ready` listener, then calls `registerNoodleAssistant()` →
+`customElements.define()` upgrades the already-connected element → `connectedCallback`
+dispatches `assistant-ready` → the listener invokes `props.onReady()` — **while the upgrade
+is still on the stack, at an instant when `sendMessage` is not callable on the forwarded
+handle.**
+
+So a callback named **Ready** fires at the one moment the element is not ready for use.
+Any integrator who does the natural thing — call an element method from `onReady` — gets
+one of two failure modes, and we shipped both in a single night:
+
+- With an optional-chaining guard (`element?.sendMessage`): the guard bails **silently**,
+  once, with nothing to retry it. This was our invisible failure across three deploys.
+- Without the guard: an uncaught TypeError that propagates up through
+  `dispatchEvent → connectedCallback → define() → the React effect` and **takes down the
+  entire page** (Next's "Application error" screen). This was our production crash.
+
+And here is the trap's second jaw: your `.d.ts` declares `sendMessage(text): Promise<void>`
+as a required method, so **TypeScript (TS2774, enforced by `next build`) forces integrators
+to delete the guard** as a condition that is "always true". The compiler marched us from
+failure mode one into failure mode two.
+
+Asks, in order of preference:
+
+1. **Dispatch `assistant-ready` off the upgrade stack** (`queueMicrotask` in
+   `connectedCallback`), so ready means ready. This also fixes the wrapperless case.
+2. Or have the wrapper defer `props.onReady()` off the current task.
+3. Either way: document whether element methods are callable from `onReady`, emit one
+   debug-level breadcrumb when ready fires, and add integration tests for
+   "define-during-effect", "element defined before wrapper mount", and strict-mode
+   double-effects.
+
+Our workaround (a mount-effect with `customElements.whenDefined`, a deferred first
+attempt, and a runtime `typeof sendMessage === 'function'` guard behind a widened cast so
+the compiler cannot delete it) is in
+`apps/web/components/shared/shell/AssistantWidget.tsx` — feel free to lift the test cases
+from it.
 
 ### 3.2 `assistant-ready` re-fires on every reconnect, undeduped at the element
 
