@@ -136,7 +136,9 @@ export default function AssistantWidget({ surface }: AssistantWidgetProps) {
     resumeSentRef.current = true;
     element.open?.();
     void element
-      .sendMessage("I've just signed in — let's pick up where we left off.")
+      .sendMessage(
+        "I've just signed in — please pick up where we left off and answer my last question."
+      )
       .catch(() => {
         /* the panel surfaces its own error state */
       });
