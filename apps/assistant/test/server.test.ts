@@ -21,6 +21,11 @@ describe('tivmark_assistant', () => {
         'my_teams',
         // public website surface (no signed-in user)
         'talk_to_sales',
+        'explore_tivmark',
+        'time_off_guide',
+        'equipment_guide',
+        'getting_started_guide',
+        'trust_and_security',
         // time off (employee)
         'time_off_balance',
         'my_time_off',
@@ -41,16 +46,22 @@ describe('tivmark_assistant', () => {
       ].sort(),
     );
 
-    // Each review queue widget drives its decisions through an app-only helper, so the
-    // model never sees a second, unconfirmed way to approve.
-    for (const name of ['review_time_off_app', 'review_equipment_app']) {
+    // Interactive widgets drive their actions through app-only helpers, so the model
+    // never sees a second, unconfirmed way to approve or cancel. Each helper's card
+    // renders its own confirm step in place of the chat confirmation.
+    for (const name of [
+      'review_time_off_app',
+      'review_equipment_app',
+      'cancel_time_off_app',
+      'cancel_equipment_app',
+    ]) {
       const appOnlyReviewTool = manifest.tools.find(
         (tool: { name: string }) => tool.name === name,
       ) as { visibility?: string[] } | undefined;
       expect(appOnlyReviewTool, `missing app-only tool ${name}`).toBeDefined();
       expect(appOnlyReviewTool?.visibility).toEqual(['app']);
     }
-    expect(manifest.tools).toHaveLength(modelVisibleTools.length + 2);
+    expect(manifest.tools).toHaveLength(modelVisibleTools.length + 4);
   });
 
   it('publishes business-facing titles for every tool', async () => {
@@ -78,6 +89,13 @@ describe('tivmark_assistant', () => {
       review_time_off: 'Review time-off request',
       review_time_off_app: 'Review time-off request in app',
       review_equipment_app: 'Review equipment request in app',
+      cancel_time_off_app: 'Cancel time-off request in app',
+      cancel_equipment_app: 'Cancel equipment request in app',
+      explore_tivmark: 'Show what Tivmark does',
+      time_off_guide: 'Explain time off',
+      equipment_guide: 'Explain equipment requests',
+      getting_started_guide: 'Show the getting-started checklist',
+      trust_and_security: 'Show security and privacy',
       team_equipment_queue: 'Open equipment review queue',
       team_time_off_queue: 'Open time-off review queue',
       time_off_balance: 'Check time-off balance',
