@@ -112,6 +112,15 @@ export default function AssistantWidget() {
       sessionEndpoint="/api/assistant/session"
       theme={resolvedTheme}
       appearance={ASSISTANT_APPEARANCE}
+      onEvent={(event) => {
+        // The service resumes the question that triggered sign-in as the session's first turn
+        // (assistant 1.21.0). That answer arrives with the panel still closed after the redirect
+        // landing, so surface it. DOM handle, not the ref: refs through next/dynamic have been
+        // non-null-but-wrong in the field.
+        if (event.event === 'resume_started') {
+          document.querySelector('noodle-assistant')?.setAttribute('open', '');
+        }
+      }}
       onAppearanceWarning={(warning) =>
         // Dev-only signal: the client flags low-contrast launcher colors so we can retune if needed.
         console.warn('[assistant] appearance warning', warning)
