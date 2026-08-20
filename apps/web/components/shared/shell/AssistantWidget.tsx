@@ -132,8 +132,9 @@ export default function AssistantWidget({ surface }: AssistantWidgetProps) {
   const resumeAfterSignIn = useCallback(() => {
     if (resumeSentRef.current || !arrivedWithSignInTicket.current) return;
     const element = assistantRef.current;
-    if (!element?.sendMessage) return;
+    if (!element) return;
     resumeSentRef.current = true;
+    console.info('[assistant] resuming the conversation after sign-in');
     element.open?.();
     void element
       .sendMessage(
@@ -143,6 +144,32 @@ export default function AssistantWidget({ surface }: AssistantWidgetProps) {
         /* the panel surfaces its own error state */
       });
   }, []);
+
+  // Drive the resume from mount, not from onReady. Observed in production: onReady never
+  // invoked this (the elevation succeeded silently on every attempt while the panel stayed
+  // empty, and a planted ticket cookie that was present the whole time still produced no
+  // send). The element and its methods appear asynchronously -- next/dynamic, then custom
+  // element upgrade -- so poll briefly for a usable handle and stop the moment it exists.
+  useEffect(() => {
+    if (!arrivedWithSignInTicket.current) return;
+    let active = true;
+    let attempts = 0;
+    const tryResume = () => {
+      if (!active || resumeSentRef.current) return;
+      if (assistantRef.current) {
+        resumeAfterSignIn();
+        return;
+      }
+      if (attempts++ < 40) setTimeout(tryResume, 250);
+    };
+    if (window.customElements) {
+      void customElements.whenDefined('noodle-assistant').then(tryResume);
+    }
+    tryResume();
+    return () => {
+      active = false;
+    };
+  }, [resumeAfterSignIn]);
 
   useEffect(() => {
     try {
