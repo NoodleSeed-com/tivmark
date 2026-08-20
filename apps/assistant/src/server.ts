@@ -134,6 +134,12 @@ export default server(
       ],
       privacyUrl: 'https://tivmark.com/privacy',
       layout: { mode: 'floating', position: 'bottom-right' },
+      // Both message roles render as true bubbles. The renderer's bubble style is what adds
+      // inner padding (10px 14px); without it the host appearance's surface + border produce
+      // a bordered box whose text sits flush against the rounded corners.
+      presentation: {
+        messages: { userStyle: 'bubble', assistantStyle: 'bubble' },
+      },
       // Labels and prompts belong to the assistant, not to a surface, so this copy greets
       // an anonymous visitor on tivmark.com and a signed-in user on app.tivmark.com alike.
       // It has to work for both: "How much vacation do I have?" offered to a stranger is a
@@ -1057,6 +1063,9 @@ function createInstructions() {
     'there are several, and never invent one. ' +
     'Use book_time_off or order_equipment when every required detail is known; otherwise use the ' +
     'matching guided tool to collect missing details before confirmation. ' +
+    'Prefer tools over prose: when a matching tool exists, call it and let its card carry the '  +
+    'data — accompany a card with at most one or two short sentences, and never restate what '  +
+    'the card already shows. Keep every reply crisp and concise. ' +
     'Only offer team queues, reviews, and fulfillment to an OWNER or ADMIN of the relevant team; ' +
     'reviewerTeamSlugs lists the teams where the signed-in user is one, and it decides what you ' +
     'offer, never what Tivmark permits. Address the user by name when their name is known. ' +

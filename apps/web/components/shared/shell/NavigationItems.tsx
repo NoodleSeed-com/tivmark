@@ -3,7 +3,10 @@ import classNames from 'classnames';
 
 export interface MenuItem {
   name: string;
-  href: string;
+  /** Destination for link items. Omitted when `onClick` is set. */
+  href?: string;
+  /** Action items (e.g. opening the assistant drawer) render as buttons and never navigate. */
+  onClick?: () => void;
   icon?: any;
   active?: boolean;
   items?: Omit<MenuItem, 'icon' | 'items'>[];
@@ -45,15 +48,14 @@ const NavigationItems = ({ menus }: NavigationItemsProps) => {
 };
 
 const NavigationItem = ({ menu, className }: NavigationItemProps) => {
-  return (
-    <Link
-      href={menu.href}
-      className={`group flex items-center gap-2 rounded-none p-2 px-2 text-sm text-ui-heading hover:bg-ui-surface-muted hover:text-ui-heading ${
-        menu.active
-          ? 'bg-tivmark-navy font-semibold text-white dark:bg-tivmark-gold dark:text-tivmark-deep'
-          : ''
-      }${className}`}
-    >
+  const sharedClassName = `group flex items-center gap-2 rounded-none p-2 px-2 text-sm text-ui-heading hover:bg-ui-surface-muted hover:text-ui-heading ${
+    menu.active
+      ? 'bg-tivmark-navy font-semibold text-white dark:bg-tivmark-gold dark:text-tivmark-deep'
+      : ''
+  }${className}`;
+
+  const content = (
+    <>
       {menu.icon && (
         <menu.icon
           className={classNames({
@@ -64,6 +66,26 @@ const NavigationItem = ({ menu, className }: NavigationItemProps) => {
         />
       )}
       {menu.name}
+    </>
+  );
+
+  // Action items open something in place -- the sidebar the user is looking at must not
+  // change, so these never navigate.
+  if (menu.onClick) {
+    return (
+      <button
+        type="button"
+        onClick={menu.onClick}
+        className={`w-full text-left ${sharedClassName}`}
+      >
+        {content}
+      </button>
+    );
+  }
+
+  return (
+    <Link href={menu.href ?? '#'} className={sharedClassName}>
+      {content}
     </Link>
   );
 };

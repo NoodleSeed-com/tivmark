@@ -12,41 +12,42 @@ const labels = {
 };
 
 describe('Mark navigation', () => {
-  it('is the first account-level destination and is active on /mark', () => {
-    const menus = buildUserNavigation('/mark', labels);
+  it('opens the drawer from the account menu without navigating anywhere', () => {
+    const openMark = jest.fn();
+    const menus = buildUserNavigation('/teams', labels, openMark);
 
-    expect(
-      menus.map(({ name, href, active }) => ({ name, href, active }))
-    ).toEqual([
-      { name: 'Mark', href: '/mark', active: true },
-      { name: 'All Teams', href: '/teams', active: false },
-      { name: 'Account', href: '/settings/account', active: false },
-      { name: 'Security', href: '/settings/security', active: false },
+    const mark = menus[0]!;
+    expect(mark.name).toBe('Mark');
+    // Mark is not a page: no href means no navigation, which is what keeps the sidebar
+    // the user is looking at from ever changing.
+    expect(mark.href).toBeUndefined();
+    mark.onClick?.();
+    expect(openMark).toHaveBeenCalled();
+
+    expect(menus.slice(1).map(({ name, href }) => ({ name, href }))).toEqual([
+      { name: 'All Teams', href: '/teams' },
+      { name: 'Account', href: '/settings/account' },
+      { name: 'Security', href: '/settings/security' },
     ]);
   });
 
-  it('places global Mark between team equipment and settings', () => {
-    const menus = buildTeamNavigation('acme', '/mark', labels);
+  it('opens the drawer from the team menu, leaving time off and equipment in place', () => {
+    const openMark = jest.fn();
+    const menus = buildTeamNavigation(
+      'acme',
+      '/teams/acme/time-off',
+      labels,
+      openMark
+    );
 
-    expect(
-      menus.map(({ name, href, active }) => ({ name, href, active }))
-    ).toEqual([
-      {
-        name: 'Time Off',
-        href: '/teams/acme/time-off',
-        active: false,
-      },
-      {
-        name: 'Equipment',
-        href: '/teams/acme/equipment',
-        active: false,
-      },
-      { name: 'Mark', href: '/mark', active: true },
-      {
-        name: 'Settings',
-        href: '/teams/acme/settings',
-        active: false,
-      },
+    expect(menus.map(({ name, href }) => ({ name, href }))).toEqual([
+      { name: 'Time Off', href: '/teams/acme/time-off' },
+      { name: 'Equipment', href: '/teams/acme/equipment' },
+      { name: 'Mark', href: undefined },
+      { name: 'Settings', href: '/teams/acme/settings' },
     ]);
+
+    menus[2]!.onClick?.();
+    expect(openMark).toHaveBeenCalled();
   });
 });

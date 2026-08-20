@@ -183,6 +183,22 @@ describe('tivmark_assistant', () => {
     }
   });
 
+  it('renders both message roles as padded bubbles', async () => {
+    // The renderer's bubble style is what supplies inner padding; without it the host
+    // appearance's surface + border make a bordered box whose text touches the corners.
+    const manifest = await app.toManifest();
+    expect(manifest.server.assistant?.presentation?.messages).toEqual({
+      userStyle: 'bubble',
+      assistantStyle: 'bubble',
+    });
+  });
+
+  it('tells Mark to lead with cards, not prose', async () => {
+    const manifest = await app.toManifest();
+    expect(manifest.server.instructions).toContain('Prefer tools over prose');
+    expect(manifest.server.instructions).toContain('never restate what the card already shows');
+  });
+
   it('gates every write behind an end-user confirmation', async () => {
     const manifest = await app.toManifest();
     const writes = [
