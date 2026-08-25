@@ -81,6 +81,10 @@ jobs:
       # config must live here. Non-secret: service URL, the backend session client id, the delegation
       # client id, and the platform issuer. Secrets (GCP Secret Manager): the session client secret and
       # the delegation client secret (its value must equal the Noodle-side TIVMARK_DELEG_CLIENT_SECRET).
+      # Deployed with --no-traffic behind the `candidate` tag so the smoke test below can exercise the
+      # real revision — same image, env vars, secrets and Cloud SQL socket — while live traffic stays
+      # on the previous one. Nothing here shifts traffic; the "Route traffic" step does that, and only
+      # after the smoke test passes.
       - name: Deploy Cloud Run service
         run: |
           gcloud run deploy "${SERVICE_NAME}" \
@@ -89,7 +93,87 @@ jobs:
             --image "${IMAGE_URI}" \
             --platform managed \
             --no-invoker-iam-check \
+            --no-traffic \
+            --tag candidate \
             --port 4002 \
             --add-cloudsql-instances "${CLOUD_SQL_CONNECTION_NAME}" \
             --set-env-vars "NEXTAUTH_URL=https://app.tivmark.com,APP_URL=https://app.tivmark.com,NEXTAUTH_SESSION_STRATEGY=jwt,AUTH_PROVIDERS=credentials,HIDE_LANDING_PAGE=false,FEATURE_TEAM_WEBHOOK=false,FEATURE_TEAM_PAYMENTS=false,NOODLE_ASSISTANT_SERVICE_URL=https://cloud.noodleseed.dev,NOODLE_ASSISTANT_CLIENT_ID=embed_0b8a5f33-1bf3-4d65-99bb-2853142e664e,ASSISTANT_DELEG_CLIENT_ID=tivmark-assistant-deleg,NOODLE_PLATFORM_ISSUER=https://cloud.noodleseed.dev" \
             --set-secrets "DATABASE_URL=database-url:latest,NEXTAUTH_SECRET=nextauth-secret:latest,OAUTH_PRIVATE_JWK=oauth-private-jwk:latest,NOODLE_ASSISTANT_CLIENT_SECRET=noodle-assistant-client-secret:latest,ASSISTANT_DELEG_CLIENT_SECRET=assistant-deleg-client-secret:latest"
+
+      # A green build does not mean a working app. `npm run build-ci` compiles, and Cloud Run's health
+      # check only requires the container to bind its port — both pass while every request 500s. That is
+      # exactly how revision 00054 shipped a fully broken app that stayed down for ~24h: a runtime
+      # MODULE_NOT_FOUND on a dependency the Next file tracer failed to copy into the standalone output.
+      # So probe the running revision over HTTP before it can serve anyone.
+      #
+      # `/api/health` runs a real query through Prisma and the Cloud SQL socket; `/` server-renders a
+      # page. Together they cover the DB path and the render path, and either one would have caught
+      # 00054. A non-200 from either leaves traffic on the previous revision and fails the deploy.
+      - name: Smoke test candidate revision
+        run: |
+          set -uo pipefail
+          CANDIDATE_URL="$(gcloud run services describe "${SERVICE_NAME}" \
+            --project "${GCP_PROJECT_ID}" \
+            --region "${GCP_REGION}" \
+            --format=json | jq -r '.status.traffic[] | select(.tag == "candidate") | .url')"
+
+          if [ -z "${CANDIDATE_URL}" ] || [ "${CANDIDATE_URL}" = "null" ]; then
+            echo "::error::Could not resolve the candidate tag URL; refusing to route traffic."
+            exit 1
+          fi
+          echo "Probing ${CANDIDATE_URL}"
+
+          probe() {
+            path="$1"
+            # Retry only to absorb cold start. A settled non-200 is a failure, not something to wait out.
+            for attempt in $(seq 1 10); do
+              code="$(curl -sS -o /tmp/smoke-body -w '%{http_code}' --max-time 30 "${CANDIDATE_URL}${path}" || echo 000)"
+              if [ "${code}" = "200" ]; then
+                echo "  ${path} -> 200"
+                return 0
+              fi
+              echo "  ${path} -> ${code} (attempt ${attempt}/10)"
+              sleep 10
+            done
+            echo "::error::Smoke test failed: ${path} returned ${code}, expected 200."
+            echo "--- response body ---"
+            head -c 2000 /tmp/smoke-body || true
+            echo
+            echo "--- candidate revision stderr ---"
+            gcloud logging read \
+              "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"${SERVICE_NAME}\" AND logName:\"stderr\"" \
+              --project "${GCP_PROJECT_ID}" --limit 50 --freshness=10m \
+              --format="value(textPayload)" || true
+            return 1
+          }
+
+          probe /api/health || exit 1
+          probe / || exit 1
+          echo "Smoke test passed."
+
+      # Only now does the new revision serve users. Also drops the `candidate` tag so its URL does not
+      # linger as a second public entry point to the revision.
+      - name: Route traffic to verified revision
+        run: |
+          gcloud run services update-traffic "${SERVICE_NAME}" \
+            --project "${GCP_PROJECT_ID}" \
+            --region "${GCP_REGION}" \
+            --to-latest \
+            --remove-tags candidate
+
+      # Guards the routing step itself: the smoke test proved the revision works, this proves the
+      # traffic split actually points at it.
+      - name: Verify live service
+        run: |
+          set -uo pipefail
+          for attempt in $(seq 1 6); do
+            code="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 30 https://app.tivmark.com/api/health || echo 000)"
+            if [ "${code}" = "200" ]; then
+              echo "https://app.tivmark.com/api/health -> 200"
+              exit 0
+            fi
+            echo "https://app.tivmark.com/api/health -> ${code} (attempt ${attempt}/6)"
+            sleep 10
+          done
+          echo "::error::Live service is not healthy after routing traffic."
+          exit 1

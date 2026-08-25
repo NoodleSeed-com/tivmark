@@ -15,7 +15,7 @@ jobs:
   ci:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # `apps/marketing` has no package.json and no build step, so the image IS the artifact.
       # Everything below tests the container that Cloud Run will actually run.
