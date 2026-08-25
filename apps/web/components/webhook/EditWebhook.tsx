@@ -69,7 +69,7 @@ const EditWebhook = ({
       initialValues={{
         name: webhook.description as string,
         url: webhook.url,
-        eventTypes: webhook.filterTypes as string[],
+        eventTypes: webhook.eventTypes ?? [],
       }}
       onSubmit={onSubmit}
       title={t('edit-webhook-endpoint')}
