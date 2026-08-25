@@ -1,4 +1,4 @@
-import { EndpointIn, Svix } from 'svix';
+import { EndpointIn, EndpointPatch, Svix } from 'svix';
 
 import env from './env';
 import type { AppEvent } from 'types';
@@ -17,9 +17,9 @@ export const createWebhook = async (appId: string, data: EndpointIn) => {
 export const updateWebhook = async (
   appId: string,
   endpointId: string,
-  data: EndpointIn
+  data: EndpointPatch
 ) => {
-  return await svix?.endpoint.update(appId, endpointId, data);
+  return await svix?.endpoint.patch(appId, endpointId, data);
 };
 
 export const findWebhook = async (appId: string, endpointId: string) => {

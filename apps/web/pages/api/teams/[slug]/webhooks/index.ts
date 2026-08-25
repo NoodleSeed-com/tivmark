@@ -70,11 +70,10 @@ const handlePOST = async (req: NextApiRequest, res: NextApiResponse) => {
   const data: EndpointIn = {
     description: name,
     url,
-    version: 1,
   };
 
   if (eventTypes.length) {
-    data['filterTypes'] = eventTypes;
+    data.eventTypes = eventTypes;
   }
 
   for (const eventType of eventTypes) {

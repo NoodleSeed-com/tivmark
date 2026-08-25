@@ -145,63 +145,6 @@
         },
         "required": ["id", "email", "role", "token", "expires", "sentViaEmail"]
       },
-      "TimeOffPolicy": {
-        "type": "object",
-        "properties": {
-          "id": { "type": "string", "format": "uuid" },
-          "type": {
-            "type": "string",
-            "enum": ["VACATION", "SICK", "PERSONAL", "UNPAID"]
-          },
-          "annualAllowanceHalfDays": { "type": ["integer", "null"] }
-        },
-        "required": ["id", "type", "annualAllowanceHalfDays"]
-      },
-      "TimeOffRequest": {
-        "type": "object",
-        "properties": {
-          "id": { "type": "string", "format": "uuid" },
-          "type": {
-            "type": "string",
-            "enum": ["VACATION", "SICK", "PERSONAL", "UNPAID"]
-          },
-          "status": {
-            "type": "string",
-            "enum": ["PENDING", "APPROVED", "DECLINED", "CANCELED"]
-          },
-          "startDate": { "type": "string", "format": "date" },
-          "endDate": { "type": "string", "format": "date" },
-          "duration": { "type": "string", "enum": ["FULL_DAY", "HALF_DAY"] },
-          "halfDayPeriod": {
-            "type": ["string", "null"],
-            "enum": ["MORNING", "AFTERNOON"]
-          },
-          "requestedHalfDays": { "type": "integer" },
-          "reason": { "type": ["string", "null"] },
-          "reviewNote": { "type": ["string", "null"] },
-          "requester": { "$ref": "#/components/schemas/User" },
-          "reviewer": {
-            "allOf": [
-              { "$ref": "#/components/schemas/User" },
-              { "type": ["object", "null"] }
-            ]
-          }
-        },
-        "required": [
-          "id",
-          "type",
-          "status",
-          "startDate",
-          "endDate",
-          "duration",
-          "halfDayPeriod",
-          "requestedHalfDays",
-          "reason",
-          "reviewNote",
-          "requester",
-          "reviewer"
-        ]
-      },
       "TimeOffWorkspace": {
         "type": "object",
         "properties": {
@@ -262,6 +205,63 @@
           "requests",
           "members",
           "balances"
+        ]
+      },
+      "TimeOffPolicy": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "type": {
+            "type": "string",
+            "enum": ["VACATION", "SICK", "PERSONAL", "UNPAID"]
+          },
+          "annualAllowanceHalfDays": { "type": ["integer", "null"] }
+        },
+        "required": ["id", "type", "annualAllowanceHalfDays"]
+      },
+      "TimeOffRequest": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "type": {
+            "type": "string",
+            "enum": ["VACATION", "SICK", "PERSONAL", "UNPAID"]
+          },
+          "status": {
+            "type": "string",
+            "enum": ["PENDING", "APPROVED", "DECLINED", "CANCELED"]
+          },
+          "startDate": { "type": "string", "format": "date" },
+          "endDate": { "type": "string", "format": "date" },
+          "duration": { "type": "string", "enum": ["FULL_DAY", "HALF_DAY"] },
+          "halfDayPeriod": {
+            "type": ["string", "null"],
+            "enum": ["MORNING", "AFTERNOON", null]
+          },
+          "requestedHalfDays": { "type": "integer" },
+          "reason": { "type": ["string", "null"] },
+          "reviewNote": { "type": ["string", "null"] },
+          "requester": { "$ref": "#/components/schemas/User" },
+          "reviewer": {
+            "allOf": [
+              { "$ref": "#/components/schemas/User" },
+              { "type": ["object", "null"] }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "status",
+          "startDate",
+          "endDate",
+          "duration",
+          "halfDayPeriod",
+          "requestedHalfDays",
+          "reason",
+          "reviewNote",
+          "requester",
+          "reviewer"
         ]
       },
       "Credential": {
@@ -4225,7 +4225,7 @@
                   },
                   "halfDayPeriod": {
                     "type": ["string", "null"],
-                    "enum": ["MORNING", "AFTERNOON"]
+                    "enum": ["MORNING", "AFTERNOON", null]
                   },
                   "reason": { "type": ["string", "null"], "maxLength": 500 }
                 },
@@ -4340,7 +4340,8 @@
                   },
                   "reviewNote": { "type": "string", "maxLength": 500 }
                 },
-                "required": ["action"]
+                "required": ["action"],
+                "additionalProperties": {}
               }
             }
           }

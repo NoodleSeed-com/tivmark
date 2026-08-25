@@ -54,7 +54,7 @@ const Problem = z
     title: z.string(),
     status: z.number().int(),
     detail: z.string(),
-    errors: z.record(z.array(z.string())).optional(),
+    errors: z.record(z.string(), z.array(z.string())).optional(),
   })
   .openapi('Problem');
 
@@ -146,7 +146,7 @@ const TimeOffWorkspace = z
         role,
       })
     ),
-    balances: z.record(z.record(TimeOffBalance)),
+    balances: z.record(z.string(), z.record(z.string(), TimeOffBalance)),
   })
   .openapi('TimeOffWorkspace');
 
@@ -195,13 +195,13 @@ registry.registerPath({
   },
 });
 
-const genericObject = z.record(z.unknown());
+const genericObject = z.record(z.string(), z.unknown());
 const simpleOperation = (
   method: 'get' | 'post' | 'put' | 'patch' | 'delete',
   path: string,
   tag: string,
   summary: string,
-  options: { body?: z.ZodTypeAny; params?: z.AnyZodObject } = {}
+  options: { body?: z.ZodTypeAny; params?: z.ZodObject } = {}
 ) =>
   registry.registerPath({
     method,

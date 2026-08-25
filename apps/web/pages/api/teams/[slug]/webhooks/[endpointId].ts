@@ -4,7 +4,7 @@ import { findOrCreateApp, findWebhook, updateWebhook } from '@/lib/svix';
 import { throwIfNoTeamAccess } from 'models/team';
 import { throwIfNotAllowed } from 'models/user';
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { EndpointIn } from 'svix';
+import { EndpointPatch } from 'svix';
 import { recordMetric } from '@/lib/metrics';
 import env from '@/lib/env';
 import {
@@ -89,14 +89,13 @@ const handlePUT = async (req: NextApiRequest, res: NextApiResponse) => {
     throw new ApiError(200, 'Bad request.');
   }
 
-  const data: EndpointIn = {
+  const data: EndpointPatch = {
     description: name,
     url,
-    version: 1,
   };
 
   if (eventTypes.length > 0) {
-    data['filterTypes'] = eventTypes;
+    data.eventTypes = eventTypes;
   }
   // Checks if the webhook exists or throws an error
   await findWebhook(app.id, endpointId);
