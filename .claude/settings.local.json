@@ -26,7 +26,15 @@
       "Bash(gh run:*)",
       "Bash(echo *)",
       "Bash(cd *)",
-      "Bash(npx noodle *)"
+      "Bash(npx noodle *)",
+      "Bash(./node_modules/.bin/noodle --version)",
+      "Bash(npm view *)",
+      "Bash(npm search *)",
+      "Read(//Users/fahdrafi/VSCode/noodle-seed/**)",
+      "Bash(npm pack *)",
+      "Bash(tar xzf *)",
+      "Bash(node -p \"require\\('./apps/assistant/node_modules/@noodleseed/one/package.json'\\).version\")",
+      "Bash(node -p \"require\\('./node_modules/@noodleseed/one/package.json'\\).version\")"
     ]
   }
 }
