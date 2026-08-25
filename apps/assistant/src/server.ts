@@ -1,340 +1,54 @@
 import {
   annotations,
+  authenticatedWebsite,
   connector,
   customerAuth,
   embeddedAssistant,
+  file,
+  knowledge,
   openAICompatible,
+  publicWebsite,
   secret,
   server,
+  site,
   tool,
   variable,
   z,
 } from '@noodleseed/one';
 
-// Tivmark Assistant — the people-ops MCP app for the Tivmark portal.
-//
-// Every tool runs AS the signed-in Tivmark user. The connector below reaches Tivmark's public v1 API
-// with `delegatedTokenExchange` (RFC 8693): the Noodle broker exchanges a signed, JWKS-verifiable
-// assertion of the user for a short-lived user-scoped Tivmark token at our tokenUrl. So each call is a
-// *user* principal and Tivmark's API enforces its own per-user / per-team authorization and filtering
-// — no service key, no forwarded (spoofable) ids. `team` is a per-call path param (the team slug), so
-// any team the user belongs to works.
+const contracts = createContracts();
+const tivmark = createTivmarkConnector(contracts);
+const toolConfig = createToolConfig();
 
-const leaveType = z.enum(['VACATION', 'SICK', 'PERSONAL', 'UNPAID']);
-const equipmentCategory = z.enum([
-  'LAPTOP',
-  'MONITOR',
-  'PHONE',
-  'PERIPHERAL',
-  'FURNITURE',
-  'OTHER',
-]);
-const decision = z.enum(['APPROVED', 'DECLINED']);
+// The public half of Mark. Built before server(...) so the website surface can reference
+// the real declarations rather than repeating their names as strings -- a typo becomes a
+// compile error instead of an `assistant_capability_unknown` at validate time.
+const tivmarkHelp = createKnowledge();
+const publicTools = createPublicTools(toolConfig);
 
-// Noodle compiles server.ts independently from widget entry modules. Keep these server-side output
-// contracts self-contained; the manifest contract-coverage test verifies that they remain compatible
-// with the widget-side parsers in views/widget-contracts.ts.
-const widgetDateOnly = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
-const widgetNonEmptyString = z.string().min(1);
-const widgetRequester = z
-  .object({
-    id: z.string(),
-    name: z.string().nullable().optional(),
-    email: z.string().nullable().optional(),
-  })
-  .passthrough();
-const timeOffRequestSchema = z
-  .object({
-    id: z.string(),
-    type: widgetNonEmptyString,
-    status: widgetNonEmptyString,
-    startDate: widgetDateOnly,
-    endDate: widgetDateOnly,
-    requestedHalfDays: z.number().int().nonnegative().optional(),
-    reason: z.string().nullable().optional(),
-    requester: widgetRequester.optional(),
-  })
-  .passthrough();
-const equipmentRequestSchema = z
-  .object({
-    id: z.string(),
-    category: widgetNonEmptyString,
-    item: widgetNonEmptyString,
-    quantity: z.number().int().min(1).max(20),
-    status: widgetNonEmptyString,
-    justification: z.string().nullable().optional(),
-    requester: widgetRequester.optional(),
-  })
-  .passthrough();
-const widgetBalance = z
-  .object({
-    allowanceHalfDays: z.number().nonnegative().nullable(),
-    approvedHalfDays: z.number().nonnegative(),
-    pendingHalfDays: z.number().nonnegative(),
-    remainingHalfDays: z.number().nullable(),
-  })
-  .passthrough();
-const timeOffRequestsOutputSchema = z.object({
-  team: z.string(),
-  requests: z.array(timeOffRequestSchema),
-});
-const equipmentRequestsOutputSchema = z.object({
-  team: z.string(),
-  requests: z.array(equipmentRequestSchema),
-});
-const timeOffBalanceOutputSchema = z.object({
-  team: z.string(),
-  userId: z.string(),
-  balances: z.record(z.record(widgetBalance)),
-});
-
-// Connector output validation is strict, and real Tivmark objects (teams, requests, balances) carry
-// more fields than we render, so bind whole objects/arrays as `z.unknown()` and let tools/widgets read
-// the fields they need.
-const tivmark = connector('tivmark')
-  .version('1.0.0')
-  .http({
-    baseUrl: 'https://app.tivmark.com/api/v1',
-    allowedOrigins: ['https://app.tivmark.com'],
-    auth: {
-      kind: 'delegatedTokenExchange',
-      tokenUrl: 'https://app.tivmark.com/api/assistant/oauth/token',
-      clientId: variable('TIVMARK_DELEG_CLIENT_ID'),
-      clientSecret: secret('TIVMARK_DELEG_CLIENT_SECRET'),
-      // `teams` to list the user's teams; `time_off*`/`equipment*` for the people-ops endpoints.
-      scopes: [
-        'teams',
-        'time_off',
-        'time_off.approve',
-        'equipment',
-        'equipment.approve',
-      ],
-      // audience omitted → the assertion is bound to tokenUrl (strongest replay protection).
-      authMethod: 'client_secret_basic',
-    },
-    operations: {
-      // --- teams ---
-      list_teams: {
-        type: 'read',
-        method: 'GET',
-        path: '/teams',
-        input: z.object({}),
-        output: z.object({ teams: z.array(z.unknown()) }),
-        response: { teams: '${response.data}' },
-      },
-      // --- time off ---
-      get_balances: {
-        type: 'read',
-        method: 'GET',
-        path: '/teams/{team}/time-off/balances',
-        query: ['year'],
-        input: z.object({ team: z.string(), year: z.number().optional() }),
-        output: z.object({ balances: z.record(z.record(z.unknown())) }),
-        response: { balances: '${response.data}' },
-      },
-      list_time_off: {
-        type: 'read',
-        method: 'GET',
-        path: '/teams/{team}/time-off/requests',
-        query: ['requesterId', 'status', 'year'],
-        input: z.object({
-          team: z.string(),
-          requesterId: z.string().optional(),
-          status: z.string().optional(),
-          year: z.number().optional(),
-        }),
-        output: z.object({ requests: z.array(z.unknown()) }),
-        response: { requests: '${response.data}' },
-      },
-      create_time_off: {
-        type: 'action',
-        method: 'POST',
-        path: '/teams/{team}/time-off/requests',
-        input: z.object({
-          team: z.string(),
-          type: leaveType,
-          startDate: z.string(),
-          endDate: z.string(),
-          reason: z.string(),
-        }),
-        // No requesterId — the user principal (delegated token) supplies the actor. Full-day only.
-        request: {
-          type: '${args.type}',
-          startDate: '${args.startDate}',
-          endDate: '${args.endDate}',
-          duration: 'FULL_DAY',
-          reason: '${args.reason}',
-        },
-        output: z.object({ request: z.unknown() }),
-        response: { request: '${response.data}' },
-      },
-      cancel_time_off: {
-        type: 'action',
-        method: 'PATCH',
-        path: '/teams/{team}/time-off/requests/{id}',
-        input: z.object({ team: z.string(), id: z.string() }),
-        request: { action: 'cancel' },
-        output: z.object({ request: z.unknown() }),
-        response: { request: '${response.data}' },
-      },
-      review_time_off: {
-        type: 'action',
-        method: 'PATCH',
-        path: '/teams/{team}/time-off/requests/{id}',
-        input: z.object({
-          team: z.string(),
-          id: z.string(),
-          decision,
-          reviewNote: z.string(),
-        }),
-        // Reviewer authority (OWNER/ADMIN) is enforced by Tivmark against the user principal.
-        request: {
-          action: 'review',
-          decision: '${args.decision}',
-          reviewNote: '${args.reviewNote}',
-        },
-        output: z.object({ request: z.unknown() }),
-        response: { request: '${response.data}' },
-      },
-      // --- equipment ---
-      list_equipment: {
-        type: 'read',
-        method: 'GET',
-        path: '/teams/{team}/equipment/requests',
-        query: ['requesterId', 'status', 'category'],
-        input: z.object({
-          team: z.string(),
-          requesterId: z.string().optional(),
-          status: z.string().optional(),
-          category: z.string().optional(),
-        }),
-        output: z.object({ requests: z.array(z.unknown()) }),
-        response: { requests: '${response.data}' },
-      },
-      create_equipment: {
-        type: 'action',
-        method: 'POST',
-        path: '/teams/{team}/equipment/requests',
-        input: z.object({
-          team: z.string(),
-          category: equipmentCategory,
-          item: z.string(),
-          quantity: z.number(),
-          justification: z.string(),
-        }),
-        request: {
-          category: '${args.category}',
-          item: '${args.item}',
-          quantity: '${args.quantity}',
-          justification: '${args.justification}',
-        },
-        output: z.object({ request: z.unknown() }),
-        response: { request: '${response.data}' },
-      },
-      cancel_equipment: {
-        type: 'action',
-        method: 'PATCH',
-        path: '/teams/{team}/equipment/requests/{id}',
-        input: z.object({ team: z.string(), id: z.string() }),
-        request: { action: 'cancel' },
-        output: z.object({ request: z.unknown() }),
-        response: { request: '${response.data}' },
-      },
-      review_equipment: {
-        type: 'action',
-        method: 'PATCH',
-        path: '/teams/{team}/equipment/requests/{id}',
-        input: z.object({
-          team: z.string(),
-          id: z.string(),
-          decision,
-          reviewNote: z.string(),
-        }),
-        request: {
-          action: 'review',
-          decision: '${args.decision}',
-          reviewNote: '${args.reviewNote}',
-        },
-        output: z.object({ request: z.unknown() }),
-        response: { request: '${response.data}' },
-      },
-      fulfill_equipment: {
-        type: 'action',
-        method: 'PATCH',
-        path: '/teams/{team}/equipment/requests/{id}',
-        input: z.object({ team: z.string(), id: z.string() }),
-        request: { action: 'fulfill' },
-        output: z.object({ request: z.unknown() }),
-        response: { request: '${response.data}' },
-      },
-    },
-  });
-
-const readOnly = annotations.readOnly();
-const confirmed = annotations.action({ confirm: true });
-const confirmedDestructive = annotations.action({ confirm: true, destructive: true });
-
-// The widgets are self-contained: they render from tool output and call tools through the host bridge,
-// never fetching external origins. Declare that explicitly so widget CSP is minimal and reviewable.
-const widgetCsp = { connectDomains: [], resourceDomains: [] };
-// One https origin per app — ChatGPT's app builder keys the widget identity to this domain.
-const widgetDomain = 'https://app.tivmark.com';
-
+// Mark is one portable Noodle Seed app: the same tools power Tivmark's embed
+// and direct MCP connections from ChatGPT, Claude, Gemini, and other hosts.
 export default server(
   'tivmark_assistant',
   {
     title: 'Mark',
     version: '1.0.0',
-    // Host-compat for confirm-gated writes. Hosts like ChatGPT can't carry Noodle's standard
-    // confirmation form (elicitation/create), so by default a `confirm: true` write fails closed.
-    // `confirmationFallback: 'host'` explicitly trusts the host's own native write-approval UX and
-    // executes the confirmed action directly there — Tivmark still enforces all authorization on the
-    // delegated per-user token. In the portal embed (which carries the form) the normal confirmation
-    // still renders.
     interactions: { confirmationFallback: 'host' },
-    instructions:
-      "You are Mark, Tivmark's people-ops assistant. Help the signed-in user with two things: TIME OFF " +
-      '(check balances, review their requests, book new time off, cancel a request) and EQUIPMENT ' +
-      '(review their requests, request an item, cancel a request). ' +
-      'Each turn includes the current date and the user’s local time zone — use them to resolve ' +
-      'relative dates ("today", "tomorrow", "next Thursday", "this Friday") into concrete YYYY-MM-DD ' +
-      'dates yourself; never claim you don’t know the date. ' +
-      'Everything is per team. The user’s teams (with their role on each) are provided as ambient ' +
-      'context (context.ambient.teams) every turn — use them to resolve the team: if there is exactly ' +
-      'one, use it silently; if several, ask which. Only call my_teams if the ambient teams are ' +
-      'unavailable. Never invent a team. Always pass the resolved team’s "slug" (NOT its display name) ' +
-      'as the `team` argument. ' +
-      'To book time off, call book_time_off when you know the leave type and both dates (it asks the ' +
-      'user to confirm); if the type or dates are missing and you cannot resolve them, call ' +
-      'book_time_off_guided, which collects them in a short form and then confirms. To request ' +
-      'equipment, call order_equipment when you know the category, item, and quantity; otherwise call ' +
-      'order_equipment_guided. ' +
-      'APPROVALS: only offer review_time_off, review_equipment, fulfill_equipment, and the team ' +
-      'queues to a user who is OWNER or ADMIN of the relevant team (check their role in the ambient ' +
-      'teams). If they are not a reviewer, do not offer these; Tivmark will reject the action anyway. ' +
-      'Address the user by name.',
+    instructions: createInstructions(),
     branding: {
       name: 'Mark',
-      // Tivmark brand accent (gold). This is the portable baseline used by external hosts
-      // (ChatGPT/Claude direct-connect); the portal embed overrides every role via the host-side
-      // `appearance` prop in apps/web AssistantWidget.tsx. Per-mode gold matches Tivmark's DaisyUI
-      // themes (light accent #b08d57 / dark accent #c9a96e), replacing the old purple default.
       accent: '#b08d57',
       theme: {
-        // Navy text on gold (both modes) — matches Tivmark's gold buttons and clears WCAG contrast
-        // (cream-on-gold was only 2.84:1 in light mode).
         light: { accent: '#b08d57', accentText: '#111c33' },
         dark: { accent: '#c9a96e', accentText: '#111c33' },
       },
       radius: 'lg',
       density: 'comfortable',
     },
-    // Per-turn grounding. The runtime injects the current date/time automatically; `defaults` set the
-    // locale/time zone used when the session carries no backend `preferences` (the portal sources those
-    // from the browser). `ambient` injects the user's teams (with roles) into every turn as trusted
-    // context so the model resolves the team — and whether the user may review — without a lookup. The
-    // provider runs the read-only `list_teams` op under the same delegated per-user token, so it only
-    // ever sees that user's teams.
+    knowledge: [tivmarkHelp],
+    handoff: {
+      allowedDomains: ['https://tivmark.com', 'https://app.tivmark.com'],
+    },
     context: {
       defaults: { locale: 'en-US', timeZone: 'UTC' },
       ambient: {
@@ -348,23 +62,6 @@ export default server(
         },
       },
     },
-    // 'customers' access with Tivmark's own OAuth server as the identity provider. Generic MCP clients
-    // (Gemini/ChatGPT/Claude) discover it via protected-resource-metadata, sign the user in at
-    // app.tivmark.com, and present the resulting token; Noodle (as resource server) verifies it
-    // against Tivmark's JWKS.
-    //
-    // The audience is a STABLE, ENVIRONMENT-SPECIFIC name — not the MCP resource URL. Noodle requires
-    // an (issuer, audience) pair to belong to exactly one app environment, so a pair shared across
-    // environments quarantines all of them; the `-prod` suffix keeps this pair unique to prod. It also
-    // has to stay stable across server versions, which a resource URL cannot (that URL carries /vN/).
-    // Tivmark mints `aud` as a two-element array — this audience plus the exact resource URL the
-    // client requested per RFC 8707 — and the verifier's audience check is set membership, so both
-    // this declaration and the MCP resource binding are satisfied by one token. See
-    // apps/web/lib/api/oauth.ts (API_AUDIENCE / ALLOWED_RESOURCES), which must stay in lockstep.
-    //
-    // The portal embed works via createAssistantSession (session exchange is independent of this auth
-    // kind). Both inbound paths normalize to the same verified customer identity, so the
-    // delegatedTokenExchange connector calls the API as that user.
     auth: customerAuth.oidc({
       issuer: 'https://app.tivmark.com/oauth',
       audience: 'tivmark-api-prod',
@@ -375,53 +72,805 @@ export default server(
         model: variable('ASSISTANT_MODEL'),
         apiKey: secret('ASSISTANT_MODEL_API_KEY'),
       }),
-      allowedOrigins: ['http://localhost:4002', 'https://app.tivmark.com'],
+      // One assistant, two front doors. The same brand, model, and tool set project onto
+      // the marketing site and the signed-in product; the surface decides who may open a
+      // session and what they can reach.
+      access: [
+        // A stranger on tivmark.com. `capabilities` IS the externally reachable surface --
+        // short enough to read in one screenful, and closed by default: a tool added to
+        // this server later stays unreachable here until someone lists it. Both the apex
+        // and www serve the marketing site with no redirect between them, so both are
+        // listed; an unlisted origin is refused character-for-character.
+        //
+        // `signIn: true` makes this a `mixed` surface: anonymous visitors start immediately,
+        // and reaching an identity-dependent capability raises a sign-in card instead of
+        // executing. The login is Tivmark's own on app.tivmark.com -- the marketing page
+        // carries the single-use ticket over on a parent-domain cookie and redirects, and
+        // apps/web spends it at session exchange, joining the signed-in person to the
+        // conversation they already started. Enabled 2026-08-19 with Noodle Seed's r601:
+        // origin re-pin, connector-auth-kind interception, issuer rebind, and the elevation
+        // store are all in production (docs/noodle-seed-response-aug-19-2026.md).
+        publicWebsite({
+          origins: ['https://tivmark.com', 'https://www.tivmark.com'],
+          signIn: true,
+          capabilities: [
+            // Anonymous-safe: no connector, no identity.
+            tivmarkHelp,
+            publicTools.talkToSales,
+            // Branded explainer cards -- the card-shaped versions of the knowledge
+            // answers, safe for a stranger because they touch nothing personal.
+            { kind: 'tool', name: 'explore_tivmark' },
+            { kind: 'tool', name: 'time_off_guide' },
+            { kind: 'tool', name: 'equipment_guide' },
+            { kind: 'tool', name: 'getting_started_guide' },
+            { kind: 'tool', name: 'trust_and_security' },
+            // Identity-gated: delegated-connector-backed, so for an anonymous visitor the
+            // service intercepts the call into the sign-in card (r601 classifies on the
+            // connector's auth kind -- no `${user}` trick needed). Listing them here is what
+            // lets Mark OFFER them to a visitor; Tivmark's API still decides what a
+            // signed-in user may actually do. Named as string refs because the tool
+            // factories return arrays; a typo fails `noodle validate` with
+            // assistant_capability_unknown, and test/public-surface.test.ts pins the list.
+            { kind: 'tool', name: 'my_teams' },
+            { kind: 'tool', name: 'time_off_balance' },
+            { kind: 'tool', name: 'my_time_off' },
+            { kind: 'tool', name: 'my_equipment' },
+            { kind: 'tool', name: 'book_time_off' },
+          ],
+        }),
+        // The signed-in product. `capabilities` is omitted deliberately: an authenticated
+        // surface with no narrowing projects the whole server, which is the behaviour the
+        // flat `allowedOrigins` list had before 0.127 replaced it.
+        authenticatedWebsite({
+          origins: ['http://localhost:4002', 'https://app.tivmark.com'],
+          // What Tivmark's backend may tell the assistant about the signed-in person.
+          // This is the allowlist: a claim the backend passes but does not appear here is
+          // dropped at session exchange rather than rejected, so the two can deploy in
+          // either order without breaking. `exposeToModel` additionally puts the value in
+          // the assistant's identity context so it can use it directly in conversation.
+          //
+          // None of this authorizes anything. Every tool still reaches the Tivmark API
+          // through delegated token exchange, and that API remains the boundary --
+          // `reviewerTeamSlugs` decides what Mark *offers*, never what Tivmark permits.
+          sessionClaims: {
+            displayName: { exposeToModel: true },
+            teamSlugs: { exposeToModel: true },
+            reviewerTeamSlugs: { exposeToModel: true },
+          },
+        }),
+      ],
+      privacyUrl: 'https://tivmark.com/privacy',
       layout: { mode: 'floating', position: 'bottom-right' },
+      // Both message roles render as true bubbles. The renderer's bubble style is what adds
+      // inner padding (10px 14px); without it the host appearance's surface + border produce
+      // a bordered box whose text sits flush against the rounded corners.
+      presentation: {
+        messages: { userStyle: 'bubble', assistantStyle: 'bubble' },
+      },
+      // Labels and prompts belong to the assistant, not to a surface, so this copy greets
+      // an anonymous visitor on tivmark.com and a signed-in user on app.tivmark.com alike.
+      // It has to work for both: "How much vacation do I have?" offered to a stranger is a
+      // prompt whose only possible answer is "please sign in".
       labels: {
         welcomeHeading: 'How can Mark help?',
-        welcomeMessage: 'Ask about your time off or equipment.',
+        welcomeMessage:
+          'Ask how Tivmark works, or — once you are signed in — about your own time off and equipment.',
         composerPlaceholder: 'Message Mark…',
         open: 'Open Mark',
         close: 'Close Mark',
       },
       suggestedPrompts: [
-        'How much vacation do I have?',
-        'Book time off',
-        'Show my equipment requests',
-        'Request equipment',
+        // Answerable by anyone, from the knowledge component.
+        'What can Tivmark do?',
+        'How does booking time off work?',
+        'Who can approve requests?',
+        // Answerable only when signed in; on the public site Mark says so and offers
+        // talk_to_sales rather than pretending to look.
+        'Show my time off',
       ],
-      // The signed-in name is exposed to the model so it can greet and personalize. Role is per-team,
-      // so it flows through the ambient teams rather than a flat session claim.
-      sessionClaims: {
-        displayName: { exposeToModel: true },
-      },
     }),
     use: { tiv: tivmark },
   },
   [
-    // ------------------------------------------------------------------ identity / teams
-    tool('greet', {
-      description: 'Greet the currently signed-in user by name.',
-      annotations: readOnly,
-      input: z.object({}),
-      output: z.object({ message: z.string() }),
-      fulfil: ({ user }) => ({ message: `Hello, ${user.name}!` }),
+    createTeamContextTool(toolConfig),
+    publicTools.talkToSales,
+    ...createGuideTools(toolConfig),
+    ...createTimeOffTools(contracts, toolConfig),
+    ...createEquipmentTools(contracts, toolConfig),
+    ...createReviewTools(contracts, toolConfig),
+  ],
+);
+
+// ---------------------------------------------------------------------------
+// Shared contracts
+
+function createContracts() {
+  const leaveType = z.enum(['VACATION', 'SICK', 'PERSONAL', 'UNPAID']);
+  const equipmentCategory = z.enum([
+    'LAPTOP',
+    'MONITOR',
+    'PHONE',
+    'PERIPHERAL',
+    'FURNITURE',
+    'OTHER',
+  ]);
+  const decision = z.enum(['APPROVED', 'DECLINED']);
+  const dateOnly = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+  const nonEmptyString = z.string().min(1);
+  const requester = z
+    .object({
+      id: z.string(),
+      name: z.string().nullable().optional(),
+      email: z.string().nullable().optional(),
+    })
+    .passthrough();
+  const timeOffRequestSchema = z
+    .object({
+      id: z.string(),
+      type: nonEmptyString,
+      status: nonEmptyString,
+      startDate: dateOnly,
+      endDate: dateOnly,
+      requestedHalfDays: z.number().int().nonnegative().optional(),
+      reason: z.string().nullable().optional(),
+      requester: requester.optional(),
+    })
+    .passthrough();
+  const equipmentRequestSchema = z
+    .object({
+      id: z.string(),
+      category: nonEmptyString,
+      item: nonEmptyString,
+      quantity: z.number().int().min(1).max(20),
+      status: nonEmptyString,
+      justification: z.string().nullable().optional(),
+      requester: requester.optional(),
+    })
+    .passthrough();
+  const balance = z
+    .object({
+      allowanceHalfDays: z.number().nonnegative().nullable(),
+      approvedHalfDays: z.number().nonnegative(),
+      pendingHalfDays: z.number().nonnegative(),
+      remainingHalfDays: z.number().nullable(),
+    })
+    .passthrough();
+
+  return {
+    leaveType,
+    equipmentCategory,
+    decision,
+    timeOffRequestSchema,
+    equipmentRequestSchema,
+    timeOffRequestsOutputSchema: z.object({
+      team: z.string(),
+      requests: z.array(timeOffRequestSchema),
     }),
-    tool('my_teams', {
+    equipmentRequestsOutputSchema: z.object({
+      team: z.string(),
+      requests: z.array(equipmentRequestSchema),
+    }),
+    timeOffBalanceOutputSchema: z.object({
+      team: z.string(),
+      userId: z.string(),
+      balances: z.record(z.record(balance)),
+    }),
+  };
+}
+
+type Contracts = ReturnType<typeof createContracts>;
+
+// ---------------------------------------------------------------------------
+// Tivmark API
+
+function createTivmarkConnector({
+  leaveType,
+  equipmentCategory,
+  decision,
+}: Contracts) {
+  // Every call runs as the signed-in user through delegated token exchange;
+  // Tivmark's API remains the authorization boundary.
+  return connector('tivmark')
+    .version('1.0.0')
+    .http({
+      baseUrl: 'https://app.tivmark.com/api/v1',
+      allowedOrigins: ['https://app.tivmark.com'],
+      auth: {
+        kind: 'delegatedTokenExchange',
+        tokenUrl: 'https://app.tivmark.com/api/assistant/oauth/token',
+        clientId: variable('TIVMARK_DELEG_CLIENT_ID'),
+        clientSecret: secret('TIVMARK_DELEG_CLIENT_SECRET'),
+        scopes: [
+          'teams',
+          'time_off',
+          'time_off.approve',
+          'equipment',
+          'equipment.approve',
+        ],
+        authMethod: 'client_secret_basic',
+      },
+      operations: {
+        list_teams: {
+          type: 'read',
+          method: 'GET',
+          path: '/teams',
+          input: z.object({}),
+          output: z.object({ teams: z.array(z.unknown()) }),
+          response: { teams: '${response.data}' },
+        },
+        get_balances: {
+          type: 'read',
+          method: 'GET',
+          path: '/teams/{team}/time-off/balances',
+          query: ['year'],
+          input: z.object({ team: z.string(), year: z.number().optional() }),
+          output: z.object({ balances: z.record(z.record(z.unknown())) }),
+          response: { balances: '${response.data}' },
+        },
+        list_time_off: {
+          type: 'read',
+          method: 'GET',
+          path: '/teams/{team}/time-off/requests',
+          query: ['requesterId', 'status', 'year'],
+          input: z.object({
+            team: z.string(),
+            requesterId: z.string().optional(),
+            status: z.string().optional(),
+            year: z.number().optional(),
+          }),
+          output: z.object({ requests: z.array(z.unknown()) }),
+          response: { requests: '${response.data}' },
+        },
+        create_time_off: {
+          type: 'action',
+          method: 'POST',
+          path: '/teams/{team}/time-off/requests',
+          input: z.object({
+            team: z.string(),
+            type: leaveType,
+            startDate: z.string(),
+            endDate: z.string(),
+            reason: z.string(),
+          }),
+          request: {
+            type: '${args.type}',
+            startDate: '${args.startDate}',
+            endDate: '${args.endDate}',
+            duration: 'FULL_DAY',
+            reason: '${args.reason}',
+          },
+          output: z.object({ request: z.unknown() }),
+          response: { request: '${response.data}' },
+        },
+        cancel_time_off: {
+          type: 'action',
+          method: 'PATCH',
+          path: '/teams/{team}/time-off/requests/{id}',
+          input: z.object({ team: z.string(), id: z.string() }),
+          request: { action: 'cancel' },
+          output: z.object({ request: z.unknown() }),
+          response: { request: '${response.data}' },
+        },
+        review_time_off: {
+          type: 'action',
+          method: 'PATCH',
+          path: '/teams/{team}/time-off/requests/{id}',
+          input: z.object({
+            team: z.string(),
+            id: z.string(),
+            decision,
+            reviewNote: z.string(),
+          }),
+          request: {
+            action: 'review',
+            decision: '${args.decision}',
+            reviewNote: '${args.reviewNote}',
+          },
+          output: z.object({ request: z.unknown() }),
+          response: { request: '${response.data}' },
+        },
+        list_equipment: {
+          type: 'read',
+          method: 'GET',
+          path: '/teams/{team}/equipment/requests',
+          query: ['requesterId', 'status', 'category'],
+          input: z.object({
+            team: z.string(),
+            requesterId: z.string().optional(),
+            status: z.string().optional(),
+            category: z.string().optional(),
+          }),
+          output: z.object({ requests: z.array(z.unknown()) }),
+          response: { requests: '${response.data}' },
+        },
+        create_equipment: {
+          type: 'action',
+          method: 'POST',
+          path: '/teams/{team}/equipment/requests',
+          input: z.object({
+            team: z.string(),
+            category: equipmentCategory,
+            item: z.string(),
+            quantity: z.number(),
+            justification: z.string(),
+          }),
+          request: {
+            category: '${args.category}',
+            item: '${args.item}',
+            quantity: '${args.quantity}',
+            justification: '${args.justification}',
+          },
+          output: z.object({ request: z.unknown() }),
+          response: { request: '${response.data}' },
+        },
+        cancel_equipment: {
+          type: 'action',
+          method: 'PATCH',
+          path: '/teams/{team}/equipment/requests/{id}',
+          input: z.object({ team: z.string(), id: z.string() }),
+          request: { action: 'cancel' },
+          output: z.object({ request: z.unknown() }),
+          response: { request: '${response.data}' },
+        },
+        review_equipment: {
+          type: 'action',
+          method: 'PATCH',
+          path: '/teams/{team}/equipment/requests/{id}',
+          input: z.object({
+            team: z.string(),
+            id: z.string(),
+            decision,
+            reviewNote: z.string(),
+          }),
+          request: {
+            action: 'review',
+            decision: '${args.decision}',
+            reviewNote: '${args.reviewNote}',
+          },
+          output: z.object({ request: z.unknown() }),
+          response: { request: '${response.data}' },
+        },
+        fulfill_equipment: {
+          type: 'action',
+          method: 'PATCH',
+          path: '/teams/{team}/equipment/requests/{id}',
+          input: z.object({ team: z.string(), id: z.string() }),
+          request: { action: 'fulfill' },
+          output: z.object({ request: z.unknown() }),
+          response: { request: '${response.data}' },
+        },
+      },
+    });
+}
+
+// ---------------------------------------------------------------------------
+// Tool groups
+
+function createToolConfig() {
+  return {
+    readOnly: annotations.readOnly(),
+    confirmed: annotations.action({ confirm: true }),
+    confirmedDestructive: annotations.action({
+      confirm: true,
+      destructive: true,
+    }),
+    widgetCsp: { connectDomains: [], resourceDomains: [] },
+    widgetDomain: 'https://app.tivmark.com',
+  };
+}
+
+type ToolConfig = ReturnType<typeof createToolConfig>;
+
+// Tivmark's own product documentation, plus its live marketing site. The compiler validates
+// and hashes every document at build time; deployment publishes them with the app, crawls
+// the declared site, and re-crawls on the refresh cadence. One declaration compiles to a
+// bounded `search_tivmark_help` capability with cited results -- no handwritten search/fetch
+// pair, no index to operate, and no provider keys (the managed crawler and index are the
+// defaults).
+function createKnowledge() {
+  return knowledge('tivmark_help', {
+    title: 'Tivmark help',
+    description:
+      'How Tivmark works: what the product does, time-off and equipment workflows, teams ' +
+      'and roles, getting started, and security and privacy. Use this to answer questions ' +
+      'about Tivmark itself, and cite what it returns.',
+    documents: [
+      file('./knowledge/product-overview.md', {
+        title: 'What Tivmark does',
+        sourceUrl: 'https://tivmark.com/#features',
+      }),
+      file('./knowledge/time-off.md', { title: 'Time off in Tivmark' }),
+      file('./knowledge/equipment.md', { title: 'Equipment requests in Tivmark' }),
+      file('./knowledge/teams-and-roles.md', { title: 'Teams, roles, and access' }),
+      file('./knowledge/getting-started.md', { title: 'Getting started with Tivmark' }),
+      file('./knowledge/security-and-privacy.md', { title: 'Security and privacy' }),
+    ],
+    // The marketing site is a single page, and nginx serves it for every path, so a wider
+    // glob would crawl the same document under unbounded URLs. Scope it to the one page.
+    sites: [
+      site({
+        origin: 'https://tivmark.com',
+        include: ['/'],
+        refresh: '24h',
+      }),
+    ],
+  });
+}
+
+// The only tool a stranger can actually run. It touches no connector, so it clears both
+// public-surface rules: `anonymousBehavior` sees no `${user}` reference and no authorization
+// requirement, and `assistant_public_effect_unconfirmed` cannot fire on a tool with no
+// connector operation. Every other Tivmark tool reaches the API through a delegated
+// token exchange, which has no credential to use without a signed-in person.
+function createPublicTools({ readOnly, widgetCsp }: ToolConfig) {
+  return {
+    talkToSales: tool('talk_to_sales', {
+      title: 'Talk to the Tivmark team',
       description:
-        'List the teams the signed-in user belongs to, with their role on each. Use this to resolve ' +
-        'which team an action applies to when the ambient teams are unavailable.',
+        'Show the ways to reach Tivmark: book a walkthrough, start a workspace, or contact ' +
+        'support. Use this when someone wants to try Tivmark or talk to a person, rather ' +
+        'than asking how the product works.',
       annotations: readOnly,
       input: z.object({}),
-      output: z.object({ teams: z.array(z.unknown()) }),
-      fulfil: ({ connectors }) => {
-        const res = connectors.tiv.list_teams({});
-        return { teams: res.teams };
+      output: z.object({
+        options: z.array(
+          z.object({
+            id: z.string(),
+            label: z.string(),
+            url: z.string(),
+            detail: z.string(),
+          }),
+        ),
+      }),
+      fulfil: () => ({
+        options: [
+          {
+            id: 'demo',
+            label: 'Book a walkthrough',
+            url: 'https://tivmark.com/#contact',
+            detail: 'A short tour of Tivmark with the team.',
+          },
+          {
+            id: 'start',
+            label: 'Start a workspace',
+            url: 'https://app.tivmark.com/?tab=join',
+            detail: 'Set up your first team in minutes.',
+          },
+          {
+            id: 'support',
+            label: 'Contact support',
+            url: 'https://tivmark.com/#contact',
+            detail: 'Questions about a workspace you already have.',
+          },
+        ],
+      }),
+      viewTitle: 'Talk to Tivmark',
+      viewDescription: 'Ways to reach the Tivmark team.',
+      invoking: 'Finding the right next step…',
+      invoked: 'Here are your options',
+      domain: 'https://tivmark.com',
+      csp: widgetCsp,
+      view: {
+        component: 'contact-options',
+        entry: './views/contact-options.tsx',
       },
     }),
+  };
+}
 
-    // ------------------------------------------------------------------ time off (employee)
+// Branded explainer cards for the public site. Like talk_to_sales they touch no
+// connector and reference no `${user}`, so an anonymous visitor can run them -- they are
+// the card-shaped versions of the knowledge answers, sourced from src/knowledge/*.md.
+// Keep the two in step when either changes.
+function createGuideTools({ readOnly, widgetCsp }: ToolConfig) {
+  return [
+    tool('explore_tivmark', {
+      title: 'Show what Tivmark does',
+      description:
+        'Show an overview card of Tivmark: what it does, its features, and how to open the ' +
+        'portal. Use this when someone asks what Tivmark is or what it can do.',
+      annotations: readOnly,
+      input: z.object({}),
+      output: z.object({
+        tagline: z.string(),
+        features: z.array(z.object({ title: z.string(), detail: z.string() })),
+        stats: z.array(z.object({ value: z.string(), label: z.string() })),
+        portalUrl: z.string(),
+      }),
+      fulfil: () => ({
+        tagline: 'Time off and equipment, handled.',
+        features: [
+          {
+            title: 'Time off',
+            detail: 'Balances, requests, and approvals per team, counted in half-days.',
+          },
+          {
+            title: 'Equipment',
+            detail: 'Request, approve, and fulfil hardware without a spreadsheet.',
+          },
+          {
+            title: 'Approvals',
+            detail: 'Owners and admins review queues with one click.',
+          },
+          {
+            title: 'Teams & roles',
+            detail: 'Per-team policies, members, and reviewer roles.',
+          },
+          {
+            title: 'SSO & SCIM',
+            detail: 'Enterprise sign-on and directory-driven provisioning.',
+          },
+          {
+            title: 'API & webhooks',
+            detail: 'A full REST API, webhooks, and audit history.',
+          },
+        ],
+        stats: [
+          { value: '1-click', label: 'approvals' },
+          { value: 'Per-team', label: 'policies' },
+          { value: 'SSO', label: 'enterprise-ready' },
+        ],
+        portalUrl: 'https://app.tivmark.com/?tab=login',
+      }),
+      viewTitle: 'What Tivmark does',
+      viewDescription: 'Feature overview with a link to the portal.',
+      invoking: 'Sketching the overview…',
+      invoked: 'Here is Tivmark at a glance',
+      domain: 'https://tivmark.com',
+      csp: widgetCsp,
+      view: {
+        component: 'explore-tivmark',
+        entry: './views/explore-tivmark.tsx',
+      },
+    }),
+    tool('time_off_guide', {
+      title: 'Explain time off',
+      description:
+        'Show a card explaining how time off works in Tivmark: the four leave types and how ' +
+        'balances are counted. Use this when someone asks how time off, leave, or balances work.',
+      annotations: readOnly,
+      input: z.object({}),
+      output: z.object({
+        leaveTypes: z.array(
+          z.object({ type: z.string(), label: z.string(), detail: z.string() }),
+        ),
+        balanceParts: z.array(
+          z.object({ term: z.string(), detail: z.string() }),
+        ),
+        note: z.string(),
+      }),
+      fulfil: () => ({
+        leaveTypes: [
+          {
+            type: 'VACATION',
+            label: 'Vacation',
+            detail: "Planned holiday, drawn from the team's annual allowance.",
+          },
+          {
+            type: 'SICK',
+            label: 'Sick',
+            detail: 'Illness, usually on a separate allowance from vacation.',
+          },
+          {
+            type: 'PERSONAL',
+            label: 'Personal',
+            detail: 'Appointments, family matters, and other personal time.',
+          },
+          {
+            type: 'UNPAID',
+            label: 'Unpaid',
+            detail: 'Approved leave taken without pay, typically uncapped.',
+          },
+        ],
+        balanceParts: [
+          { term: 'Allowance', detail: 'what the team grants' },
+          { term: 'Used', detail: 'approved days taken' },
+          { term: 'Pending', detail: 'held until reviewed' },
+        ],
+        note:
+          'Remaining is allowance minus used minus pending, counted in half-days — a ' +
+          'morning off is 0.5. A new request starts as pending and a reviewer approves ' +
+          'or declines it.',
+      }),
+      viewTitle: 'Time off in Tivmark',
+      viewDescription: 'Leave types and how balances are counted.',
+      invoking: 'Preparing the guide…',
+      invoked: 'Here is how time off works',
+      domain: 'https://tivmark.com',
+      csp: widgetCsp,
+      view: {
+        component: 'time-off-guide',
+        entry: './views/time-off-guide.tsx',
+      },
+    }),
+    tool('equipment_guide', {
+      title: 'Explain equipment requests',
+      description:
+        'Show a card explaining equipment requests in Tivmark: the six categories and the ' +
+        'request lifecycle. Use this when someone asks how equipment or hardware requests work.',
+      annotations: readOnly,
+      input: z.object({}),
+      output: z.object({
+        categories: z.array(
+          z.object({
+            category: z.string(),
+            label: z.string(),
+            examples: z.string(),
+          }),
+        ),
+        lifecycle: z.array(z.object({ stage: z.string(), detail: z.string() })),
+      }),
+      fulfil: () => ({
+        categories: [
+          { category: 'LAPTOP', label: 'Laptop', examples: 'Work laptops and docking stations' },
+          { category: 'MONITOR', label: 'Monitor', examples: 'External displays' },
+          { category: 'PHONE', label: 'Phone', examples: 'Work phones and tablets' },
+          {
+            category: 'PERIPHERAL',
+            label: 'Peripheral',
+            examples: 'Keyboards, mice, headsets, webcams',
+          },
+          {
+            category: 'FURNITURE',
+            label: 'Furniture',
+            examples: 'Desks, chairs, standing desk converters',
+          },
+          { category: 'OTHER', label: 'Other', examples: 'Anything that fits no category' },
+        ],
+        lifecycle: [
+          { stage: 'Pending', detail: 'Submitted and waiting for a reviewer.' },
+          {
+            stage: 'Approved or declined',
+            detail: 'A team owner or admin has decided.',
+          },
+          {
+            stage: 'Fulfilled',
+            detail: 'The approved item has actually been handed over.',
+          },
+        ],
+      }),
+      viewTitle: 'Equipment in Tivmark',
+      viewDescription: 'Categories and the request lifecycle.',
+      invoking: 'Preparing the guide…',
+      invoked: 'Here is how equipment works',
+      domain: 'https://tivmark.com',
+      csp: widgetCsp,
+      view: {
+        component: 'equipment-guide',
+        entry: './views/equipment-guide.tsx',
+      },
+    }),
+    tool('getting_started_guide', {
+      title: 'Show the getting-started checklist',
+      description:
+        'Show the five-step checklist for setting up a Tivmark workspace. Use this when ' +
+        'someone asks how to get started, set up, or onboard their team.',
+      annotations: readOnly,
+      input: z.object({}),
+      output: z.object({
+        steps: z.array(z.object({ title: z.string(), detail: z.string() })),
+      }),
+      fulfil: () => ({
+        steps: [
+          {
+            title: 'Create your workspace',
+            detail: 'Sign up at app.tivmark.com and confirm your email.',
+          },
+          {
+            title: 'Create your first team',
+            detail: 'Name it and give it a slug; split into more teams as you grow.',
+          },
+          {
+            title: 'Set allowances',
+            detail: 'Vacation, sick, personal, and unpaid — any type can be unlimited.',
+          },
+          {
+            title: 'Invite people',
+            detail: 'By email, or connect SCIM so your directory does it for you.',
+          },
+          {
+            title: 'Assign reviewers',
+            detail: 'Make the right people owners or admins before members arrive.',
+          },
+        ],
+      }),
+      viewTitle: 'Getting started',
+      viewDescription: 'Workspace setup checklist.',
+      invoking: 'Preparing the checklist…',
+      invoked: 'Here is the setup checklist',
+      domain: 'https://tivmark.com',
+      csp: widgetCsp,
+      view: {
+        component: 'getting-started-guide',
+        entry: './views/getting-started-guide.tsx',
+      },
+    }),
+    tool('trust_and_security', {
+      title: 'Show security and privacy',
+      description:
+        "Show a card summarizing Tivmark's security and privacy posture: sign-in, per-team " +
+        'visibility, and what the assistant can and cannot do. Use this when someone asks ' +
+        'about security, privacy, or data handling.',
+      annotations: readOnly,
+      input: z.object({}),
+      output: z.object({
+        points: z.array(z.object({ title: z.string(), detail: z.string() })),
+        privacyUrl: z.string(),
+      }),
+      fulfil: () => ({
+        points: [
+          {
+            title: 'Sign-in',
+            detail: 'Password or SAML SSO; SCIM keeps accounts in step with your directory.',
+          },
+          {
+            title: 'Visibility',
+            detail: 'Per team, not per company — nobody sees another team\u2019s data.',
+          },
+          {
+            title: 'One boundary',
+            detail: 'The API enforces permissions for every client, the assistant included.',
+          },
+          {
+            title: 'Confirmed writes',
+            detail: 'Every consequential action shows exactly what will happen and waits.',
+          },
+          {
+            title: 'Verified identity',
+            detail: 'Identity comes from Tivmark\u2019s backend, never from the browser.',
+          },
+        ],
+        privacyUrl: 'https://tivmark.com/privacy',
+      }),
+      viewTitle: 'Security and privacy',
+      viewDescription: 'How Tivmark handles access and data.',
+      invoking: 'Preparing the overview…',
+      invoked: 'Here is the security picture',
+      domain: 'https://tivmark.com',
+      csp: widgetCsp,
+      view: {
+        component: 'trust-and-security',
+        entry: './views/trust-and-security.tsx',
+      },
+    }),
+  ];
+}
+
+function createTeamContextTool({ readOnly }: ToolConfig) {
+  return tool('my_teams', {
+    title: 'List my teams',
+    description:
+      'List the teams the signed-in user belongs to, with their role on each. Use this when ambient ' +
+      'team context is unavailable.',
+    contextProvider: true,
+    annotations: readOnly,
+    input: z.object({}),
+    output: z.object({ teams: z.array(z.unknown()) }),
+    fulfil: ({ connectors }) => {
+      const res = connectors.tiv.list_teams({});
+      return { teams: res.teams };
+    },
+  });
+}
+
+function createTimeOffTools(
+  {
+    leaveType,
+    timeOffBalanceOutputSchema,
+    timeOffRequestSchema,
+    timeOffRequestsOutputSchema,
+  }: Contracts,
+  {
+    readOnly,
+    confirmed,
+    confirmedDestructive,
+    widgetCsp,
+    widgetDomain,
+  }: ToolConfig,
+) {
+  return [
     tool('time_off_balance', {
+      title: 'Check time-off balance',
       description:
         "Show the signed-in user's time-off balances (vacation, sick, personal, unpaid) for a team.",
       annotations: readOnly,
@@ -429,17 +878,26 @@ export default server(
       output: timeOffBalanceOutputSchema,
       fulfil: ({ input, user, connectors }) => {
         const res = connectors.tiv.get_balances({ team: input.team });
-        return { team: input.team, userId: user.subject, balances: res.balances };
+        return {
+          team: input.team,
+          userId: user.subject,
+          balances: res.balances,
+        };
       },
       viewTitle: 'Your time-off balance',
-      viewDescription: 'Vacation, sick, personal, and unpaid balances for the year.',
+      viewDescription:
+        'Vacation, sick, personal, and unpaid balances for the year.',
       invoking: 'Loading your balance…',
       invoked: 'Balance ready',
       domain: widgetDomain,
       csp: widgetCsp,
-      view: { component: 'time-off-balance', entry: './views/time-off-balance.tsx' },
+      view: {
+        component: 'time-off-balance',
+        entry: './views/time-off-balance.tsx',
+      },
     }),
     tool('my_time_off', {
+      title: 'List my time-off requests',
       description:
         "List the signed-in user's own time-off requests and their status for a team.",
       annotations: readOnly,
@@ -458,16 +916,16 @@ export default server(
       invoked: 'Requests ready',
       domain: widgetDomain,
       csp: widgetCsp,
-      view: { component: 'time-off-requests', entry: './views/time-off-requests.tsx' },
+      view: {
+        component: 'time-off-requests',
+        entry: './views/time-off-requests.tsx',
+      },
     }),
-    // Conversational booking. Model-callable and confirm-gated: the runtime shows a confirmation with
-    // the exact resolved arguments and only creates the request on approval. One connector op, as a
-    // confirmable flow requires.
     tool('book_time_off', {
+      title: 'Book time off',
       description:
-        'Book a new full-day time-off request for the signed-in user, conversationally. Resolve ' +
-        'relative dates to concrete YYYY-MM-DD and the team to its slug before calling. The user is ' +
-        'asked to confirm the exact request before it is created.',
+        'Book a new full-day request. Resolve dates to YYYY-MM-DD and the team to its slug. The user ' +
+        'confirms the exact request.',
       annotations: confirmed,
       input: z.object({
         team: z.string(),
@@ -476,15 +934,10 @@ export default server(
         endDate: z.string(),
         reason: z.string().default(''),
       }),
-      // Return the refreshed request list so the shared time-off-requests widget renders the just-created
-      // request as the confirmed result (the widget reads the invoking tool's own output via no-arg
-      // useToolInfo()).
       output: timeOffRequestsOutputSchema.extend({
         status: z.string(),
         request: timeOffRequestSchema,
       }),
-      // A confirmable flow may contain at most one connector op, so render the just-created request
-      // itself (not a re-fetched list) as the result widget's single row.
       fulfil: ({ input, connectors }) => {
         const res = connectors.tiv.create_time_off({
           team: input.team,
@@ -501,22 +954,22 @@ export default server(
         };
       },
       viewTitle: 'Time-off request submitted',
-      viewDescription: 'Your time-off requests, including the one just submitted.',
+      viewDescription:
+        'Your time-off requests, including the one just submitted.',
       invoking: 'Submitting your time-off request…',
       invoked: 'Request submitted',
       domain: widgetDomain,
       csp: widgetCsp,
-      view: { component: 'time-off-requests', entry: './views/time-off-requests.tsx' },
+      view: {
+        component: 'time-off-requests',
+        entry: './views/time-off-requests.tsx',
+      },
     }),
-    // Guided booking for under-specified requests ("book me some time off"). Elicits the leave type and
-    // dates as one schema-validated form (all elicited input collected before the single connector op),
-    // then the same confirmation gate reviews the exact request before creating it.
     tool('book_time_off_guided', {
+      title: 'Book time off with a form',
       description:
-        'Book time off when the user has NOT given a leave type and/or dates and you cannot resolve ' +
-        'them from the conversation. Opens a short form to collect the type and dates, then asks the ' +
-        'user to confirm before creating the request. If you already know the type and both dates, ' +
-        'use book_time_off instead.',
+        'Book time off when the leave type or dates are missing. Opens a short form, then asks the ' +
+        'user to confirm. Use book_time_off when every detail is known.',
       annotations: confirmed,
       input: z.object({ team: z.string() }),
       output: z.object({ status: z.string(), request: z.unknown() }),
@@ -526,7 +979,10 @@ export default server(
           message: 'What time off would you like to book?',
           input: z.object({
             type: leaveType.describe('Leave type'),
-            startDate: z.string().describe('Start date').meta({ format: 'date' }),
+            startDate: z
+              .string()
+              .describe('Start date')
+              .meta({ format: 'date' }),
             endDate: z.string().describe('End date').meta({ format: 'date' }),
           }),
         });
@@ -544,9 +1000,9 @@ export default server(
       },
     }),
     tool('cancel_time_off_request', {
+      title: 'Cancel time-off request',
       description:
-        "Cancel one of the signed-in user's time-off requests by id, conversationally. The user is " +
-        'asked to confirm before it is cancelled.',
+        "Cancel one of the signed-in user's time-off requests by id. The user confirms first.",
       annotations: confirmedDestructive,
       input: z.object({ team: z.string(), id: z.string() }),
       output: z.object({ status: z.string(), request: z.unknown() }),
@@ -555,12 +1011,55 @@ export default server(
           team: input.team,
           id: input.id,
         });
-        return { status: `Canceled request ${input.id}.`, request: res.request };
+        return {
+          status: `Canceled request ${input.id}.`,
+          request: res.request,
+        };
       },
     }),
+      // The widget-facing twin of cancel_time_off_request. `visibility: ['app']` keeps it
+    // out of the model's tool list, and it skips the chat confirmation because the card
+    // renders its own confirm step in place -- the same shape as review_*_app, pinned by
+    // test/server.test.ts.
+    tool('cancel_time_off_app', {
+      title: 'Cancel time-off request in app',
+      visibility: ['app'],
+      description:
+        "Cancel one of the signed-in user's time-off requests by id.",
+      annotations: annotations.action(),
+      input: z.object({ team: z.string().default(''), id: z.string().default('') }),
+      output: z.object({ status: z.string(), request: z.unknown() }),
+      fulfil: ({ input, connectors }) => {
+        const res = connectors.tiv.cancel_time_off({
+          team: input.team,
+          id: input.id,
+        });
+        return {
+          status: `Canceled request ${input.id}.`,
+          request: res.request,
+        };
+      },
+    }),
+  ];
+}
 
-    // ------------------------------------------------------------------ equipment (employee)
+function createEquipmentTools(
+  {
+    equipmentCategory,
+    equipmentRequestSchema,
+    equipmentRequestsOutputSchema,
+  }: Contracts,
+  {
+    readOnly,
+    confirmed,
+    confirmedDestructive,
+    widgetCsp,
+    widgetDomain,
+  }: ToolConfig,
+) {
+  return [
     tool('my_equipment', {
+      title: 'List my equipment requests',
       description:
         "List the signed-in user's own equipment requests and their status for a team.",
       annotations: readOnly,
@@ -579,12 +1078,16 @@ export default server(
       invoked: 'Requests ready',
       domain: widgetDomain,
       csp: widgetCsp,
-      view: { component: 'equipment-requests', entry: './views/equipment-requests.tsx' },
+      view: {
+        component: 'equipment-requests',
+        entry: './views/equipment-requests.tsx',
+      },
     }),
     tool('order_equipment', {
+      title: 'Request equipment',
       description:
-        'Request a piece of equipment for the signed-in user, conversationally. Resolve the team to ' +
-        'its slug before calling. The user is asked to confirm the exact request before it is created.',
+        'Request equipment for the signed-in user. Resolve the team to its slug. The user confirms ' +
+        'the exact request.',
       annotations: confirmed,
       input: z.object({
         team: z.string(),
@@ -593,15 +1096,10 @@ export default server(
         quantity: z.number().int().min(1).max(20).default(1),
         justification: z.string().default(''),
       }),
-      // Return the refreshed request list so the shared equipment-requests widget renders the just-created
-      // request as the confirmed result (the widget reads the invoking tool's own output via no-arg
-      // useToolInfo()).
       output: equipmentRequestsOutputSchema.extend({
         status: z.string(),
         request: equipmentRequestSchema,
       }),
-      // A confirmable flow may contain at most one connector op, so render the just-created request
-      // itself (not a re-fetched list) as the result widget's single row.
       fulfil: ({ input, connectors }) => {
         const res = connectors.tiv.create_equipment({
           team: input.team,
@@ -618,19 +1116,22 @@ export default server(
         };
       },
       viewTitle: 'Equipment request submitted',
-      viewDescription: 'Your equipment requests, including the one just submitted.',
+      viewDescription:
+        'Your equipment requests, including the one just submitted.',
       invoking: 'Submitting your equipment request…',
       invoked: 'Request submitted',
       domain: widgetDomain,
       csp: widgetCsp,
-      view: { component: 'equipment-requests', entry: './views/equipment-requests.tsx' },
+      view: {
+        component: 'equipment-requests',
+        entry: './views/equipment-requests.tsx',
+      },
     }),
     tool('order_equipment_guided', {
+      title: 'Request equipment with a form',
       description:
-        'Request equipment when the user has NOT given the category, item, and/or quantity and you ' +
-        'cannot resolve them from the conversation. Opens a short form to collect them, then asks the ' +
-        'user to confirm before creating the request. If you already know all fields, use ' +
-        'order_equipment instead.',
+        'Request equipment when the category, item, or quantity is missing. Opens a short form, then ' +
+        'asks the user to confirm. Use order_equipment when every detail is known.',
       annotations: confirmed,
       input: z.object({ team: z.string() }),
       output: z.object({ status: z.string(), request: z.unknown() }),
@@ -662,9 +1163,9 @@ export default server(
       },
     }),
     tool('cancel_equipment_request', {
+      title: 'Cancel equipment request',
       description:
-        "Cancel one of the signed-in user's equipment requests by id, conversationally. The user is " +
-        'asked to confirm before it is cancelled.',
+        "Cancel one of the signed-in user's equipment requests by id. The user confirms first.",
       annotations: confirmedDestructive,
       input: z.object({ team: z.string(), id: z.string() }),
       output: z.object({ status: z.string(), request: z.unknown() }),
@@ -673,15 +1174,44 @@ export default server(
           team: input.team,
           id: input.id,
         });
-        return { status: `Canceled request ${input.id}.`, request: res.request };
+        return {
+          status: `Canceled request ${input.id}.`,
+          request: res.request,
+        };
       },
     }),
-
-    // ------------------------------------------------------------------ admin review (OWNER/ADMIN)
-    tool('team_time_off_queue', {
+    // Widget-facing twin of cancel_equipment_request; see cancel_time_off_app.
+    tool('cancel_equipment_app', {
+      title: 'Cancel equipment request in app',
+      visibility: ['app'],
       description:
-        'List the PENDING time-off requests awaiting review for a team. Only useful to an OWNER or ' +
-        'ADMIN reviewer — Tivmark returns only the caller-visible requests.',
+        "Cancel one of the signed-in user's equipment requests by id.",
+      annotations: annotations.action(),
+      input: z.object({ team: z.string().default(''), id: z.string().default('') }),
+      output: z.object({ status: z.string(), request: z.unknown() }),
+      fulfil: ({ input, connectors }) => {
+        const res = connectors.tiv.cancel_equipment({
+          team: input.team,
+          id: input.id,
+        });
+        return {
+          status: `Canceled request ${input.id}.`,
+          request: res.request,
+        };
+      },
+    }),
+  ];
+}
+
+function createReviewTools(
+  { decision, timeOffRequestsOutputSchema, equipmentRequestsOutputSchema }: Contracts,
+  { readOnly, confirmed, widgetCsp, widgetDomain }: ToolConfig,
+) {
+  return [
+    tool('team_time_off_queue', {
+      title: 'Open time-off review queue',
+      description:
+        'List pending time-off requests awaiting review for a team. Only useful to an OWNER or ADMIN.',
       annotations: readOnly,
       input: z.object({ team: z.string() }),
       output: timeOffRequestsOutputSchema,
@@ -704,12 +1234,15 @@ export default server(
       },
     }),
     tool('team_equipment_queue', {
+      title: 'Open equipment review queue',
       description:
-        'List the PENDING equipment requests awaiting review for a team. Only useful to an OWNER or ' +
-        'ADMIN reviewer — Tivmark returns only the caller-visible requests.',
+        'List pending equipment requests awaiting review for a team. Only useful to an OWNER or ADMIN.',
       annotations: readOnly,
       input: z.object({ team: z.string() }),
-      output: z.object({ team: z.string(), requests: z.array(z.unknown()) }),
+      // Was `z.array(z.unknown())`, which told the model and the widget nothing about the
+      // rows it was about to render. It now declares the same shape every other equipment
+      // tool does.
+      output: equipmentRequestsOutputSchema,
       fulfil: ({ input, connectors }) => {
         const res = connectors.tiv.list_equipment({
           team: input.team,
@@ -717,11 +1250,47 @@ export default server(
         });
         return { team: input.team, requests: res.requests };
       },
+      viewTitle: 'Equipment approvals',
+      viewDescription: 'Pending equipment requests to approve or decline.',
+      invoking: 'Loading the review queue…',
+      invoked: 'Queue ready',
+      domain: widgetDomain,
+      csp: widgetCsp,
+      view: {
+        component: 'review-equipment-queue',
+        entry: './views/review-equipment-queue.tsx',
+      },
     }),
-    // App-only helper the time-off review-queue widget calls (the button click is the user action).
-    tool('review_time_off_app', {
+    tool('review_equipment_app', {
+      title: 'Review equipment request in app',
       visibility: ['app'],
-      description: 'Approve or decline a pending time-off request by id (OWNER/ADMIN only).',
+      description:
+        'Approve or decline a pending equipment request by id (OWNER/ADMIN only).',
+      annotations: annotations.action(),
+      input: z.object({
+        team: z.string().default(''),
+        id: z.string().default(''),
+        decision: decision.default('APPROVED'),
+      }),
+      output: z.object({ status: z.string(), request: z.unknown() }),
+      fulfil: ({ input, connectors }) => {
+        const res = connectors.tiv.review_equipment({
+          team: input.team,
+          id: input.id,
+          decision: input.decision,
+          reviewNote: '',
+        });
+        return {
+          status: `${input.decision} equipment request ${input.id}.`,
+          request: res.request,
+        };
+      },
+    }),
+    tool('review_time_off_app', {
+      title: 'Review time-off request in app',
+      visibility: ['app'],
+      description:
+        'Approve or decline a pending time-off request by id (OWNER/ADMIN only).',
       annotations: annotations.action(),
       input: z.object({
         team: z.string().default(''),
@@ -743,9 +1312,9 @@ export default server(
       },
     }),
     tool('review_time_off', {
+      title: 'Review time-off request',
       description:
-        'Approve or decline a pending time-off request by id (OWNER/ADMIN only). The user is asked to ' +
-        'confirm the decision before it is applied.',
+        'Approve or decline a pending time-off request by id (OWNER/ADMIN only). The user confirms first.',
       annotations: confirmed,
       input: z.object({
         team: z.string(),
@@ -768,9 +1337,9 @@ export default server(
       },
     }),
     tool('review_equipment', {
+      title: 'Review equipment request',
       description:
-        'Approve or decline a pending equipment request by id (OWNER/ADMIN only). The user is asked to ' +
-        'confirm the decision before it is applied.',
+        'Approve or decline a pending equipment request by id (OWNER/ADMIN only). The user confirms first.',
       annotations: confirmed,
       input: z.object({
         team: z.string(),
@@ -793,9 +1362,9 @@ export default server(
       },
     }),
     tool('fulfill_equipment', {
+      title: 'Fulfill equipment request',
       description:
-        'Mark an approved equipment request as fulfilled/delivered by id (OWNER/ADMIN only). The user ' +
-        'is asked to confirm before it is applied.',
+        'Mark an approved equipment request as fulfilled by id (OWNER/ADMIN only). The user confirms first.',
       annotations: confirmed,
       input: z.object({ team: z.string(), id: z.string() }),
       output: z.object({ status: z.string(), request: z.unknown() }),
@@ -810,5 +1379,40 @@ export default server(
         };
       },
     }),
-  ],
-);
+  ];
+}
+
+function createInstructions() {
+  return (
+    "You are Mark, Tivmark's people-ops assistant. Help the signed-in user with TIME OFF " +
+    '(check balances, review their requests, book new time off, cancel a request) and EQUIPMENT ' +
+    '(review their requests, request an item, cancel a request). ' +
+    'Resolve relative dates from the current date and local time zone into concrete YYYY-MM-DD dates. ' +
+    'Resolve every team from trusted context: use its slug, silently choose the only team, ask when ' +
+    'there are several, and never invent one. ' +
+    'Use book_time_off or order_equipment when every required detail is known; otherwise use the ' +
+    'matching guided tool to collect missing details before confirmation. ' +
+    'Prefer tools over prose: when a matching tool exists, call it and let its card carry the '  +
+    'data — accompany a card with at most one or two short sentences, and never restate what '  +
+    'the card already shows. Keep every reply crisp and concise. ' +
+    'For questions about how Tivmark works, prefer the guide cards — explore_tivmark, ' +
+    'time_off_guide, equipment_guide, getting_started_guide, trust_and_security — and add ' +
+    'one short cited sentence from search_tivmark_help only when it adds something the card ' +
+    'does not show. ' +
+    'Only offer team queues, reviews, and fulfillment to an OWNER or ADMIN of the relevant team; ' +
+    'reviewerTeamSlugs lists the teams where the signed-in user is one, and it decides what you ' +
+    'offer, never what Tivmark permits. Address the user by name when their name is known. ' +
+    // The same assistant also answers on Tivmark's public marketing site, where there is no
+    // signed-in person at all. Ambient team context is the tell: it is only available to a
+    // signed-in user, so its absence means treat the visitor as anonymous.
+    'ANONYMOUS VISITORS: when ambient team context is unavailable, you are talking to someone ' +
+    'on the public Tivmark website who is not signed in. Answer their questions about how ' +
+    'Tivmark works with the guide cards first, citing search_tivmark_help alongside when ' +
+    'useful, and use talk_to_sales ' +
+    'when they want a walkthrough, a workspace, or support. Never guess a team, a balance, or ' +
+    'a request. When they ask about their own time off or equipment, call the matching tool: ' +
+    'for a visitor it raises a sign-in card instead of running, and after they sign in the ' +
+    'conversation continues with you remembering it. Mention that signing in keeps the ' +
+    'conversation; never promise the messages will reappear on screen.'
+  );
+}

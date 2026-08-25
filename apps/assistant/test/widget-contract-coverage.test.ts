@@ -6,9 +6,22 @@ type WidgetContract = {
   readonly component: string;
   readonly itemFields?: readonly string[];
   readonly balanceFields?: readonly string[];
+  /** The array property the widget iterates. Team-scoped widgets all use `requests`. */
+  readonly collection?: string;
+  /**
+   * Every people-ops widget is scoped to a team. The public-website widgets are not: they
+   * run for an anonymous visitor who has no team, so they must not require one.
+   */
+  readonly teamScoped?: boolean;
 };
 
 const widgetContracts = {
+  talk_to_sales: {
+    component: 'contact-options',
+    collection: 'options',
+    teamScoped: false,
+    itemFields: ['id', 'label', 'url', 'detail'],
+  },
   time_off_balance: {
     component: 'time-off-balance',
     balanceFields: [
@@ -34,9 +47,43 @@ const widgetContracts = {
     component: 'equipment-requests',
     itemFields: ['id', 'category', 'item', 'quantity', 'status'],
   },
+  team_equipment_queue: {
+    component: 'review-equipment-queue',
+    itemFields: ['id', 'category', 'item', 'quantity', 'status'],
+  },
   team_time_off_queue: {
     component: 'review-time-off-queue',
     itemFields: ['id', 'type', 'status', 'startDate', 'endDate'],
+  },
+  explore_tivmark: {
+    component: 'explore-tivmark',
+    collection: 'features',
+    teamScoped: false,
+    itemFields: ['title', 'detail'],
+  },
+  time_off_guide: {
+    component: 'time-off-guide',
+    collection: 'leaveTypes',
+    teamScoped: false,
+    itemFields: ['type', 'label', 'detail'],
+  },
+  equipment_guide: {
+    component: 'equipment-guide',
+    collection: 'categories',
+    teamScoped: false,
+    itemFields: ['category', 'label', 'examples'],
+  },
+  getting_started_guide: {
+    component: 'getting-started-guide',
+    collection: 'steps',
+    teamScoped: false,
+    itemFields: ['title', 'detail'],
+  },
+  trust_and_security: {
+    component: 'trust-and-security',
+    collection: 'points',
+    teamScoped: false,
+    itemFields: ['title', 'detail'],
   },
 } satisfies Record<string, WidgetContract>;
 
@@ -73,13 +120,17 @@ describe('manifest widget contract coverage', () => {
       expect(tool, `missing manifest tool ${toolName}`).toBeDefined();
       const output = tool?.outputSchema as JsonSchema;
 
-      expect(output.required, `${toolName} must require team`).toContain('team');
+      if (contract.teamScoped !== false) {
+        expect(output.required, `${toolName} must require team`).toContain('team');
+      }
 
       if (contract.itemFields) {
-        expect(output.required, `${toolName} must require requests`).toContain(
-          'requests'
-        );
-        const item = output.properties?.requests?.items;
+        const collection = contract.collection ?? 'requests';
+        expect(
+          output.required,
+          `${toolName} must require ${collection}`
+        ).toContain(collection);
+        const item = output.properties?.[collection]?.items;
         for (const field of contract.itemFields) {
           expect(
             item?.properties ?? {},
@@ -91,7 +142,12 @@ describe('manifest widget contract coverage', () => {
           ).toContain(field);
         }
 
-        if (contract.component.includes('time-off')) {
+        // Date/status shape applies to the request-row widgets; the public guide
+        // cards reuse the 'time-off' name but carry no request rows.
+        if (
+          contract.component.includes('time-off') &&
+          (contract.collection ?? 'requests') === 'requests'
+        ) {
           expect(item?.properties?.startDate?.pattern).toBe(
             '^\\d{4}-\\d{2}-\\d{2}$'
           );

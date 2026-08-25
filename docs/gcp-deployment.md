@@ -19,8 +19,49 @@ Tivmark deploys into the `tivmark-app` Google Cloud project in `us-central1`.
 
 - `database-url`
 - `nextauth-secret`
+- `oauth-private-jwk`
+- `noodle-assistant-client-secret` — the backend credential `apps/web` uses to
+  mint assistant sessions. Never reaches the browser.
+- `assistant-deleg-client-secret` — the customer half of delegated token
+  exchange. Must equal `TIVMARK_DELEG_CLIENT_SECRET` on the Noodle side.
 
 Additional SMTP, OAuth, Svix, Stripe, Sentry, and reCAPTCHA secrets can be added later when those integrations are enabled.
+
+## The assistant (`apps/assistant`)
+
+`apps/assistant` does **not** deploy through GitHub Actions. It is a Noodle Seed
+MCP app deployed with the Noodle CLI against `noodleseed/tivmark-assistant/prod`,
+and its configuration lives on the Noodle service rather than in GCP:
+
+| Setting | Where | Notes |
+| :-- | :-- | :-- |
+| `ASSISTANT_MODEL_BASE_URL`, `ASSISTANT_MODEL` | `noodle variables set` | Never in the SaaS environment |
+| `ASSISTANT_MODEL_API_KEY` | `noodle secrets set` | Never in the SaaS environment |
+| `TIVMARK_DELEG_CLIENT_ID` / `_SECRET` | `noodle variables`/`secrets set` | Pairs with the GCP secrets above |
+| `NOODLE_KNOWLEDGE_ENABLED` | `noodle variables set --runtime cloud` | Knowledge is feature-gated per environment and will not serve without it |
+
+The public marketing surface has no secret at all: `noodle deploy` provisions a
+non-secret embed id, which is pasted into `apps/marketing/index.html` and is
+safe in page source. It is stable across deploys, so redeploys and rollbacks
+swap the projection under a page that never changes.
+
+Two operational commands worth knowing:
+
+```bash
+noodle assistant embeds list                  # origins, capabilities, today's spend vs cap
+noodle assistant budget set --turns-per-day 0 # kill switch; stops in-flight conversations
+```
+
+Prefer the budget kill switch to revoking an embed, which destroys the pasted id.
+
+## Content-Security-Policy
+
+`apps/marketing/nginx.conf` holds the site's single CSP, served as a response
+header. It must allow the Noodle service origin in **`script-src`,
+`connect-src`, and `frame-src`**. `script-src` is the one that cannot report its
+own failure: if it blocks the embed script, no widget code runs at all, so
+nothing on the page can complain. `marketing-ci.yml` asserts all three against
+the served header.
 
 ## DNS records
 

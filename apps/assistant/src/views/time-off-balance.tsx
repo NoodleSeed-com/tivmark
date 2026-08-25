@@ -1,4 +1,8 @@
-import { useLayout, useToolInfo } from '../helpers.js';
+import {
+  useLayout,
+  useSendFollowUpMessage,
+  useToolInfo,
+} from '../helpers.js';
 import {
   formatHalfDays,
   normalizeBalanceResult,
@@ -7,6 +11,7 @@ import {
 } from './widget-data.js';
 import {
   BalanceTile,
+  FollowUpChips,
   WidgetFeedback,
   WidgetFrame,
   type WidgetTheme,
@@ -49,9 +54,11 @@ const balanceSummary = (state: BalanceViewState) => {
 export function TimeOffBalanceView({
   theme,
   state,
+  onFollowUp,
 }: {
   readonly theme: WidgetTheme;
   readonly state: BalanceViewState;
+  readonly onFollowUp?: (prompt: string) => Promise<void> | void;
 }) {
   const data =
     state.kind === 'ready' || state.kind === 'partial' ? state.data : undefined;
@@ -99,19 +106,42 @@ export function TimeOffBalanceView({
           })}
         </div>
       ) : null}
+      {onFollowUp ? (
+        <FollowUpChips
+          chips={[
+            { id: 'book', label: 'Book time off', prompt: 'Book time off' },
+            {
+              id: 'requests',
+              label: 'Show my requests',
+              prompt: 'Show me my time-off requests',
+            },
+          ]}
+          onSend={onFollowUp}
+        />
+      ) : null}
     </WidgetFrame>
   );
 }
 
 export default function TimeOffBalance() {
-  const { theme } = useLayout();
+  const { theme, supports } = useLayout();
   const toolInfo = useToolInfo('time_off_balance');
+  const sendFollowUp = useSendFollowUpMessage();
   const pending = Object.keys(toolInfo).length === 0;
   const state = normalizeBalanceResult(toolInfo.structuredContent, {
     pending,
     error: toolInfo.isError,
   });
-  return <TimeOffBalanceView theme={theme} state={state} />;
+  const followUpsSupported = supports?.followUpMessage !== false;
+  return (
+    <TimeOffBalanceView
+      theme={theme}
+      state={state}
+      onFollowUp={
+        followUpsSupported ? (prompt) => sendFollowUp({ prompt }) : undefined
+      }
+    />
+  );
 }
 
 function CalendarIcon() {

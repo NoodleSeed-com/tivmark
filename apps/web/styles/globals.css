@@ -121,17 +121,44 @@ a {
   display: none;
 }
 
-.tivmark-assistant--canvas {
-  position: absolute !important;
-  inset: 0 !important;
-  display: block;
-  width: 100%;
-  height: 100%;
-  z-index: 1 !important;
-  --ns-assistant-panel-width: 100%;
-  --ns-assistant-min-height: 100%;
-  --ns-assistant-max-height: 100%;
-  --ns-assistant-edge-offset: 0px;
-  --ns-assistant-panel-radius: 0px;
-  --ns-assistant-z-index: 1;
+/* The assistant's ONLY two modes: the floating launcher (element default, bottom right)
+   and, once opened, a PUSH drawer on the right -- the app shrinks beside it rather than
+   being covered. `.app-frame` is the same wrapper that already carries the left sidebar's
+   lg:pl-64, so the sticky header and main content shrink together; the push uses padding,
+   never transform, because a transform would create a containing block that captures the
+   fixed-position drawer (which mounts inside the pushed container).
+   z-index 60 sits deliberately above the left sidebar's lg:z-50 (previously a tie broken
+   only by DOM order) and below the Time-Off/Equipment modals at z-[70].
+   !important is required because the element's own :host rules pin the floating position. */
+@media (min-width: 1024px) {
+  body {
+    --app-drawer-width: 0px;
+  }
+  .app-frame {
+    transition: padding-right 0.28s ease;
+    padding-right: var(--app-drawer-width);
+  }
+  body:has(.tivmark-assistant[open]) {
+    --app-drawer-width: min(440px, 40vw);
+  }
+  .tivmark-assistant[open] {
+    position: fixed !important;
+    top: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    left: auto !important;
+    z-index: 60 !important;
+    --ns-assistant-panel-width: min(440px, 40vw);
+    --ns-assistant-min-height: 100dvh;
+    --ns-assistant-max-height: 100dvh;
+    --ns-assistant-edge-offset: 0px;
+    --ns-assistant-panel-radius: 0px;
+  }
+}
+/* Narrow screens: the element's own mobile-fullscreen takeover runs; it needs to clear the
+   header (z-40) and the sidebar overlay (z-50). */
+@media (max-width: 1023.98px) {
+  .tivmark-assistant[open] {
+    z-index: 60 !important;
+  }
 }
