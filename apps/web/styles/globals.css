@@ -254,6 +254,12 @@ a {
   color: rgb(var(--ui-text)) !important;
 }
 
+/* Public Noodle token: keep the managed transcript in Tivmark's product typeface without
+   reaching into the assistant's shadow DOM or replacing any renderer-owned markup. */
+.tivmark-assistant {
+  --ns-assistant-font-family: Outfit, ui-sans-serif, system-ui, sans-serif;
+}
+
 /* The assistant's ONLY two modes: the floating launcher (element default, bottom right)
    and, once opened, a PUSH drawer on the right -- the app shrinks beside it rather than
    being covered. `.app-frame` is the same wrapper that already carries the left sidebar's

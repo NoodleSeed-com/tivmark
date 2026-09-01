@@ -13,22 +13,74 @@ it" flow the `noodle-seed` skill's `references/experience-design.md` teaches.
 
 ## The same tools on Acme's own website
 
-The funnel does not only start in ChatGPT. The `assistant` block projects these same three tools onto
-Acme's marketing site for a visitor with **no account and no session backend**:
+The funnel does not only start in ChatGPT. The `assistant` block projects these same tools onto
+Acme's marketing site for a visitor with **no account and no session backend** — as a **mixed**
+surface, so the visitor can also sign in mid-conversation:
 
 ```ts
-access: publicWebsite({
-  origins: ['https://getaways.acme.example'],
-  capabilities: [discoverGetaways, createHandoff, shortlistGetaway],
-}),
+access: [
+  publicWebsite({
+    origins: ['https://getaways.acme.example'],
+    capabilities: [destinations, discoverGetaways, createHandoff, shortlistGetaway, captureLead, myTrips],
+    signIn: true, // my_trips reads ${user}; reaching it raises the sign-in card
+    instructions:
+      'Be a friendly, consultative travel guide, never pushy. Help visitors narrow a getaway before suggesting the next useful step.',
+  }),
+  authenticatedWebsite({
+    origins: ['https://account.acme.example'],
+    capabilities: [destinations, discoverGetaways, createHandoff, myTrips],
+    instructions: 'The traveler is signed in. Help them plan from their saved trips.',
+  }),
+],
 ```
 
-There is no second tool set and no second app — one `server.ts`, projected onto another front door.
-`capabilities` is the entire externally reachable surface, so it stays short enough to review at a glance
-and closed by default: a tool added to this server later is unreachable from the website until someone
-lists it. A tool that needed a signed-in user could not be listed here at all (the compiler rejects it);
-serve those from `authenticatedWebsite({ origins })` instead, where Acme's own backend proves who the
-visitor is, or add `signIn: true` so visitors sign in mid-conversation through Acme own login.
+There is no second tool set and no second app — one `server.ts`, projected onto its front doors.
+The flagship selects `model: noodleManaged()`, so a billing-attributed hosted deployment needs no customer
+model endpoint, name, or key and its artifact remains provider-neutral. The sponsored beta is available by
+default with pooled billing-account and platform-wide daily limits; `openAICompatible(...)` remains the BYO
+alternative.
+The surface `instructions` add only the website-specific voice and goal; shared product truth stays in
+`server.instructions`. This public guidance is injected into that surface's assistant turns, never MCP
+`initialize` or another assistant surface.
+`capabilities` is the entire externally reachable surface per front door, so it stays short enough to
+review at a glance and closed by default: a tool added to this server later is unreachable from the
+website until someone lists it.
+
+## Sign in mid-conversation, land in the account
+
+`signIn: true` makes the marketing surface **mixed**: `my_trips` stays visible so the assistant can
+offer it, and an anonymous visitor who reaches for it sees a branded card — *Sign in* plus, because
+`labels.signUpAction` is authored, *Create free account*. Both raise `assistant-sign-in-requested`
+with a single-use `signInTicket`; the detail's `intent` tells the page whether to route its login or
+its registration. Acme's page signs the visitor in exactly as it already does, its backend spends the
+ticket with `createAssistantSession({ ..., signInTicket })`, and the **same conversation continues**
+on whichever origin the backend designates:
+
+- landing back on `getaways.acme.example` keeps the mixed surface's projection with identity attached;
+- landing on `account.acme.example` rebinds the conversation to the authenticated surface — its
+  capabilities and its voice — and the widget repaints the visible transcript and auto-answers the
+  intercepted `my_trips` ask under the new identity.
+
+The ticket spend after account creation is identical to the one after sign-in; the service never
+operates a login of its own.
+
+## The consultative sales gateway
+
+When a visitor's plans firm up but they would rather not sign up, the assistant may — with explicit
+confirmation — take their details and deliver them to Acme's own sink. The recipe is a composition of
+existing primitives, not a platform feature:
+
+- `capture_lead` is an ordinary tool with `annotations.action({ confirm: true })`: the confirmation
+  card, showing every field, is the visitor's consent moment.
+- Delivery is a declarative HTTP connector whose endpoint is `variable('LEAD_SINK_URL')` and whose
+  credential is `secret('LEAD_SINK_TOKEN')` — the operator supplies values with
+  `noodle variables set` / `noodle secrets set`; the example stays credential-free and one authored
+  class serves any business.
+- The request mapping sets `source: 'website-assistant'` itself, so Acme's sink can trust the
+  attribution; the model never supplies it.
+- The lead rests only in Acme's own system. The platform stores no lead, and a vendor sink is just
+  different data: Resend/Postmark are `auth: { kind: 'apiKey', … }`, a HubSpot private app is
+  `auth: { kind: 'bearer', … }` — never a named vendor package.
 
 ## Design spec (write this before the code)
 
@@ -100,5 +152,7 @@ noodle deploy --access owner-only
 noodle open
 ```
 
-This example has no connector secrets and does not include tokens, caller-key mechanisms, or
-`.env.noodle` values. All destinations, prices, and URLs are fictional.
+This example has no connector or model secrets and does not include tokens, caller-key mechanisms, or
+`.env.noodle` values. Hosted `noodleManaged()` inference is available by default to billing-attributed
+deployments and remains subject to sponsored daily limits; local validation and tool calls do not use the
+hosted model. All destinations, prices, and URLs are fictional.
