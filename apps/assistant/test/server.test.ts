@@ -153,9 +153,9 @@ describe('tivmark_assistant', () => {
     });
     expect(manifest.server.assistant?.suggestedPrompts).toEqual([
       'What can Tivmark do?',
+      'Can I take next Friday off? If so, book it.',
       'How does booking time off work?',
       'Who can approve requests?',
-      'Show my time off',
     ]);
   });
 

@@ -115,8 +115,8 @@ const { __clients: clients, __payloads: payloads } = jest.requireMock(
 ) as { __clients: Map<string, unknown>; __payloads: Map<string, Row> };
 
 const MCP_RESOURCE = DEFAULT_MCP_RESOURCE;
-const MCP_RESOURCE_V18 =
-  'https://noodleseed.cloud.noodleseed.dev/tivmark-assistant/v18/mcp';
+const MCP_RESOURCE_V24 =
+  'https://noodleseed.cloud.noodleseed.dev/tivmark-assistant/v24/mcp';
 const CLIENT_ID = 'client-under-test';
 const REDIRECT_URI = 'https://client.example.com/callback';
 const USER_ID = 'user-1';
@@ -207,16 +207,16 @@ describe('POST /oauth/token — access-token audience binding', () => {
   });
 
   it('binds the exact versioned resource while keeping the stable audience', async () => {
-    // /v18/mcp and /mcp are distinct resources that share one environment audience — the audience
+    // /v24/mcp and /mcp are distinct resources that share one environment audience — the audience
     // does not move when the deployed server version does.
     const res = await exchangeCode(
-      seedCode(MCP_RESOURCE_V18),
-      MCP_RESOURCE_V18
+      seedCode(MCP_RESOURCE_V24),
+      MCP_RESOURCE_V24
     );
 
     expect(res.status).toBe(200);
     const claims = decodeClaims(res.body.access_token);
-    expect(claims.aud).toEqual([API_AUDIENCE, MCP_RESOURCE_V18]);
+    expect(claims.aud).toEqual([API_AUDIENCE, MCP_RESOURCE_V24]);
     expect(claims.aud).not.toContain(MCP_RESOURCE);
   });
 
@@ -239,15 +239,15 @@ describe('POST /oauth/token — access-token audience binding', () => {
 
   it('preserves both audience values through a refresh', async () => {
     const first = await exchangeCode(
-      seedCode(MCP_RESOURCE_V18),
-      MCP_RESOURCE_V18
+      seedCode(MCP_RESOURCE_V24),
+      MCP_RESOURCE_V24
     );
     const refreshed = await refresh(first.body.refresh_token);
 
     expect(refreshed.status).toBe(200);
     expect(decodeClaims(refreshed.body.access_token).aud).toEqual([
       API_AUDIENCE,
-      MCP_RESOURCE_V18,
+      MCP_RESOURCE_V24,
     ]);
   });
 
@@ -266,7 +266,7 @@ describe('POST /oauth/token — access-token audience binding', () => {
 
 describe('POST /oauth/token — resource validation', () => {
   it('rejects a token request whose resource does not match the authorization', async () => {
-    const res = await exchangeCode(seedCode(MCP_RESOURCE), MCP_RESOURCE_V18);
+    const res = await exchangeCode(seedCode(MCP_RESOURCE), MCP_RESOURCE_V24);
     expect(res.status).toBe(400);
     expect(res.body.detail).toMatch(/invalid_target/);
   });
@@ -286,7 +286,7 @@ describe('POST /oauth/token — resource validation', () => {
 
   it('rejects a resource swapped in at refresh time', async () => {
     const first = await exchangeCode(seedCode(MCP_RESOURCE), MCP_RESOURCE);
-    const swapped = await refresh(first.body.refresh_token, MCP_RESOURCE_V18);
+    const swapped = await refresh(first.body.refresh_token, MCP_RESOURCE_V24);
 
     expect(swapped.status).toBe(400);
     expect(swapped.body.detail).toMatch(/invalid_target/);
@@ -365,7 +365,7 @@ describe('POST /oauth/token — log hygiene', () => {
 
   it('keeps bearer material out of error responses', async () => {
     const code = seedCode(MCP_RESOURCE);
-    const res = await exchangeCode(code, MCP_RESOURCE_V18);
+    const res = await exchangeCode(code, MCP_RESOURCE_V24);
 
     const serialized = JSON.stringify(res.body);
     expect(serialized).not.toContain(code);

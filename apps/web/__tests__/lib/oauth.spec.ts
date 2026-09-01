@@ -98,8 +98,8 @@ const decodeAud = (token: string): string | string[] =>
 
 const MCP_RESOURCE =
   'https://noodleseed.cloud.noodleseed.dev/tivmark-assistant/mcp';
-const MCP_RESOURCE_V18 =
-  'https://noodleseed.cloud.noodleseed.dev/tivmark-assistant/v18/mcp';
+const MCP_RESOURCE_V24 =
+  'https://noodleseed.cloud.noodleseed.dev/tivmark-assistant/v24/mcp';
 
 describe('OAuth 2.1 helpers', () => {
   it('advertises authorization code flow with S256 PKCE', () => {
@@ -158,27 +158,27 @@ describe('OAuth 2.1 helpers', () => {
   });
 
   it('keeps the configured audience stable across server versions', () => {
-    // /v18/mcp → /v19/mcp must not change the configured audience; only the resource entry moves.
+    // /v23/mcp → /v24/mcp must not change the configured audience; only the resource entry moves.
     expect(API_AUDIENCE).not.toMatch(/^https?:\/\//);
     expect(API_AUDIENCE).not.toMatch(/\/v\d+\//);
   });
 
   it('recognizes every active MCP resource, versioned and unversioned (RFC 8707)', () => {
     expect(isAllowedResource(MCP_RESOURCE)).toBe(true);
-    expect(isAllowedResource(MCP_RESOURCE_V18)).toBe(true);
+    expect(isAllowedResource(MCP_RESOURCE_V24)).toBe(true);
     // Distinct resources that nonetheless share the one stable environment audience.
-    expect(MCP_RESOURCE_V18).not.toBe(MCP_RESOURCE);
+    expect(MCP_RESOURCE_V24).not.toBe(MCP_RESOURCE);
     expect(ALLOWED_RESOURCES.has(DEFAULT_MCP_RESOURCE)).toBe(true);
   });
 
   it('covers exactly the versions that name us as their authorization server', () => {
-    // v8-v18 declare customerAuth.oidc against https://app.tivmark.com/oauth, so their clients come
+    // v8-v24 declare customerAuth.oidc against https://app.tivmark.com/oauth, so their clients come
     // here for a token and each needs an entry. v1-v7 predate that switch (customerAuth.bridge) and
     // route to Noodle's own AS — listing them would widen the allowlist for no one.
     const url = (v: number) =>
       `https://noodleseed.cloud.noodleseed.dev/tivmark-assistant/v${v}/mcp`;
 
-    for (let v = 8; v <= 18; v += 1) {
+    for (let v = 8; v <= 24; v += 1) {
       expect([v, isAllowedResource(url(v))]).toEqual([v, true]);
     }
     for (let v = 1; v <= 7; v += 1) {
@@ -241,7 +241,7 @@ describe('OAuth 2.1 helpers', () => {
       'user-1',
       'client-1',
       ['time_off'],
-      [API_AUDIENCE, MCP_RESOURCE_V18]
+      [API_AUDIENCE, MCP_RESOURCE_V24]
     );
     await expect(verifyAccessToken(token)).resolves.toMatchObject({
       userId: 'user-1',

@@ -5,10 +5,13 @@ export type AppType = ServerDefinition;
 
 export const {
   useCallTool,
+  useWidgetReady,
   useLayout,
   useToolInfo,
   useViewState,
   useBranding,
   useOpenExternal,
   useSendFollowUpMessage,
+  useUpdateModelContext,
+  useWidgetLifecycle,
 } = generateHelpers<AppType>();
