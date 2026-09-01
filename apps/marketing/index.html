@@ -318,6 +318,52 @@
       .hero-cta:hover {
         background: var(--accent-light);
       }
+      .hero-actions {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.75rem;
+      }
+      .hero-demo-cta {
+        display: inline-flex;
+        align-items: center;
+        min-height: 45px;
+        border: 1px solid var(--navy);
+        background: var(--surface);
+        color: var(--navy);
+        padding: 0.75rem 1.15rem;
+        font: inherit;
+        font-size: 0.92rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition:
+          background 0.2s,
+          color 0.2s,
+          opacity 0.2s;
+      }
+      .hero-demo-cta:hover {
+        background: var(--navy);
+        color: var(--cream);
+      }
+      .hero-demo-cta:focus-visible {
+        outline: 3px solid var(--accent);
+        outline-offset: 3px;
+      }
+      .hero-demo-cta[aria-busy="true"] {
+        cursor: wait;
+        opacity: 0.7;
+      }
+      .hero .hero-demo-prompt {
+        max-width: 520px;
+        margin: 0.9rem 0 0;
+        color: var(--text-light);
+        font-size: 0.84rem;
+        line-height: 1.5;
+      }
+      .hero-demo-prompt strong {
+        color: var(--heading);
+        font-weight: 600;
+      }
 
       .brand-mark {
         display: block;
@@ -736,9 +782,23 @@
           time off and equipment in seconds; managers approve with one click —
           all in one place, organized by team.
         </p>
-        <a href="https://app.tivmark.com/?tab=login" class="hero-cta"
-          >Open the portal</a
-        >
+        <div class="hero-actions">
+          <a href="https://app.tivmark.com/?tab=login" class="hero-cta"
+            >Open the portal</a
+          >
+          <button class="hero-demo-cta" type="button">
+            Try the live AI demo
+          </button>
+        </div>
+        <p class="hero-demo-prompt">
+          <strong>One-click scenario:</strong> “Can I take next Friday off? If
+          so, book it.”
+        </p>
+        <span
+          class="sr-only hero-demo-status"
+          role="status"
+          aria-live="polite"
+        ></span>
       </div>
     </section>
 
@@ -999,8 +1059,42 @@
             ?.setAttribute("theme", resolvedTheme());
         };
         if (window.customElements) {
-          customElements.whenDefined("noodle-assistant").then(syncAssistantTheme);
+          customElements
+            .whenDefined("noodle-assistant")
+            .then(syncAssistantTheme);
         }
+
+        // The public embed currently mints lazily, so its server-authored starter
+        // prompts are not visible before the first turn. Keep the entry point on the site
+        // while handing the actual conversation, sign-in elevation, tools, confirmation,
+        // widgets, and receipt to Noodle. `whenDefined` also avoids the custom-element
+        // upgrade race documented in the platform's older onReady contract.
+        const demoButton = document.querySelector(".hero-demo-cta");
+        const demoStatus = document.querySelector(".hero-demo-status");
+        const demoPrompt = "Can I take next Friday off? If so, book it.";
+        demoButton.addEventListener("click", async () => {
+          if (demoButton.getAttribute("aria-busy") === "true") return;
+          demoButton.setAttribute("aria-busy", "true");
+          demoStatus.textContent = "Opening Mark and starting the demo.";
+          try {
+            await customElements.whenDefined("noodle-assistant");
+            const assistant = document.querySelector("noodle-assistant");
+            if (!assistant || typeof assistant.sendMessage !== "function") {
+              throw new Error("Mark is still loading");
+            }
+            assistant.setAttribute("open", "");
+            await assistant.sendMessage(demoPrompt);
+            demoStatus.textContent = "The live demo has started in Mark.";
+          } catch {
+            document
+              .querySelector("noodle-assistant")
+              ?.setAttribute("open", "");
+            demoStatus.textContent =
+              "Mark is open. Ask: Can I take next Friday off? If so, book it.";
+          } finally {
+            demoButton.removeAttribute("aria-busy");
+          }
+        });
 
         // Mid-conversation sign-in. The widget raises this when a visitor reaches for
         // something that needs an account; the ticket names a conversation and nothing more,
@@ -1014,7 +1108,8 @@
         // sign the visitor in and spend it there, on the origin the conversation continues on.
         document.addEventListener("assistant-sign-in-requested", (event) => {
           const ticket =
-            event.detail && (event.detail.signInTicket || event.detail.continuation);
+            event.detail &&
+            (event.detail.signInTicket || event.detail.continuation);
           if (!ticket) return;
           const production =
             location.hostname === "tivmark.com" ||
