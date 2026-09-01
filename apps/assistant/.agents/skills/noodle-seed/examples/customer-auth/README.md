@@ -6,7 +6,9 @@ reads and confirmed actions to the API origin selected by the verified customer'
 
 It also owns the customer-branded embedded-assistant presentation showcase. Direct MCP calls obtain the
 route from the verified OIDC claim; embedded sessions obtain it from the authenticated customer backend's
-session exchange. Both paths keep the URL outside tool/model/browser-visible state.
+session exchange. Both paths keep the URL outside tool/model/browser-visible state. The built-in card hides
+its optional technical Additional details disclosure while retaining the business review and confirmation
+controls; this presentation setting does not weaken the exact runtime confirmation boundary.
 
 The public developer entrypoint is [`src/server.ts`](src/server.ts). It exposes a deliberately small MCP
 surface for organization discovery and app lifecycle operations:
@@ -353,9 +355,11 @@ flag, environment variable, or config surface.
 
 ## Configuration
 
-The embedded assistant uses a customer-supplied OpenAI Chat Completions-compatible endpoint. Configure its
-managed values at the Noodle deployment environment; none of these values belongs in the customer web
-application environment, and the API key never reaches the browser:
+The embedded assistant uses a customer-supplied Responses-compatible endpoint, selected explicitly with
+`transport: 'responses'` in `src/server.ts`. Use `transport: 'chat-completions'` or omit the field for a
+Chat Completions endpoint. Noodle never falls back between them. Configure its managed values at the Noodle
+deployment environment; none of these values belongs in the customer web application environment, and the
+API key never reaches the browser:
 
 The assistant session carries a verified user, tenant, deployment, roles, and scopes. For this flagship's
 routed tools, the embedding backend resolves the signed-in user's cluster from server-owned membership data
@@ -364,6 +368,7 @@ and passes `routing: { endpoints: { customer_api: cluster.apiBaseUrl } }` to
 browser. Do not copy the route into page context, session claims, tool input, or model instructions.
 
 ```bash
+noodle variables set ASSISTANT_ORIGIN https://app.example.com --scope env
 noodle variables set ASSISTANT_MODEL_BASE_URL https://model.example.com/v1 --scope env
 noodle variables set ASSISTANT_MODEL your-model --scope env
 noodle secrets set ASSISTANT_MODEL_API_KEY --scope env
@@ -372,13 +377,22 @@ noodle secrets set CUSTOMER_API_CLIENT_SECRET --scope env
 noodle check --target embedded-assistant src/server.ts
 ```
 
-Assistant origins are exact. Production embedding origins must use HTTPS; plain HTTP is accepted only for
+`ASSISTANT_ORIGIN` is the operator-owned production embedding origin, so one source can serve every customer
+without an application fork. Assistant origins are exact. Production embedding origins must use HTTPS; plain HTTP is accepted only for
 loopback development origins such as `http://localhost:3000`, `http://127.0.0.1:3000`, or
 `http://[::1]:3000`. `noodle dev` serves the MCP project, not that separate embedding application.
 
 The bounded `presentation` object configures the panel, launcher, header, composer, and messages. Its
 primitives derive colors from shared server `branding`; raw HTML, CSS, inline SVG, renderer classes, and
-callbacks are not accepted.
+callbacks are not accepted. This example omits `presentation.panel.surface`, so the renderer keeps the
+opaque default panel treatment while the example's light/dark `branding` surfaces provide its customer colors;
+set the bounded surface to `glass` only when translucency is intentional.
+
+These TypeScript values remain the reusable developer defaults. After deployment, an environment operator
+can adjust theme, logo, launcher style, position, and the bounded color palette from the Console's
+**Assistant** tab or `noodle assistant appearance` without changing the customer's embed code. See the
+[embedded assistant guide](https://docs.noodleseed.dev/guides/embedded-assistant) for precedence and reset
+behavior.
 
 Create the backend credential after deployment. The CLI writes it to a mode-0600 file and never prints the
 secret:
@@ -539,9 +553,15 @@ then aborts and clears the prior session and transcript. The sample fails closed
 fallback is replaced with a form generated from `requestedSchema`. A production renderer must show the
 complete confirmation review and both decisions. For `data-view`, map `resourceUri` or `tool` and the
 bounded/redacted result to a component already trusted by this application only when intentionally replacing
-the linked App with a native UI. Otherwise use `NoodleAppView`; JSON result data is not the App UI. Its
-semantic lifecycle identity is the client plus `view.id` plus `view.resourceUri`, so parent payload/callback
-rerenders keep the iframe and only a different view or unmount tears down the bridge.
+the linked App with a native UI. Otherwise use `<noodle-app-view>` or its React `NoodleAppView` adapter;
+JSON result data is not the App UI. The element's semantic lifecycle identity is the client plus `view.id`
+plus `view.resourceUri`, so parent payload/callback rerenders keep the iframe and only a different view,
+disconnect, or App teardown request retires the bridge.
+App views remain inline by default: the host advertises only inline presentation and rejects a widget's
+fullscreen request. A customer-owned renderer may opt in explicitly with `allowFullscreen` on
+`NoodleAppView` or `allow-fullscreen` on `<noodle-app-view>` only when fullscreen is part of its intended
+experience. When fullscreen is accepted, the shared host adds a top-right exit control that returns the same
+mounted App to inline mode without discarding its state.
 Never inject `part.data.html`, assign it to `srcdoc`, fetch a `ui://` URI, or reproduce the bridge directly. Pages with a
 Content-Security-Policy must include the Noodle service origin in both `connect-src` and `frame-src`.
 
@@ -558,13 +578,16 @@ secret allowlist; regenerate existing framework-owned environment binding types 
 Devtools/model exercises to synthetic data, and obtain approval before sending real connector data to an
 external model.
 
-After deployment, use the assistant doctor to verify the embed client, model, and static session boundary:
+After deployment, use the assistant doctor to verify the embed client, exact model transport, and static
+session boundary:
 
 ```sh
 noodle assistant doctor --user-id <real-test-user> --origin "$PUBLIC_APP_ORIGIN" --org <org> --app <app> --env <env>
 ```
 
-The doctor does not invent or test an application-specific customer route. Prove routed assistant tools by
+The doctor makes one bounded synthetic model request without business tools or customer conversation data;
+failures show only a redacted category, status, and retryability. It does not invent or test an
+application-specific customer route. Prove routed assistant tools by
 having the authenticated embedding backend pass the user's server-verified endpoint during session
 exchange, then invoke one representative safe read.
 
@@ -586,23 +609,33 @@ useEffect(() => {
 
 For a chat-first custom host, raw `tool_started` supplies the direct call `id` and technical tool name. Map
 known tools to concise application copy and use a neutral fallback. Reserve a stable `role="status"` region
-for thinking, tool activity, and the view skeleton; switch to the ready `NoodleAppView` on `view_available`
-or to `role="alert"` on error. Decorative skeleton shapes stay hidden from assistive technology, and shimmer
+for thinking, tool activity, and the view skeleton; switch to the ready `<noodle-app-view>` (or React
+`NoodleAppView`) on `view_available` or to `role="alert"` on error. Decorative skeleton shapes stay hidden from assistive technology, and shimmer
 or transition motion is disabled under `prefers-reduced-motion`.
 
 Use `${view.id}:${view.resourceUri}` as transport identity. Different call IDs are distinct invocations and
 must not be deduplicated generically. If this application intentionally owns one current panel for a known
 resource, declare an application-owned slot for that resource and replace only that slot.
 
-Outside React, subscribe to the DOM-free client directly. It exposes the same conversation as headless AI
-SDK `UIMessage` state, including typed confirmation, input, tool-result, and linked-view parts:
+Outside React, subscribe to the DOM-free client directly and use the isolated framework-neutral App host.
+It exposes the same conversation as headless AI SDK `UIMessage` state, including typed confirmation, input,
+tool-result, and linked-view parts, without installing React:
+
+```html
+<noodle-app-view id="assistant-app-view"></noodle-app-view>
+```
 
 ```ts
+import '@noodleseed/assistant/app-view';
 import { createAssistantClient } from '@noodleseed/assistant/client';
 
 const assistant = createAssistantClient({
   sessionEndpoint: '/api/noodle-assistant/session',
 });
+const appView = document.querySelector('#assistant-app-view');
+if (!appView) throw new Error('Missing App view host');
+appView.client = assistant;
+appView.theme = resolvedTheme;
 
 assistant.subscribeChat((state) => {
   renderUIMessageState(state);
@@ -611,13 +644,14 @@ assistant.subscribeChat((state) => {
       if (part.type === 'data-confirmation' && part.data.status === 'pending') {
         renderConfirmation(part.data, (response) => assistant.respond(part.data.id, response));
       }
+      if (part.type === 'data-view') appView.view = part.data;
     }
   }
 });
 ```
 
 `theme="auto"` follows the operating-system preference, not a SaaS-owned toggle. Pass the resolved
-`light`/`dark` theme to `NoodleAssistant` and `NoodleAppView`; updates reach mounted MCP Apps without a
+`light`/`dark` theme to `NoodleAssistant` and `<noodle-app-view>`/`NoodleAppView`; updates reach mounted MCP Apps without a
 remount. CSS custom properties inherit through the host, and documented `--ns-assistant-*` variables remain
 the final integration escape hatch. Server `branding` is shared by widgets and the assistant; there is no
 second branding declaration. Text streams progressively. Expired turns re-exchange and retry once;

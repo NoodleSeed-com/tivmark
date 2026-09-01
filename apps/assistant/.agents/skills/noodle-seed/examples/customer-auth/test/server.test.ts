@@ -9,16 +9,16 @@ describe('customer-auth example', () => {
       model: { kind: 'openai-compatible', apiKey: 'ASSISTANT_MODEL_API_KEY' },
       layout: { mode: 'floating' },
       presentation: {
-        panel: { surface: 'glass', elevation: 'soft', border: 'subtle' },
+        panel: { elevation: 'soft', border: 'subtle' },
         launcher: { icon: 'brand-mark', status: 'session', effect: 'pulse' },
         header: { mark: 'status', badge: { text: 'Workspace online', tone: 'success' } },
       },
     });
-    expect(
-      manifest.server.assistant?.allowedOrigins.every(
-        (origin) => origin.startsWith('https://') || origin.startsWith('http://localhost:'),
-      ),
-    ).toBe(true);
+    expect(manifest.server.assistant?.allowedOrigins).toEqual([
+      '${env.ASSISTANT_ORIGIN}',
+      'https://dev.noodleseed.com',
+      'http://localhost:3000',
+    ]);
     expect(manifest.server.branding).toMatchObject({
       name: 'Noodle Seed Assistant',
       colorScheme: 'auto',

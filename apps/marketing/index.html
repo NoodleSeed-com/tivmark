@@ -107,6 +107,8 @@
          through the assistant host. Mapping the page's own tokens means the assistant
          tracks the theme toggle automatically instead of duplicating hex values. */
       noodle-assistant {
+        --ns-assistant-font-family:
+          "Outfit", ui-sans-serif, system-ui, sans-serif;
         --ns-assistant-canvas: var(--canvas);
         --ns-assistant-text: var(--text);
         --ns-assistant-muted-text: var(--text-light);
@@ -148,7 +150,6 @@
           --ns-assistant-min-height: min(640px, calc(100dvh - 96px));
           --ns-assistant-max-height: min(640px, calc(100dvh - 96px));
           --ns-assistant-edge-offset: 24px;
-          --ns-assistant-panel-radius: 0px;
         }
       }
       /* Narrow screens: the element's own mobile-fullscreen takeover runs; it must paint

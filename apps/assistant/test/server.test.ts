@@ -171,9 +171,15 @@ describe('tivmark_assistant', () => {
       welcomeHeading: 'How can Mark help?',
       welcomeMessage:
         'Ask how Tivmark works, or — once you are signed in — about your own time off and equipment.',
+      launcherPlaceholder: 'Ask Mark anything…',
       composerPlaceholder: 'Message Mark…',
       open: 'Open Mark',
       close: 'Close Mark',
+      confirmationHeading: 'Review with Mark',
+      sessionLoading: 'Starting Mark…',
+      sessionReady: 'Mark is ready',
+      signInAction: 'Sign in',
+      signUpAction: 'Create account',
     });
     expect(manifest.server.assistant?.suggestedPrompts).toEqual([
       'Help me set up Tivmark for my business.',
@@ -181,6 +187,55 @@ describe('tivmark_assistant', () => {
       'How does booking time off work?',
       'Who can approve requests?',
     ]);
+  });
+
+  it('publishes a portable light-and-dark Tivmark brand kit', async () => {
+    const manifest = await app.toManifest();
+    const branding = manifest.server.branding;
+
+    expect(branding).toMatchObject({
+      name: 'Mark',
+      accent: '#795f2b',
+      surface: '#ffffff',
+      surfaceDark: '#111c33',
+      logo: {
+        uri: 'https://tivmark.com/images/logo-horizontal-transparent.png',
+        darkUri: 'https://tivmark.com/images/logo-horizontal-dark.png',
+        alt: 'Tivmark Advisory',
+      },
+      mark: {
+        uri: 'https://tivmark.com/images/logo-mark-transparent.png',
+        alt: 'Tivmark',
+      },
+      avatar: {
+        uri: 'https://tivmark.com/images/logo-mark-transparent.png',
+        alt: "Mark, Tivmark's assistant",
+      },
+      radius: 'lg',
+      density: 'comfortable',
+      typography: 'system',
+      colorScheme: 'auto',
+    });
+    expect(branding?.theme?.light).toMatchObject({
+      surface: '#f7f5f0',
+      surfaceRaised: '#ffffff',
+      surfaceMuted: '#ece8df',
+      text: '#2a2a2a',
+      textMuted: '#646464',
+      accent: '#795f2b',
+      accentText: '#f7f5f0',
+      borderStrong: '#1a2744',
+    });
+    expect(branding?.theme?.dark).toMatchObject({
+      surface: '#0b1222',
+      surfaceRaised: '#111c33',
+      surfaceMuted: '#1a2744',
+      text: '#f7f5f0',
+      textMuted: '#c4c0b8',
+      accent: '#c9a96e',
+      accentText: '#111c33',
+      borderStrong: '#c9a96e',
+    });
   });
 
   it('declares the verified session claims it personalizes with', async () => {
@@ -225,13 +280,57 @@ describe('tivmark_assistant', () => {
     }
   });
 
-  it('renders both message roles as padded bubbles', async () => {
-    // The renderer's bubble style is what supplies inner padding; without it the host
-    // appearance's surface + border make a bordered box whose text touches the corners.
+  it('uses the richest platform-managed presentation without custom markup', async () => {
     const manifest = await app.toManifest();
-    expect(manifest.server.assistant?.presentation?.messages).toEqual({
-      userStyle: 'bubble',
-      assistantStyle: 'bubble',
+    const assistant = manifest.server.assistant;
+
+    expect(assistant?.theme).toBe('auto');
+    expect(assistant?.layout).toEqual({
+      mode: 'floating',
+      position: 'bottom-right',
+      panelWidth: 420,
+      panelMinHeight: 560,
+      panelMaxHeight: 680,
+      edgeOffset: 24,
+      zIndex: 150,
+      density: 'comfortable',
+      mobileFullscreen: true,
+    });
+    expect(assistant?.behavior).toEqual({
+      startOpen: false,
+      closeOnEscape: true,
+      closeOnOutsideClick: false,
+      showLauncher: true,
+      showHeader: true,
+      showAvatars: true,
+      showTimestamps: true,
+      showPoweredBy: true,
+      showConfirmationDetails: false,
+    });
+    expect(assistant?.presentation).toEqual({
+      panel: {
+        surface: 'glass',
+        elevation: 'dramatic',
+        border: 'strong',
+        radius: 24,
+      },
+      launcher: {
+        style: 'pill',
+        icon: 'brand-mark',
+        size: 'lg',
+        status: 'session',
+        effect: 'pulse',
+      },
+      header: {
+        mark: 'brand-mark',
+        badge: { text: 'Ready to help', tone: 'success', indicator: true },
+      },
+      composer: {
+        leadingIcon: 'brand-mark',
+        sendIcon: 'paper-plane',
+        shape: 'pill',
+      },
+      messages: { userStyle: 'accent', assistantStyle: 'bubble' },
     });
   });
 

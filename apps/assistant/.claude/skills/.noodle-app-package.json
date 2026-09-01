@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 2,
+  "bundleSchemaVersion": 1,
+  "target": "claude-code",
+  "app": {
+    "name": "tivmark_assistant",
+    "skillSlug": "tivmark-assistant"
+  },
+  "packageSchemaVersion": "1",
+  "rendererVersion": "0.91.0",
+  "sourceManifestSha256": "31786d2fc71492774058454e079ffce7d12f2ebcf6e2df05237471ee3e5ffb2e",
+  "mcpSurfaceSha256": "5d888e27152c0cc4eff64bc98b00f47870698dff44d9581cf01c3951423e81da",
+  "bundleSha256": "d7136daae344fb09dfb8a5f9205118198ba564ef6999f7b3816f9c4d281a6abc",
+  "files": [
+    {
+      "path": ".claude/skills/tivmark-assistant/SKILL.md",
+      "sha256": "4306c71ec1952da5512d80783aab0226a50dd9034a70c8e201423f0d78946b88",
+      "byteLength": 3142
+    },
+    {
+      "path": ".claude/skills/tivmark-assistant/references/mcp-surface.md",
+      "sha256": "e8e9f599cb072b1dfae846a19ce251471656e425e5db14473744bbd5b3490704",
+      "byteLength": 7547
+    }
+  ]
+}
