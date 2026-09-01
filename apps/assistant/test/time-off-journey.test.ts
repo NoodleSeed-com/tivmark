@@ -28,6 +28,8 @@ describe('public-to-action time-off journey', () => {
     expect(flow).toContain('tiv.get_balances');
     expect(flow).toContain('tiv.list_time_off');
     expect(flow).toContain('planning.assess');
+    expect(flow).toContain('"requesterId":"${user.subject}"');
+    expect(flow).not.toContain('${user.id}');
   });
 
   it('returns a dedicated authenticated receipt after the confirmed write', async () => {
