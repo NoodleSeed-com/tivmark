@@ -1,6 +1,8 @@
 import {
   balanceItemSchema,
   equipmentRequestSchema,
+  timeOffAssessmentSchema,
+  timeOffReceiptSchema,
   timeOffRequestSchema,
 } from './widget-contracts.js';
 
@@ -28,6 +30,7 @@ export type BalanceItem = {
 export type BalanceViewData = {
   readonly team: string;
   readonly balances: readonly BalanceItem[];
+  readonly assessment?: TimeOffAssessment;
 };
 
 export type BalanceViewState = LoadState<BalanceViewData>;
@@ -52,6 +55,58 @@ export type TimeOffRequestsViewData = {
 };
 
 export type TimeOffRequestsViewState = LoadState<TimeOffRequestsViewData>;
+
+export type TimeOffAssessment = {
+  readonly status: string;
+  readonly team: string;
+  readonly userId: string;
+  readonly type: TimeOffType;
+  readonly startDate: string;
+  readonly endDate: string;
+  readonly eligible: boolean;
+  readonly decision:
+    | 'ELIGIBLE'
+    | 'INVALID_DATES'
+    | 'OVERLAP'
+    | 'INSUFFICIENT_BALANCE'
+    | 'POLICY_UNAVAILABLE';
+  readonly reason: string;
+  readonly requestedHalfDays: number;
+  readonly pendingHalfDays: number;
+  readonly availableBeforeHalfDays: number | null;
+  readonly remainingAfterHalfDays: number | null;
+  readonly conflict: {
+    readonly id: string;
+    readonly startDate: string;
+    readonly endDate: string;
+  } | null;
+  readonly checks: {
+    readonly weekday: boolean;
+    readonly noOverlap: boolean;
+    readonly withinBalance: boolean;
+  };
+  readonly policySource: string;
+};
+
+export type BookingReceiptViewData = {
+  readonly team: string;
+  readonly status: string;
+  readonly request: TimeOffRequestItem;
+  readonly receipt: {
+    readonly requestId: string;
+    readonly status: string;
+    readonly team: string;
+    readonly type: TimeOffType;
+    readonly startDate: string;
+    readonly endDate: string;
+    readonly requestedHalfDays: number;
+    readonly pendingHalfDays: number;
+    readonly remainingAfterPendingHalfDays: number | null;
+    readonly authenticated: boolean;
+  };
+};
+
+export type BookingReceiptViewState = LoadState<BookingReceiptViewData>;
 
 export type EquipmentRequestItem = {
   readonly id: string;
@@ -202,9 +257,23 @@ export function normalizeBalanceResult(
       message: 'No time-off policies are configured for this team yet.',
     };
   }
+  const parsedAssessment =
+    input.assessment === null || input.assessment === undefined
+      ? undefined
+      : timeOffAssessmentSchema.safeParse(input.assessment);
+  if (parsedAssessment && !parsedAssessment.success) {
+    return { kind: 'error', message: 'The eligibility result was incomplete.' };
+  }
+
   return {
     kind: 'ready',
-    data: { team: input.team, balances },
+    data: {
+      team: input.team,
+      balances,
+      ...(parsedAssessment?.success
+        ? { assessment: parsedAssessment.data as TimeOffAssessment }
+        : {}),
+    },
   };
 }
 
@@ -314,6 +383,46 @@ export function normalizeTimeOffRequests(
         message: `${omitted === 1 ? 'One request' : `${omitted} requests`} could not be displayed.`,
       }
     : { kind: 'ready', data };
+}
+
+export function normalizeBookingReceipt(
+  input: unknown,
+  status?: ToolResultStatus
+): BookingReceiptViewState {
+  const currentState = statusState<BookingReceiptViewData>(
+    status,
+    "We couldn't load the time-off receipt."
+  );
+  if (currentState) return currentState;
+  if (!isRecord(input)) {
+    return { kind: 'error', message: 'The booking receipt was incomplete.' };
+  }
+
+  const parsedReceipt = timeOffReceiptSchema.safeParse(input.receipt);
+  const request = parseTimeOffRequest(input.request);
+  if (!parsedReceipt.success || !request || typeof input.status !== 'string') {
+    return { kind: 'error', message: 'The booking receipt was incomplete.' };
+  }
+  const receipt = parsedReceipt.data;
+  if (
+    request.id !== receipt.requestId ||
+    request.type !== receipt.type ||
+    request.startDate !== receipt.startDate ||
+    request.endDate !== receipt.endDate ||
+    receipt.team !== input.team
+  ) {
+    return { kind: 'error', message: 'The booking receipt did not match the request.' };
+  }
+
+  return {
+    kind: 'ready',
+    data: {
+      team: receipt.team,
+      status: input.status,
+      request,
+      receipt,
+    },
+  };
 }
 
 export function normalizeEquipmentRequests(

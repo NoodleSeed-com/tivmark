@@ -56,6 +56,90 @@ it('renders unlimited balances without a misleading remaining meter', () => {
   ).not.toBeInTheDocument();
 });
 
+it('renders a deterministic eligibility decision before booking', () => {
+  const assessmentState: BalanceViewState = {
+    kind: 'ready',
+    data: {
+      ...readyState.data,
+      assessment: {
+        status: 'Eligible to submit a pending request.',
+        team: 'acme',
+        userId: 'user-1',
+        type: 'VACATION',
+        startDate: '2026-09-04',
+        endDate: '2026-09-04',
+        eligible: true,
+        decision: 'ELIGIBLE',
+        reason:
+          'The dates are weekdays, do not overlap existing time off, and fit the available balance.',
+        requestedHalfDays: 2,
+        pendingHalfDays: 2,
+        availableBeforeHalfDays: 26,
+        remainingAfterHalfDays: 24,
+        conflict: null,
+        checks: { weekday: true, noOverlap: true, withinBalance: true },
+        policySource: 'Tivmark annual allowance, weekday, and overlap rules',
+      },
+    },
+  };
+
+  render(<TimeOffBalanceView theme="light" state={assessmentState} />);
+
+  expect(
+    screen.getByRole('heading', { name: 'Your time-off check' })
+  ).toBeVisible();
+  expect(screen.getByText('Eligible')).toBeVisible();
+  expect(screen.getByText('Vacation · 1 day')).toBeVisible();
+  expect(screen.getByText('13 days')).toBeVisible();
+  expect(screen.getByText('12 days')).toBeVisible();
+  expect(screen.getByText('No overlapping request')).toBeVisible();
+  expect(
+    screen.getByText(
+      'Checked against Tivmark annual allowance, weekday, and overlap rules.'
+    )
+  ).toBeVisible();
+});
+
+it('distinguishes a missing policy from an unlimited allowance', () => {
+  const unavailableState: BalanceViewState = {
+    kind: 'ready',
+    data: {
+      ...readyState.data,
+      assessment: {
+        status: 'Not eligible: No matching policy balance is available.',
+        team: 'acme',
+        userId: 'user-1',
+        type: 'PERSONAL',
+        startDate: '2026-09-04',
+        endDate: '2026-09-04',
+        eligible: false,
+        decision: 'POLICY_UNAVAILABLE',
+        reason: 'No matching policy balance is available.',
+        requestedHalfDays: 2,
+        pendingHalfDays: 0,
+        availableBeforeHalfDays: null,
+        remainingAfterHalfDays: null,
+        conflict: null,
+        checks: { weekday: true, noOverlap: true, withinBalance: false },
+        policySource: 'Tivmark annual allowance, weekday, and overlap rules',
+      },
+    },
+  };
+
+  render(
+    <TimeOffBalanceView
+      theme="light"
+      state={unavailableState}
+      onFollowUp={() => undefined}
+    />
+  );
+
+  expect(screen.getByText('Not eligible')).toBeVisible();
+  expect(screen.getAllByText('Unavailable')).toHaveLength(2);
+  expect(screen.queryByText('Unlimited')).not.toBeInTheDocument();
+  expect(screen.getByText('Try other dates')).toBeVisible();
+});
+
 it.each([
   [
     { kind: 'loading' } satisfies BalanceViewState,

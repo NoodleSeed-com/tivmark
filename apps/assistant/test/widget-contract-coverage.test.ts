@@ -36,7 +36,7 @@ const widgetContracts = {
     itemFields: ['id', 'type', 'status', 'startDate', 'endDate'],
   },
   book_time_off: {
-    component: 'time-off-requests',
+    component: 'time-off-receipt',
     itemFields: ['id', 'type', 'status', 'startDate', 'endDate'],
   },
   my_equipment: {

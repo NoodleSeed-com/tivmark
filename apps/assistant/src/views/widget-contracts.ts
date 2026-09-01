@@ -45,6 +45,54 @@ export const balanceItemSchema = z
   })
   .passthrough();
 
+export const timeOffAssessmentSchema = z.object({
+  status: z.string().min(1),
+  team: z.string().min(1),
+  userId: z.string().min(1),
+  type: z.enum(['VACATION', 'SICK', 'PERSONAL', 'UNPAID']),
+  startDate: dateOnly,
+  endDate: dateOnly,
+  eligible: z.boolean(),
+  decision: z.enum([
+    'ELIGIBLE',
+    'INVALID_DATES',
+    'OVERLAP',
+    'INSUFFICIENT_BALANCE',
+    'POLICY_UNAVAILABLE',
+  ]),
+  reason: z.string().min(1),
+  requestedHalfDays: z.number().int().nonnegative(),
+  pendingHalfDays: z.number().nonnegative(),
+  availableBeforeHalfDays: z.number().nullable(),
+  remainingAfterHalfDays: z.number().nullable(),
+  conflict: z
+    .object({
+      id: z.string().min(1),
+      startDate: dateOnly,
+      endDate: dateOnly,
+    })
+    .nullable(),
+  checks: z.object({
+    weekday: z.boolean(),
+    noOverlap: z.boolean(),
+    withinBalance: z.boolean(),
+  }),
+  policySource: z.string().min(1),
+});
+
+export const timeOffReceiptSchema = z.object({
+  requestId: z.string().min(1),
+  status: z.string().min(1),
+  team: z.string().min(1),
+  type: z.enum(['VACATION', 'SICK', 'PERSONAL', 'UNPAID']),
+  startDate: dateOnly,
+  endDate: dateOnly,
+  requestedHalfDays: z.number().int().nonnegative(),
+  pendingHalfDays: z.number().nonnegative(),
+  remainingAfterPendingHalfDays: z.number().nullable(),
+  authenticated: z.boolean(),
+});
+
 export const timeOffRequestsOutputSchema = z.object({
   team: z.string(),
   requests: z.array(timeOffRequestSchema),

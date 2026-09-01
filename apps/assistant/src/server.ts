@@ -1,4 +1,5 @@
 import {
+  type AgentGuideSource,
   annotations,
   authenticatedWebsite,
   connector,
@@ -18,6 +19,7 @@ import {
 
 const contracts = createContracts();
 const tivmark = createTivmarkConnector(contracts);
+const timeOffPlanning = createTimeOffPlanningConnector(contracts);
 const toolConfig = createToolConfig();
 
 // The public half of Mark. Built before server(...) so the website surface can reference
@@ -32,9 +34,10 @@ export default server(
   'tivmark_assistant',
   {
     title: 'Mark',
-    version: '1.0.0',
+    version: '1.1.0',
     interactions: { confirmationFallback: 'host' },
     instructions: createInstructions(),
+    agentGuide: createAgentGuide(),
     branding: {
       name: 'Mark',
       accent: '#b08d57',
@@ -160,16 +163,17 @@ export default server(
         close: 'Close Mark',
       },
       suggestedPrompts: [
-        // Answerable by anyone, from the knowledge component.
+        // The most prominent prompt must work before sign-in.
         'What can Tivmark do?',
+        // The flagship public-to-action demo. It begins anonymously, raises sign-in at the
+        // planning read, then resumes the same request as an authenticated confirmed write.
+        'Can I take next Friday off? If so, book it.',
+        // Answerable by anyone, from the knowledge component.
         'How does booking time off work?',
         'Who can approve requests?',
-        // Answerable only when signed in; on the public site Mark says so and offers
-        // talk_to_sales rather than pretending to look.
-        'Show my time off',
       ],
     }),
-    use: { tiv: tivmark },
+    use: { tiv: tivmark, planning: timeOffPlanning },
   },
   [
     createTeamContextTool(toolConfig),
@@ -195,6 +199,13 @@ function createContracts() {
     'OTHER',
   ]);
   const decision = z.enum(['APPROVED', 'DECLINED']);
+  const eligibilityDecision = z.enum([
+    'ELIGIBLE',
+    'INVALID_DATES',
+    'OVERLAP',
+    'INSUFFICIENT_BALANCE',
+    'POLICY_UNAVAILABLE',
+  ]);
   const dateOnly = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
   const nonEmptyString = z.string().min(1);
   const requester = z
@@ -235,11 +246,52 @@ function createContracts() {
       remainingHalfDays: z.number().nullable(),
     })
     .passthrough();
+  const timeOffAssessmentSchema = z.object({
+    status: z.string(),
+    team: z.string(),
+    userId: z.string(),
+    type: leaveType,
+    startDate: dateOnly,
+    endDate: dateOnly,
+    eligible: z.boolean(),
+    decision: eligibilityDecision,
+    reason: z.string(),
+    requestedHalfDays: z.number().int().nonnegative(),
+    pendingHalfDays: z.number().nonnegative(),
+    availableBeforeHalfDays: z.number().nullable(),
+    remainingAfterHalfDays: z.number().nullable(),
+    conflict: z
+      .object({
+        id: z.string(),
+        startDate: dateOnly,
+        endDate: dateOnly,
+      })
+      .nullable(),
+    checks: z.object({
+      weekday: z.boolean(),
+      noOverlap: z.boolean(),
+      withinBalance: z.boolean(),
+    }),
+    policySource: z.string(),
+  });
+  const timeOffReceiptSchema = z.object({
+    requestId: z.string(),
+    status: z.string(),
+    team: z.string(),
+    type: leaveType,
+    startDate: dateOnly,
+    endDate: dateOnly,
+    requestedHalfDays: z.number().int().nonnegative(),
+    pendingHalfDays: z.number().nonnegative(),
+    remainingAfterPendingHalfDays: z.number().nullable(),
+    authenticated: z.boolean(),
+  });
 
   return {
     leaveType,
     equipmentCategory,
     decision,
+    dateOnly,
     timeOffRequestSchema,
     equipmentRequestSchema,
     timeOffRequestsOutputSchema: z.object({
@@ -255,6 +307,11 @@ function createContracts() {
       userId: z.string(),
       balances: z.record(z.record(balance)),
     }),
+    timeOffAssessmentSchema,
+    timeOffPlanningOutputSchema: z.object({
+      assessment: timeOffAssessmentSchema.nullable(),
+    }),
+    timeOffReceiptSchema,
   };
 }
 
@@ -439,6 +496,223 @@ function createTivmarkConnector({
           output: z.object({ request: z.unknown() }),
           response: { request: '${response.data}' },
         },
+      },
+    });
+}
+
+// A pure, sandboxed planning boundary keeps eligibility deterministic without adding an API
+// endpoint or letting the model do balance arithmetic. It receives only already-authorized
+// Tivmark reads, has no network or ambient clock, and returns the small decision the model and
+// widget need. The same connector shapes the post-write receipt from the refreshed balance.
+function createTimeOffPlanningConnector({
+  leaveType,
+  timeOffAssessmentSchema,
+  timeOffPlanningOutputSchema,
+  timeOffReceiptSchema,
+}: Contracts) {
+  return connector('tivmark_time_off_planning')
+    .version('1.0.0')
+    .compute('assess', {
+      type: 'read',
+      input: z.object({
+        team: z.string(),
+        userId: z.string(),
+        type: leaveType,
+        startDate: z.string().optional(),
+        endDate: z.string().optional(),
+        balances: z.unknown(),
+        requests: z.array(z.unknown()),
+      }),
+      output: timeOffPlanningOutputSchema,
+      run: (input) => {
+        if (!input.startDate || !input.endDate) {
+          return { assessment: null };
+        }
+
+        const startDate = String(input.startDate);
+        const endDate = String(input.endDate);
+        const datePattern = /^\d{4}-\d{2}-\d{2}$/;
+        const start = new Date(`${startDate}T00:00:00.000Z`);
+        const end = new Date(`${endDate}T00:00:00.000Z`);
+        const validDates =
+          datePattern.test(startDate) &&
+          datePattern.test(endDate) &&
+          !Number.isNaN(start.getTime()) &&
+          !Number.isNaN(end.getTime()) &&
+          start.toISOString().slice(0, 10) === startDate &&
+          end.toISOString().slice(0, 10) === endDate &&
+          end >= start &&
+          start.getUTCFullYear() === end.getUTCFullYear();
+
+        let weekdays = 0;
+        if (validDates) {
+          const cursor = new Date(start);
+          while (cursor <= end) {
+            const day = cursor.getUTCDay();
+            if (day !== 0 && day !== 6) weekdays += 1;
+            cursor.setUTCDate(cursor.getUTCDate() + 1);
+          }
+        }
+        const requestedHalfDays = weekdays * 2;
+
+        const isRecord = (value: unknown): value is Record<string, unknown> =>
+          value !== null && typeof value === 'object' && !Array.isArray(value);
+        const root = isRecord(input.balances) ? input.balances : {};
+        const userBalances = isRecord(root[input.userId])
+          ? root[input.userId]
+          : {};
+        const rawBalance = isRecord(userBalances[input.type])
+          ? userBalances[input.type]
+          : undefined;
+        const policyAvailable = rawBalance !== undefined;
+        const pendingHalfDays =
+          rawBalance &&
+          typeof rawBalance.pendingHalfDays === 'number' &&
+          Number.isFinite(rawBalance.pendingHalfDays)
+            ? rawBalance.pendingHalfDays
+            : 0;
+        const rawRemaining = rawBalance?.remainingHalfDays;
+        const remainingHalfDays =
+          rawRemaining === null
+            ? null
+            : typeof rawRemaining === 'number' && Number.isFinite(rawRemaining)
+              ? rawRemaining
+              : undefined;
+        const availableBeforeHalfDays =
+          remainingHalfDays === null
+            ? null
+            : remainingHalfDays === undefined
+              ? null
+              : remainingHalfDays - pendingHalfDays;
+        const remainingAfterHalfDays =
+          availableBeforeHalfDays === null
+            ? null
+            : availableBeforeHalfDays - requestedHalfDays;
+
+        const requests = Array.isArray(input.requests) ? input.requests : [];
+        const overlapping = requests.find((candidate: unknown) => {
+          if (!isRecord(candidate)) return false;
+          if (candidate.status !== 'PENDING' && candidate.status !== 'APPROVED') {
+            return false;
+          }
+          return (
+            typeof candidate.startDate === 'string' &&
+            typeof candidate.endDate === 'string' &&
+            candidate.startDate <= endDate &&
+            candidate.endDate >= startDate
+          );
+        });
+        const conflict = isRecord(overlapping)
+          ? {
+              id: String(overlapping.id),
+              startDate: String(overlapping.startDate),
+              endDate: String(overlapping.endDate),
+            }
+          : null;
+        const weekday = validDates && weekdays > 0;
+        const noOverlap = conflict === null;
+        const withinBalance =
+          policyAvailable &&
+          remainingHalfDays !== undefined &&
+          (availableBeforeHalfDays === null ||
+            availableBeforeHalfDays >= requestedHalfDays);
+
+        let decision:
+          | 'ELIGIBLE'
+          | 'INVALID_DATES'
+          | 'OVERLAP'
+          | 'INSUFFICIENT_BALANCE'
+          | 'POLICY_UNAVAILABLE' = 'ELIGIBLE';
+        let reason = 'The dates are weekdays, do not overlap existing time off, and fit the available balance.';
+        if (!weekday) {
+          decision = 'INVALID_DATES';
+          reason = 'Choose a valid date range containing at least one weekday within one calendar year.';
+        } else if (!policyAvailable || remainingHalfDays === undefined) {
+          decision = 'POLICY_UNAVAILABLE';
+          reason = 'No matching time-off policy balance is available for this account.';
+        } else if (!noOverlap) {
+          decision = 'OVERLAP';
+          reason = 'The requested dates overlap an existing pending or approved request.';
+        } else if (!withinBalance) {
+          decision = 'INSUFFICIENT_BALANCE';
+          reason = 'The request exceeds the available balance after existing pending requests.';
+        }
+        const eligible = decision === 'ELIGIBLE';
+
+        return {
+          assessment: {
+            status: eligible ? 'Eligible to submit a pending request.' : `Not eligible: ${reason}`,
+            team: input.team,
+            userId: input.userId,
+            type: input.type,
+            startDate,
+            endDate,
+            eligible,
+            decision,
+            reason,
+            requestedHalfDays,
+            pendingHalfDays,
+            availableBeforeHalfDays,
+            remainingAfterHalfDays,
+            conflict,
+            checks: { weekday, noOverlap, withinBalance },
+            policySource: 'Tivmark annual allowance, weekday, and overlap rules',
+          },
+        };
+      },
+    })
+    .compute('receipt', {
+      type: 'read',
+      input: z.object({
+        team: z.string(),
+        userId: z.string(),
+        type: leaveType,
+        startDate: z.string(),
+        endDate: z.string(),
+        balances: z.unknown(),
+        request: z.unknown(),
+      }),
+      output: timeOffReceiptSchema,
+      run: (input) => {
+        const isRecord = (value: unknown): value is Record<string, unknown> =>
+          value !== null && typeof value === 'object' && !Array.isArray(value);
+        const root = isRecord(input.balances) ? input.balances : {};
+        const userBalances = isRecord(root[input.userId])
+          ? root[input.userId]
+          : {};
+        const rawBalance = isRecord(userBalances[input.type])
+          ? userBalances[input.type]
+          : {};
+        const request = isRecord(input.request) ? input.request : {};
+        const pendingHalfDays =
+          typeof rawBalance.pendingHalfDays === 'number' &&
+          Number.isFinite(rawBalance.pendingHalfDays)
+            ? rawBalance.pendingHalfDays
+            : 0;
+        const rawRemaining = rawBalance.remainingHalfDays;
+        const remainingAfterPendingHalfDays =
+          rawRemaining === null
+            ? null
+            : typeof rawRemaining === 'number' && Number.isFinite(rawRemaining)
+              ? rawRemaining - pendingHalfDays
+              : null;
+
+        return {
+          requestId: String(request.id),
+          status: String(request.status),
+          team: input.team,
+          type: input.type,
+          startDate: input.startDate,
+          endDate: input.endDate,
+          requestedHalfDays:
+            typeof request.requestedHalfDays === 'number' &&
+            Number.isFinite(request.requestedHalfDays)
+              ? request.requestedHalfDays
+              : 0,
+          pendingHalfDays,
+          remainingAfterPendingHalfDays,
+          authenticated: true,
+        };
       },
     });
 }
@@ -855,10 +1129,13 @@ function createTeamContextTool({ readOnly }: ToolConfig) {
 
 function createTimeOffTools(
   {
+    dateOnly,
     leaveType,
     timeOffBalanceOutputSchema,
     timeOffRequestSchema,
     timeOffRequestsOutputSchema,
+    timeOffAssessmentSchema,
+    timeOffReceiptSchema,
   }: Contracts,
   {
     readOnly,
@@ -872,23 +1149,52 @@ function createTimeOffTools(
     tool('time_off_balance', {
       title: 'Check time-off balance',
       description:
-        "Show the signed-in user's time-off balances (vacation, sick, personal, unpaid) for a team.",
+        "Show the signed-in user's balances or assess whether specific dates fit the policy, " +
+        'existing requests, and available balance. For generic “time off,” use VACATION. Pass both ' +
+        'dates and their year for an assessment; call this before book_time_off when the user says ' +
+        '“if I can,” “if eligible,” or otherwise makes booking conditional.',
       annotations: readOnly,
-      input: z.object({ team: z.string() }),
-      output: timeOffBalanceOutputSchema,
+      input: z.object({
+        team: z.string(),
+        type: leaveType.default('VACATION'),
+        startDate: dateOnly.optional(),
+        endDate: dateOnly.optional(),
+        year: z.number().int().min(2000).max(2100).optional(),
+      }),
+      output: timeOffBalanceOutputSchema.extend({
+        assessment: timeOffAssessmentSchema.nullable(),
+      }),
       fulfil: ({ input, user, connectors }) => {
-        const res = connectors.tiv.get_balances({ team: input.team });
+        const res = connectors.tiv.get_balances({
+          team: input.team,
+          year: input.year,
+        });
+        const requests = connectors.tiv.list_time_off({
+          team: input.team,
+          requesterId: user.id,
+          year: input.year,
+        });
+        const planning = connectors.planning.assess({
+          team: input.team,
+          userId: user.subject,
+          type: input.type,
+          startDate: input.startDate,
+          endDate: input.endDate,
+          balances: res.balances,
+          requests: requests.requests,
+        });
         return {
           team: input.team,
           userId: user.subject,
           balances: res.balances,
+          assessment: planning.assessment,
         };
       },
-      viewTitle: 'Your time-off balance',
+      viewTitle: 'Time-off eligibility and balance',
       viewDescription:
-        'Vacation, sick, personal, and unpaid balances for the year.',
-      invoking: 'Loading your balance…',
-      invoked: 'Balance ready',
+        'A policy-grounded eligibility decision plus vacation, sick, personal, and unpaid balances.',
+      invoking: 'Checking policy, requests, and balance…',
+      invoked: 'Eligibility check ready',
       domain: widgetDomain,
       csp: widgetCsp,
       view: {
@@ -924,21 +1230,24 @@ function createTimeOffTools(
     tool('book_time_off', {
       title: 'Book time off',
       description:
-        'Book a new full-day request. Resolve dates to YYYY-MM-DD and the team to its slug. The user ' +
-        'confirms the exact request.',
+        'Submit an eligible full-day request. Resolve dates to YYYY-MM-DD and the team to its slug. ' +
+        'For generic “time off,” use VACATION. When booking was conditional, call time_off_balance ' +
+        'with the dates first and call this only when assessment.eligible is true. The user confirms ' +
+        'the exact type, dates, and team before this authenticated write.',
       annotations: confirmed,
       input: z.object({
         team: z.string(),
-        type: leaveType,
-        startDate: z.string(),
-        endDate: z.string(),
+        type: leaveType.default('VACATION'),
+        startDate: dateOnly,
+        endDate: dateOnly,
         reason: z.string().default(''),
       }),
       output: timeOffRequestsOutputSchema.extend({
         status: z.string(),
         request: timeOffRequestSchema,
+        receipt: timeOffReceiptSchema,
       }),
-      fulfil: ({ input, connectors }) => {
+      fulfil: ({ input, user, connectors }) => {
         const res = connectors.tiv.create_time_off({
           team: input.team,
           type: input.type,
@@ -946,23 +1255,34 @@ function createTimeOffTools(
           endDate: input.endDate,
           reason: input.reason,
         });
+        const balances = connectors.tiv.get_balances({ team: input.team });
+        const receipt = connectors.planning.receipt({
+          team: input.team,
+          userId: user.subject,
+          type: input.type,
+          startDate: input.startDate,
+          endDate: input.endDate,
+          balances: balances.balances,
+          request: res.request,
+        });
         return {
           team: input.team,
           status: `Requested ${input.type} from ${input.startDate} to ${input.endDate}.`,
           request: res.request,
           requests: [res.request],
+          receipt,
         };
       },
-      viewTitle: 'Time-off request submitted',
+      viewTitle: 'Authenticated time-off receipt',
       viewDescription:
-        'Your time-off requests, including the one just submitted.',
+        'The submitted request, projected balance, request id, and reversible cancel action.',
       invoking: 'Submitting your time-off request…',
       invoked: 'Request submitted',
       domain: widgetDomain,
       csp: widgetCsp,
       view: {
-        component: 'time-off-requests',
-        entry: './views/time-off-requests.tsx',
+        component: 'time-off-receipt',
+        entry: './views/time-off-receipt.tsx',
       },
     }),
     tool('book_time_off_guided', {
@@ -1382,6 +1702,54 @@ function createReviewTools(
   ];
 }
 
+function createAgentGuide(): AgentGuideSource {
+  return {
+    description:
+      'Use Mark to explain Tivmark and complete authenticated people-ops requests with policy-grounded reads before confirmed writes.',
+    useWhen: [
+      'The user asks whether they can take time off or asks Mark to submit it.',
+      'The user wants to inspect or manage their Tivmark people-ops data.',
+    ],
+    workflows: [
+      {
+        id: 'book_time_off_if_eligible',
+        title: 'Assess and book time off',
+        intent:
+          'Carry one request from public policy explanation through authenticated eligibility and a confirmed write.',
+        steps: [
+          {
+            capability: { kind: 'tool', name: 'time_off_guide' },
+            guidance:
+              'On the public surface, briefly ground the weekday and pending-approval rules; add one cited knowledge sentence only when useful.',
+          },
+          {
+            capability: { kind: 'tool', name: 'time_off_balance' },
+            guidance:
+              'Resolve relative dates from invocation context, default generic time off to VACATION, pass both dates and their year, and use the returned assessment instead of doing balance arithmetic.',
+          },
+          {
+            capability: { kind: 'tool', name: 'book_time_off' },
+            guidance:
+              'Call only when assessment.eligible is true and the user already asked to book. Preserve the assessed team, type, and dates exactly; the confirmation is the review boundary.',
+          },
+        ],
+      },
+    ],
+    boundaries: [
+      'Never claim eligibility without a current time_off_balance assessment for the exact team, type, and dates.',
+      'Never call book_time_off after an ineligible assessment or when the user asked only whether the dates work.',
+      'A successful booking creates a pending request, not approved leave.',
+      'Treat session claims as conversation context only; Tivmark connector authorization remains authoritative.',
+    ],
+    examples: [
+      {
+        prompt: 'Can I take next Friday off? If so, book it.',
+        workflow: 'book_time_off_if_eligible',
+      },
+    ],
+  };
+}
+
 function createInstructions() {
   return (
     "You are Mark, Tivmark's people-ops assistant. Help the signed-in user with TIME OFF " +
@@ -1390,6 +1758,10 @@ function createInstructions() {
     'Resolve relative dates from the current date and local time zone into concrete YYYY-MM-DD dates. ' +
     'Resolve every team from trusted context: use its slug, silently choose the only team, ask when ' +
     'there are several, and never invent one. ' +
+    'For a conditional time-off request such as “if I can” or “if eligible,” explain the public ' +
+    'policy briefly, then call time_off_balance with the resolved dates and year. Default generic ' +
+    '“time off” to VACATION, and call book_time_off only when assessment.eligible is true and the ' +
+    'user already asked to book. A booking is a pending request, never approved leave. ' +
     'Use book_time_off or order_equipment when every required detail is known; otherwise use the ' +
     'matching guided tool to collect missing details before confirmation. ' +
     'Prefer tools over prose: when a matching tool exists, call it and let its card carry the '  +
