@@ -1,6 +1,7 @@
 import { PendingInvitations } from '@/components/invitation';
 import { Error, Loading } from '@/components/shared';
 import { Members, TeamTab } from '@/components/team';
+import NewHireLaunches from '@/components/team/NewHireLaunches';
 import env from '@/lib/env';
 import useTeam from 'hooks/useTeam';
 import { GetServerSidePropsContext } from 'next';
@@ -28,6 +29,7 @@ const TeamMembers = ({ teamFeatures }) => {
       <TeamTab activeTab="members" team={team} teamFeatures={teamFeatures} />
       <div className="space-y-6">
         <Members team={team} />
+        <NewHireLaunches team={team} />
         <PendingInvitations team={team} />
       </div>
     </>

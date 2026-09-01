@@ -27,10 +27,10 @@ const oauth2 = registry.registerComponent('securitySchemes', 'oauth2', {
         teams: 'Read and update teams',
         members: 'Read and manage team members',
         invitations: 'Read and manage invitations',
+        equipment: 'Read and manage equipment requests',
         time_off: 'Read and manage time-off requests',
         'time_off.approve': 'Approve or decline time-off requests',
         'time_off.policy': 'Manage time-off allowances',
-        equipment: 'Read and manage equipment requests',
         'equipment.approve': 'Approve or decline equipment requests',
         service_requests: 'Read and create Action Desk requests',
         'service_requests.manage': 'Manage the Action Desk queue and catalog',
@@ -52,6 +52,12 @@ const leaveType = z.enum(['VACATION', 'SICK', 'PERSONAL', 'UNPAID']);
 const leaveStatus = z.enum(['PENDING', 'APPROVED', 'DECLINED', 'CANCELED']);
 const businessSizeBand = z.enum(['1-10', '11-50', '51-200', '201+']);
 const onboardingGoal = z.enum(['TIME_OFF', 'EQUIPMENT', 'BOTH']);
+const newHireEquipmentPackage = z.enum([
+  'STANDARD',
+  'DESIGN',
+  'ENGINEERING',
+  'NONE',
+]);
 const serviceAudience = z.enum(['PUBLIC', 'CUSTOMER', 'EMPLOYEE']);
 const serviceRequestStatus = z.enum([
   'OPEN',
@@ -237,6 +243,87 @@ const OnboardingReceipt = z
   })
   .openapi('OnboardingReceipt');
 
+const NewHireLaunchInput = z
+  .object({
+    employeeName: z.string().trim().min(2).max(120),
+    employeeEmail: z.string().trim().email().max(320),
+    jobTitle: z.string().trim().min(2).max(120),
+    startDate: z.string().date(),
+    workLocation: z.string().trim().min(2).max(120),
+    timeZone: z.string().trim().min(1).max(100),
+    role: z.enum(['ADMIN', 'MEMBER']),
+    equipmentPackage: newHireEquipmentPackage,
+  })
+  .openapi('NewHireLaunchInput');
+
+const NewHirePolicy = z.object({
+  type: leaveType,
+  allowanceHalfDays: z.number().int().nullable(),
+  allowanceDays: z.number().nullable(),
+  assignment: z.literal('ON_ACCEPTANCE'),
+});
+
+const NewHirePlan = z
+  .object({
+    status: z.literal('PLANNED'),
+    team: z.object({ id: uuid, name: z.string(), slug: z.string() }),
+    newHire: NewHireLaunchInput.omit({ equipmentPackage: true })
+      .extend({
+        name: z.string(),
+        email: z.string().email(),
+      })
+      .omit({ employeeName: true, employeeEmail: true }),
+    equipment: z.object({
+      package: newHireEquipmentPackage,
+      label: z.string(),
+      item: z.string().nullable(),
+    }),
+    policies: z.array(NewHirePolicy),
+    checklist: z.array(
+      z.object({
+        id: z.string(),
+        label: z.string(),
+        status: z.literal('WILL_CREATE'),
+      })
+    ),
+    authenticated: z.literal(true),
+  })
+  .openapi('NewHirePlan');
+
+const NewHireReceipt = z
+  .object({
+    status: z.enum(['READY', 'ACTIVE']),
+    launchId: uuid,
+    team: z.object({ id: uuid, name: z.string(), slug: z.string() }),
+    newHire: NewHirePlan.shape.newHire,
+    invitation: z.object({
+      id: uuid.nullable(),
+      status: z.enum(['PENDING', 'ACCEPTED']),
+      expiresAt: z.string().datetime().nullable(),
+    }),
+    equipment: z.object({
+      package: newHireEquipmentPackage,
+      label: z.string(),
+      requestId: uuid.nullable(),
+      item: z.string().nullable(),
+      status: z.string().nullable(),
+    }),
+    policies: z.array(NewHirePolicy),
+    checklist: z.array(
+      z.object({
+        id: z.string(),
+        label: z.string(),
+        status: z.literal('COMPLETE'),
+      })
+    ),
+    nextSteps: z.array(
+      z.object({ id: z.string(), label: z.string(), url: z.string().url() })
+    ),
+    createdAt: z.string().datetime(),
+    activatedAt: z.string().datetime().nullable(),
+    authenticated: z.literal(true),
+  })
+  .openapi('NewHireReceipt');
 const ActionService = z
   .object({
     id: uuid,
@@ -369,6 +456,80 @@ registry.registerPath({
     200: {
       description: 'Configured workspace receipt',
       content: json(data(OnboardingReceipt)),
+    },
+    ...problemResponses,
+  },
+});
+
+registry.registerPath({
+  method: 'post',
+  path: '/api/v1/teams/{teamId}/new-hire-launches/plan',
+  tags: ['New Hire Launch'],
+  summary: 'Preview a grounded new-hire launch plan without changing data',
+  security,
+  request: {
+    params: teamParams,
+    body: { content: json(NewHireLaunchInput) },
+  },
+  responses: {
+    200: {
+      description: 'Grounded launch plan',
+      content: json(data(NewHirePlan)),
+    },
+    ...problemResponses,
+  },
+});
+
+registry.registerPath({
+  method: 'get',
+  path: '/api/v1/teams/{teamId}/new-hire-launches',
+  tags: ['New Hire Launch'],
+  summary: 'List recent new-hire launch receipts',
+  security,
+  request: { params: teamParams },
+  responses: {
+    200: {
+      description: 'New-hire launches',
+      content: json(list(NewHireReceipt)),
+    },
+    ...problemResponses,
+  },
+});
+
+registry.registerPath({
+  method: 'post',
+  path: '/api/v1/teams/{teamId}/new-hire-launches',
+  tags: ['New Hire Launch'],
+  summary:
+    'Atomically launch an invitation, role, leave inheritance, and equipment request',
+  security,
+  request: {
+    params: teamParams,
+    body: { content: json(NewHireLaunchInput) },
+  },
+  responses: {
+    201: {
+      description: 'Verified launch receipt',
+      content: json(data(NewHireReceipt)),
+    },
+    ...problemResponses,
+  },
+});
+
+registry.registerPath({
+  method: 'get',
+  path: '/api/v1/teams/{teamId}/new-hire-launches/status',
+  tags: ['New Hire Launch'],
+  summary: 'Get a new-hire launch receipt by invited email',
+  security,
+  request: {
+    params: teamParams,
+    query: z.object({ email: z.string().email() }),
+  },
+  responses: {
+    200: {
+      description: 'Verified launch status',
+      content: json(data(NewHireReceipt)),
     },
     ...problemResponses,
   },
@@ -1111,6 +1272,7 @@ const operationIdFor = (method: string, path: string) =>
 
 const idempotentPaths = new Set([
   '/api/v1/onboarding/complete',
+  '/api/v1/teams/{teamId}/new-hire-launches',
   '/api/v1/teams',
   '/api/v1/teams/{teamId}/invitations',
   '/api/v1/teams/{teamId}/time-off/requests',
@@ -1142,6 +1304,10 @@ export const getOpenApiDocument = () => {
       {
         name: 'Onboarding',
         description: 'Conversational business setup and activation.',
+      },
+      {
+        name: 'New Hire Launch',
+        description: 'Atomic manager-led onboarding readiness workflows.',
       },
       { name: 'Teams', description: 'Team lifecycle and settings.' },
       { name: 'Members', description: 'Team membership and roles.' },

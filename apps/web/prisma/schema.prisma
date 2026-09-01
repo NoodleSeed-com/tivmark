@@ -54,6 +54,18 @@ enum EquipmentStatus {
   CANCELED
 }
 
+enum NewHireLaunchStatus {
+  READY
+  ACTIVE
+}
+
+enum NewHireEquipmentPackage {
+  STANDARD
+  DESIGN
+  ENGINEERING
+  NONE
+}
+
 enum ServiceAudience {
   PUBLIC
   CUSTOMER
@@ -142,14 +154,15 @@ model User {
   accounts                  Account[]
   sessions                  Session[]
   invitations               Invitation[]
-  createdApiKeys            ApiKey[]           @relation("ApiKeyCreator")
-  timeOffRequests           TimeOffRequest[]   @relation("TimeOffRequester")
-  reviewedTimeOffRequests   TimeOffRequest[]   @relation("TimeOffReviewer")
-  equipmentRequests         EquipmentRequest[] @relation("EquipmentRequester")
-  reviewedEquipmentRequests EquipmentRequest[] @relation("EquipmentReviewer")
-  serviceRequests            ServiceRequest[]  @relation("ServiceRequester")
-  assignedServiceRequests    ServiceRequest[]  @relation("ServiceAssignee")
-  serviceRequestEvents       ServiceRequestEvent[]
+  createdApiKeys            ApiKey[]              @relation("ApiKeyCreator")
+  timeOffRequests           TimeOffRequest[]      @relation("TimeOffRequester")
+  reviewedTimeOffRequests   TimeOffRequest[]      @relation("TimeOffReviewer")
+  equipmentRequests         EquipmentRequest[]    @relation("EquipmentRequester")
+  reviewedEquipmentRequests EquipmentRequest[]    @relation("EquipmentReviewer")
+  newHireLaunches           NewHireLaunch[]       @relation("NewHireLaunchCreator")
+  serviceRequests           ServiceRequest[]      @relation("ServiceRequester")
+  assignedServiceRequests   ServiceRequest[]      @relation("ServiceAssignee")
+  serviceRequestEvents      ServiceRequestEvent[]
 }
 
 model Team {
@@ -172,6 +185,7 @@ model Team {
   timeOffPolicies       TimeOffPolicy[]
   timeOffRequests       TimeOffRequest[]
   equipmentRequests     EquipmentRequest[]
+  newHireLaunches       NewHireLaunch[]
   actionServices        ActionService[]
   serviceRequests       ServiceRequest[]
   oauthClients          OAuthClient[]
@@ -236,9 +250,10 @@ model EquipmentRequest {
   createdAt     DateTime          @default(now())
   updatedAt     DateTime          @updatedAt
 
-  team      Team  @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  requester User  @relation("EquipmentRequester", fields: [requesterId], references: [id], onDelete: Cascade)
-  reviewer  User? @relation("EquipmentReviewer", fields: [reviewerId], references: [id], onDelete: SetNull)
+  team          Team           @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  requester     User           @relation("EquipmentRequester", fields: [requesterId], references: [id], onDelete: Cascade)
+  reviewer      User?          @relation("EquipmentReviewer", fields: [reviewerId], references: [id], onDelete: SetNull)
+  newHireLaunch NewHireLaunch?
 
   @@index([teamId, status])
   @@index([teamId, requesterId])
@@ -281,10 +296,10 @@ model ServiceRequest {
   createdAt   DateTime               @default(now())
   updatedAt   DateTime               @updatedAt
 
-  team      Team           @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  service   ActionService  @relation(fields: [serviceId], references: [id], onDelete: Restrict)
-  requester User           @relation("ServiceRequester", fields: [requesterId], references: [id], onDelete: Cascade)
-  assignee  User?          @relation("ServiceAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  team      Team                  @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  service   ActionService         @relation(fields: [serviceId], references: [id], onDelete: Restrict)
+  requester User                  @relation("ServiceRequester", fields: [requesterId], references: [id], onDelete: Cascade)
+  assignee  User?                 @relation("ServiceAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
   events    ServiceRequestEvent[]
 
   @@index([teamId, status, createdAt])
@@ -334,11 +349,41 @@ model Invitation {
   sentViaEmail   Boolean  @default(true)
   allowedDomains String[] @default([])
 
-  user User @relation(fields: [invitedBy], references: [id], onDelete: Cascade)
-  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user          User           @relation(fields: [invitedBy], references: [id], onDelete: Cascade)
+  team          Team           @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  newHireLaunch NewHireLaunch?
 
   @@unique([teamId, email])
   @@index([email])
+}
+
+model NewHireLaunch {
+  id                 String                  @id @default(uuid())
+  teamId             String
+  createdById        String?
+  invitationId       String?                 @unique
+  equipmentRequestId String?                 @unique
+  employeeName       String                  @db.VarChar(120)
+  employeeEmail      String                  @db.VarChar(320)
+  jobTitle           String                  @db.VarChar(120)
+  startDate          DateTime                @db.Date
+  workLocation       String                  @db.VarChar(120)
+  timeZone           String                  @db.VarChar(100)
+  role               Role                    @default(MEMBER)
+  equipmentPackage   NewHireEquipmentPackage @default(STANDARD)
+  status             NewHireLaunchStatus     @default(READY)
+  activatedAt        DateTime?
+  createdAt          DateTime                @default(now())
+  updatedAt          DateTime                @updatedAt
+
+  team             Team              @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  createdBy        User?             @relation("NewHireLaunchCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  invitation       Invitation?       @relation(fields: [invitationId], references: [id], onDelete: SetNull)
+  equipmentRequest EquipmentRequest? @relation(fields: [equipmentRequestId], references: [id], onDelete: SetNull)
+
+  @@unique([teamId, employeeEmail])
+  @@index([teamId, status])
+  @@index([teamId, startDate])
 }
 
 model PasswordReset {

@@ -29,6 +29,9 @@ describe('tivmark_assistant', () => {
         'trust_and_security',
         'design_business_workspace',
         'complete_business_onboarding',
+        'plan_new_hire_launch',
+        'launch_new_hire',
+        'get_new_hire_status',
         // time off (employee)
         'time_off_balance',
         'my_time_off',
@@ -112,6 +115,9 @@ describe('tivmark_assistant', () => {
       time_off_guide: 'Explain time off',
       equipment_guide: 'Explain equipment requests',
       getting_started_guide: 'Show the getting-started checklist',
+      get_new_hire_status: 'Check new-hire launch status',
+      launch_new_hire: 'Launch a new hire',
+      plan_new_hire_launch: 'Plan a new-hire launch',
       trust_and_security: 'Show security and privacy',
       start_service_request: 'Start an Action Desk request',
       team_equipment_queue: 'Open equipment review queue',
@@ -142,6 +148,9 @@ describe('tivmark_assistant', () => {
     expect(text).toContain('tiv.create_equipment');
     expect(text).toContain('tiv.review_time_off');
     expect(text).toContain('tiv.complete_onboarding');
+    expect(text).toContain('tiv.plan_new_hire');
+    expect(text).toContain('tiv.launch_new_hire');
+    expect(text).toContain('tiv.get_new_hire_status');
     expect(text).toContain('tiv.list_action_services');
     expect(text).toContain('tiv.create_service_request');
     expect(text).toContain('tiv.transition_service_request');
@@ -188,7 +197,7 @@ describe('tivmark_assistant', () => {
     expect(manifest.server.assistant?.labels).toMatchObject({
       welcomeHeading: 'How can Mark help?',
       welcomeMessage:
-        'Tell Mark what you need. Get routed to the right service, complete an action, or track the outcome.',
+        'Tell Mark what you need. Launch a new hire, complete an action, or track the outcome.',
       launcherPlaceholder: 'Ask Mark anything…',
       composerPlaceholder: 'Message Mark…',
       open: 'Open Mark',
@@ -202,6 +211,7 @@ describe('tivmark_assistant', () => {
     expect(manifest.server.assistant?.suggestedPrompts).toEqual([
       'I need help — find the right service and start a request.',
       'Help me set up Tivmark for my business.',
+      'Onboard Maya Chen as a product designer starting October 5 in London. Give her the design equipment package.',
       'Can I take next Friday off? If so, book it.',
       'How does booking time off work?',
       'What can the Action Desk handle?',
@@ -374,6 +384,7 @@ describe('tivmark_assistant', () => {
       'review_equipment',
       'fulfill_equipment',
       'complete_business_onboarding',
+      'launch_new_hire',
     ];
     for (const tool of manifest.tools as Array<Record<string, unknown>>) {
       if (writes.includes(tool.name as string)) {

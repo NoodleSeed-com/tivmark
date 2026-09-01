@@ -15,6 +15,10 @@
       "name": "Onboarding",
       "description": "Conversational business setup and activation."
     },
+    {
+      "name": "New Hire Launch",
+      "description": "Atomic manager-led onboarding readiness workflows."
+    },
     { "name": "Teams", "description": "Team lifecycle and settings." },
     { "name": "Members", "description": "Team membership and roles." },
     {
@@ -64,10 +68,10 @@
               "teams": "Read and update teams",
               "members": "Read and manage team members",
               "invitations": "Read and manage invitations",
+              "equipment": "Read and manage equipment requests",
               "time_off": "Read and manage time-off requests",
               "time_off.approve": "Approve or decline time-off requests",
               "time_off.policy": "Manage time-off allowances",
-              "equipment": "Read and manage equipment requests",
               "equipment.approve": "Approve or decline equipment requests",
               "service_requests": "Read and create Action Desk requests",
               "service_requests.manage": "Manage the Action Desk queue and catalog",
@@ -219,6 +223,281 @@
           "vacationAllowanceDays",
           "sickAllowanceDays",
           "personalAllowanceDays"
+        ]
+      },
+      "NewHirePlan": {
+        "type": "object",
+        "properties": {
+          "status": { "type": "string", "enum": ["PLANNED"] },
+          "team": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string", "format": "uuid" },
+              "name": { "type": "string" },
+              "slug": { "type": "string" }
+            },
+            "required": ["id", "name", "slug"]
+          },
+          "newHire": {
+            "type": "object",
+            "properties": {
+              "jobTitle": {
+                "type": "string",
+                "minLength": 2,
+                "maxLength": 120
+              },
+              "startDate": { "type": "string", "format": "date" },
+              "workLocation": {
+                "type": "string",
+                "minLength": 2,
+                "maxLength": 120
+              },
+              "timeZone": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 100
+              },
+              "role": { "type": "string", "enum": ["ADMIN", "MEMBER"] },
+              "name": { "type": "string" },
+              "email": { "type": "string", "format": "email" }
+            },
+            "required": [
+              "jobTitle",
+              "startDate",
+              "workLocation",
+              "timeZone",
+              "role",
+              "name",
+              "email"
+            ]
+          },
+          "equipment": {
+            "type": "object",
+            "properties": {
+              "package": {
+                "type": "string",
+                "enum": ["STANDARD", "DESIGN", "ENGINEERING", "NONE"]
+              },
+              "label": { "type": "string" },
+              "item": { "type": ["string", "null"] }
+            },
+            "required": ["package", "label", "item"]
+          },
+          "policies": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "enum": ["VACATION", "SICK", "PERSONAL", "UNPAID"]
+                },
+                "allowanceHalfDays": { "type": ["integer", "null"] },
+                "allowanceDays": { "type": ["number", "null"] },
+                "assignment": { "type": "string", "enum": ["ON_ACCEPTANCE"] }
+              },
+              "required": [
+                "type",
+                "allowanceHalfDays",
+                "allowanceDays",
+                "assignment"
+              ]
+            }
+          },
+          "checklist": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": { "type": "string" },
+                "label": { "type": "string" },
+                "status": { "type": "string", "enum": ["WILL_CREATE"] }
+              },
+              "required": ["id", "label", "status"]
+            }
+          },
+          "authenticated": { "type": "boolean", "enum": [true] }
+        },
+        "required": [
+          "status",
+          "team",
+          "newHire",
+          "equipment",
+          "policies",
+          "checklist",
+          "authenticated"
+        ]
+      },
+      "NewHireLaunchInput": {
+        "type": "object",
+        "properties": {
+          "employeeName": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 120
+          },
+          "employeeEmail": {
+            "type": "string",
+            "maxLength": 320,
+            "format": "email"
+          },
+          "jobTitle": { "type": "string", "minLength": 2, "maxLength": 120 },
+          "startDate": { "type": "string", "format": "date" },
+          "workLocation": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 120
+          },
+          "timeZone": { "type": "string", "minLength": 1, "maxLength": 100 },
+          "role": { "type": "string", "enum": ["ADMIN", "MEMBER"] },
+          "equipmentPackage": {
+            "type": "string",
+            "enum": ["STANDARD", "DESIGN", "ENGINEERING", "NONE"]
+          }
+        },
+        "required": [
+          "employeeName",
+          "employeeEmail",
+          "jobTitle",
+          "startDate",
+          "workLocation",
+          "timeZone",
+          "role",
+          "equipmentPackage"
+        ]
+      },
+      "NewHireReceipt": {
+        "type": "object",
+        "properties": {
+          "status": { "type": "string", "enum": ["READY", "ACTIVE"] },
+          "launchId": { "type": "string", "format": "uuid" },
+          "team": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string", "format": "uuid" },
+              "name": { "type": "string" },
+              "slug": { "type": "string" }
+            },
+            "required": ["id", "name", "slug"]
+          },
+          "newHire": {
+            "type": "object",
+            "properties": {
+              "jobTitle": {
+                "type": "string",
+                "minLength": 2,
+                "maxLength": 120
+              },
+              "startDate": { "type": "string", "format": "date" },
+              "workLocation": {
+                "type": "string",
+                "minLength": 2,
+                "maxLength": 120
+              },
+              "timeZone": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 100
+              },
+              "role": { "type": "string", "enum": ["ADMIN", "MEMBER"] },
+              "name": { "type": "string" },
+              "email": { "type": "string", "format": "email" }
+            },
+            "required": [
+              "jobTitle",
+              "startDate",
+              "workLocation",
+              "timeZone",
+              "role",
+              "name",
+              "email"
+            ]
+          },
+          "invitation": {
+            "type": "object",
+            "properties": {
+              "id": { "type": ["string", "null"], "format": "uuid" },
+              "status": { "type": "string", "enum": ["PENDING", "ACCEPTED"] },
+              "expiresAt": { "type": ["string", "null"], "format": "date-time" }
+            },
+            "required": ["id", "status", "expiresAt"]
+          },
+          "equipment": {
+            "type": "object",
+            "properties": {
+              "package": {
+                "type": "string",
+                "enum": ["STANDARD", "DESIGN", "ENGINEERING", "NONE"]
+              },
+              "label": { "type": "string" },
+              "requestId": { "type": ["string", "null"], "format": "uuid" },
+              "item": { "type": ["string", "null"] },
+              "status": { "type": ["string", "null"] }
+            },
+            "required": ["package", "label", "requestId", "item", "status"]
+          },
+          "policies": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "enum": ["VACATION", "SICK", "PERSONAL", "UNPAID"]
+                },
+                "allowanceHalfDays": { "type": ["integer", "null"] },
+                "allowanceDays": { "type": ["number", "null"] },
+                "assignment": { "type": "string", "enum": ["ON_ACCEPTANCE"] }
+              },
+              "required": [
+                "type",
+                "allowanceHalfDays",
+                "allowanceDays",
+                "assignment"
+              ]
+            }
+          },
+          "checklist": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": { "type": "string" },
+                "label": { "type": "string" },
+                "status": { "type": "string", "enum": ["COMPLETE"] }
+              },
+              "required": ["id", "label", "status"]
+            }
+          },
+          "nextSteps": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": { "type": "string" },
+                "label": { "type": "string" },
+                "url": { "type": "string", "format": "uri" }
+              },
+              "required": ["id", "label", "url"]
+            }
+          },
+          "createdAt": { "type": "string", "format": "date-time" },
+          "activatedAt": { "type": ["string", "null"], "format": "date-time" },
+          "authenticated": { "type": "boolean", "enum": [true] }
+        },
+        "required": [
+          "status",
+          "launchId",
+          "team",
+          "newHire",
+          "invitation",
+          "equipment",
+          "policies",
+          "checklist",
+          "nextSteps",
+          "createdAt",
+          "activatedAt",
+          "authenticated"
         ]
       },
       "Team": {
@@ -825,6 +1104,393 @@
             "schema": { "type": "string", "minLength": 8, "maxLength": 200 }
           }
         ]
+      }
+    },
+    "/api/v1/teams/{teamId}/new-hire-launches/plan": {
+      "post": {
+        "tags": ["New Hire Launch"],
+        "summary": "Preview a grounded new-hire launch plan without changing data",
+        "security": [{ "oauth2": [] }, { "bearerAuth": [] }],
+        "parameters": [
+          {
+            "schema": { "type": "string", "format": "uuid" },
+            "required": true,
+            "in": "path",
+            "name": "teamId"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/NewHireLaunchInput" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Grounded launch plan",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": { "$ref": "#/components/schemas/NewHirePlan" }
+                  },
+                  "required": ["data"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Problem" }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Problem" }
+              }
+            }
+          },
+          "403": {
+            "description": "Insufficient permissions",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Problem" }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Problem" }
+              }
+            }
+          },
+          "409": {
+            "description": "Resource conflict",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Problem" }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Problem" }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Problem" }
+              }
+            }
+          }
+        },
+        "operationId": "post_teams_teamId_new_hire_launches_plan"
+      }
+    },
+    "/api/v1/teams/{teamId}/new-hire-launches": {
+      "get": {
+        "tags": ["New Hire Launch"],
+        "summary": "List recent new-hire launch receipts",
+        "security": [{ "oauth2": [] }, { "bearerAuth": [] }],
+        "parameters": [
+          {
+            "schema": { "type": "string", "format": "uuid" },
+            "required": true,
+            "in": "path",
+            "name": "teamId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "New-hire launches",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/NewHireReceipt" }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "properties": {
+                        "nextCursor": { "type": ["string", "null"] }
+                      },
+                      "required": ["nextCursor"]
+                    }
+                  },
+                  "required": ["data"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Problem" }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Problem" }
+              }
+            }
+          },
+          "403": {
+            "description": "Insufficient permissions",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Problem" }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Problem" }
+              }
+            }
+          },
+          "409": {
+            "description": "Resource conflict",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Problem" }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Problem" }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Problem" }
+              }
+            }
+          }
+        },
+        "operationId": "get_teams_teamId_new_hire_launches"
+      },
+      "post": {
+        "tags": ["New Hire Launch"],
+        "summary": "Atomically launch an invitation, role, leave inheritance, and equipment request",
+        "security": [{ "oauth2": [] }, { "bearerAuth": [] }],
+        "parameters": [
+          {
+            "schema": { "type": "string", "format": "uuid" },
+            "required": true,
+            "in": "path",
+            "name": "teamId"
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "description": "Unique retry key. Reusing it with the same body returns the original response for 24 hours.",
+            "schema": { "type": "string", "minLength": 8, "maxLength": 200 }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/NewHireLaunchInput" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Verified launch receipt",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": { "$ref": "#/components/schemas/NewHireReceipt" }
+                  },
+                  "required": ["data"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Problem" }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Problem" }
+              }
+            }
+          },
+          "403": {
+            "description": "Insufficient permissions",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Problem" }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Problem" }
+              }
+            }
+          },
+          "409": {
+            "description": "Resource conflict",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Problem" }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Problem" }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Problem" }
+              }
+            }
+          }
+        },
+        "operationId": "post_teams_teamId_new_hire_launches"
+      }
+    },
+    "/api/v1/teams/{teamId}/new-hire-launches/status": {
+      "get": {
+        "tags": ["New Hire Launch"],
+        "summary": "Get a new-hire launch receipt by invited email",
+        "security": [{ "oauth2": [] }, { "bearerAuth": [] }],
+        "parameters": [
+          {
+            "schema": { "type": "string", "format": "uuid" },
+            "required": true,
+            "in": "path",
+            "name": "teamId"
+          },
+          {
+            "schema": { "type": "string", "format": "email" },
+            "required": true,
+            "name": "email",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Verified launch status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": { "$ref": "#/components/schemas/NewHireReceipt" }
+                  },
+                  "required": ["data"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Problem" }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Problem" }
+              }
+            }
+          },
+          "403": {
+            "description": "Insufficient permissions",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Problem" }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Problem" }
+              }
+            }
+          },
+          "409": {
+            "description": "Resource conflict",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Problem" }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Problem" }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Problem" }
+              }
+            }
+          }
+        },
+        "operationId": "get_teams_teamId_new_hire_launches_status"
       }
     },
     "/api/v1/me/password": {
