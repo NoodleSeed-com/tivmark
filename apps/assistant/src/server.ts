@@ -34,7 +34,7 @@ export default server(
   'tivmark_assistant',
   {
     title: 'Mark',
-    version: '1.1.0',
+    version: '1.1.1',
     interactions: { confirmationFallback: 'host' },
     instructions: createInstructions(),
     agentGuide: createAgentGuide(),
@@ -1171,7 +1171,7 @@ function createTimeOffTools(
         });
         const requests = connectors.tiv.list_time_off({
           team: input.team,
-          requesterId: user.id,
+          requesterId: user.subject,
           year: input.year,
         });
         const planning = connectors.planning.assess({
