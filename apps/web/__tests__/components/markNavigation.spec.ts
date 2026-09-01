@@ -8,6 +8,7 @@ const labels = {
   security: 'Security',
   timeOff: 'Time Off',
   equipment: 'Equipment',
+  actionDesk: 'Action Desk',
   settings: 'Settings',
 };
 
@@ -41,13 +42,14 @@ describe('Mark navigation', () => {
     );
 
     expect(menus.map(({ name, href }) => ({ name, href }))).toEqual([
+      { name: 'Action Desk', href: '/teams/acme/action-desk' },
       { name: 'Time Off', href: '/teams/acme/time-off' },
       { name: 'Equipment', href: '/teams/acme/equipment' },
       { name: 'Mark', href: undefined },
       { name: 'Settings', href: '/teams/acme/settings' },
     ]);
 
-    menus[2]!.onClick?.();
+    menus.find((menu) => menu.name === 'Mark')?.onClick?.();
     expect(openMark).toHaveBeenCalled();
   });
 });

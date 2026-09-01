@@ -30,6 +30,10 @@ const oauth2 = registry.registerComponent('securitySchemes', 'oauth2', {
         time_off: 'Read and manage time-off requests',
         'time_off.approve': 'Approve or decline time-off requests',
         'time_off.policy': 'Manage time-off allowances',
+        equipment: 'Read and manage equipment requests',
+        'equipment.approve': 'Approve or decline equipment requests',
+        service_requests: 'Read and create Action Desk requests',
+        'service_requests.manage': 'Manage the Action Desk queue and catalog',
         credentials: 'Manage service credentials and OAuth clients',
         sso: 'Manage single sign-on',
         directory_sync: 'Manage directory synchronization',
@@ -48,6 +52,15 @@ const leaveType = z.enum(['VACATION', 'SICK', 'PERSONAL', 'UNPAID']);
 const leaveStatus = z.enum(['PENDING', 'APPROVED', 'DECLINED', 'CANCELED']);
 const businessSizeBand = z.enum(['1-10', '11-50', '51-200', '201+']);
 const onboardingGoal = z.enum(['TIME_OFF', 'EQUIPMENT', 'BOTH']);
+const serviceAudience = z.enum(['PUBLIC', 'CUSTOMER', 'EMPLOYEE']);
+const serviceRequestStatus = z.enum([
+  'OPEN',
+  'IN_PROGRESS',
+  'WAITING_ON_REQUESTER',
+  'RESOLVED',
+  'CANCELED',
+]);
+const serviceRequestPriority = z.enum(['LOW', 'NORMAL', 'HIGH', 'URGENT']);
 
 const Problem = z
   .object({
@@ -223,6 +236,63 @@ const OnboardingReceipt = z
     authenticated: z.literal(true),
   })
   .openapi('OnboardingReceipt');
+
+const ActionService = z
+  .object({
+    id: uuid,
+    slug: z.string(),
+    name: z.string(),
+    description: z.string(),
+    audience: serviceAudience,
+    active: z.boolean(),
+    slaHours: z.number().int().nullable(),
+    requiresApproval: z.boolean(),
+    createdAt: z.string().datetime(),
+    updatedAt: z.string().datetime(),
+  })
+  .openapi('ActionService');
+
+const ServiceRequestPerson = z.object({
+  id: uuid,
+  name: z.string(),
+  email: z.string().email(),
+});
+
+const ServiceRequestEvent = z.object({
+  id: uuid,
+  type: z.enum(['CREATED', 'STATUS_CHANGED', 'COMMENT', 'ASSIGNED']),
+  message: z.string(),
+  createdAt: z.string().datetime(),
+  actor: ServiceRequestPerson.nullable(),
+});
+
+const ServiceRequest = z
+  .object({
+    id: uuid,
+    subject: z.string(),
+    description: z.string(),
+    priority: serviceRequestPriority,
+    status: serviceRequestStatus,
+    source: z.enum(['WEB', 'ASSISTANT', 'MCP']),
+    resolution: z.string().nullable(),
+    resolvedAt: z.string().datetime().nullable(),
+    createdAt: z.string().datetime(),
+    updatedAt: z.string().datetime(),
+    service: ActionService,
+    requester: ServiceRequestPerson,
+    assignee: ServiceRequestPerson.nullable(),
+    events: z.array(ServiceRequestEvent),
+  })
+  .openapi('ServiceRequest');
+
+const ActionDeskWorkspace = z
+  .object({
+    canManage: z.boolean(),
+    currentUserId: uuid,
+    services: z.array(ActionService),
+    requests: z.array(ServiceRequest),
+  })
+  .openapi('ActionDeskWorkspace');
 
 const TimeOffWorkspace = z
   .object({
@@ -721,6 +791,160 @@ registry.registerPath({
 });
 registry.registerPath({
   method: 'get',
+  path: '/api/v1/teams/{teamId}/action-desk',
+  tags: ['Action Desk'],
+  summary: 'Get the service catalog and authorized request queue',
+  security,
+  request: { params: teamParams },
+  responses: {
+    200: {
+      description: 'Action Desk workspace',
+      content: json(data(ActionDeskWorkspace)),
+    },
+    ...problemResponses,
+  },
+});
+registry.registerPath({
+  method: 'get',
+  path: '/api/v1/teams/{teamId}/action-desk/services',
+  tags: ['Action Desk'],
+  summary: 'List services in the team catalog',
+  security,
+  request: { params: teamParams },
+  responses: {
+    200: { description: 'Service catalog', content: json(list(ActionService)) },
+    ...problemResponses,
+  },
+});
+registry.registerPath({
+  method: 'post',
+  path: '/api/v1/teams/{teamId}/action-desk/services',
+  tags: ['Action Desk'],
+  summary: 'Add a service to the team catalog',
+  security,
+  request: {
+    params: teamParams,
+    body: {
+      content: json(
+        z.object({
+          name: z.string().min(1).max(100),
+          description: z.string().min(1).max(500),
+          audience: serviceAudience,
+          active: z.boolean().optional(),
+          slaHours: z.number().int().min(1).max(8760).nullable().optional(),
+          requiresApproval: z.boolean().optional(),
+        })
+      ),
+    },
+  },
+  responses: {
+    201: { description: 'Created service', content: json(data(ActionService)) },
+    ...problemResponses,
+  },
+});
+registry.registerPath({
+  method: 'patch',
+  path: '/api/v1/teams/{teamId}/action-desk/services/{serviceId}',
+  tags: ['Action Desk'],
+  summary: 'Update a catalog service',
+  security,
+  request: {
+    params: z.object({ teamId: uuid, serviceId: uuid }),
+    body: {
+      content: json(
+        z.object({
+          name: z.string().min(1).max(100),
+          description: z.string().min(1).max(500),
+          audience: serviceAudience,
+          active: z.boolean(),
+          slaHours: z.number().int().min(1).max(8760).nullable(),
+          requiresApproval: z.boolean(),
+        })
+      ),
+    },
+  },
+  responses: {
+    200: { description: 'Updated service', content: json(data(ActionService)) },
+    ...problemResponses,
+  },
+});
+registry.registerPath({
+  method: 'get',
+  path: '/api/v1/teams/{teamId}/action-desk/requests',
+  tags: ['Action Desk'],
+  summary: 'List authorized service requests',
+  security,
+  request: {
+    params: teamParams,
+    query: z.object({
+      status: serviceRequestStatus.optional(),
+      requesterId: uuid.optional(),
+    }),
+  },
+  responses: {
+    200: {
+      description: 'Service requests',
+      content: json(list(ServiceRequest)),
+    },
+    ...problemResponses,
+  },
+});
+registry.registerPath({
+  method: 'post',
+  path: '/api/v1/teams/{teamId}/action-desk/requests',
+  tags: ['Action Desk'],
+  summary: 'Create a service request',
+  security,
+  request: {
+    params: teamParams,
+    body: {
+      content: json(
+        z.object({
+          requesterId: uuid.optional(),
+          serviceId: uuid,
+          subject: z.string().min(1).max(160),
+          description: z.string().min(1).max(2000),
+          priority: serviceRequestPriority.default('NORMAL'),
+          source: z.enum(['WEB', 'ASSISTANT', 'MCP']).default('WEB'),
+        })
+      ),
+    },
+  },
+  responses: {
+    201: {
+      description: 'Created request',
+      content: json(data(ServiceRequest)),
+    },
+    ...problemResponses,
+  },
+});
+registry.registerPath({
+  method: 'patch',
+  path: '/api/v1/teams/{teamId}/action-desk/requests/{requestId}',
+  tags: ['Action Desk'],
+  summary: 'Move a service request through the queue',
+  security,
+  request: {
+    params: z.object({ teamId: uuid, requestId: uuid }),
+    body: {
+      content: json(
+        z.object({
+          status: serviceRequestStatus,
+          note: z.string().max(1000).nullable().optional(),
+        })
+      ),
+    },
+  },
+  responses: {
+    200: {
+      description: 'Updated request',
+      content: json(data(ServiceRequest)),
+    },
+    ...problemResponses,
+  },
+});
+registry.registerPath({
+  method: 'get',
   path: '/api/v1/teams/{teamId}/time-off/requests',
   tags: ['Time Off'],
   summary: 'List time-off requests',
@@ -890,6 +1114,8 @@ const idempotentPaths = new Set([
   '/api/v1/teams',
   '/api/v1/teams/{teamId}/invitations',
   '/api/v1/teams/{teamId}/time-off/requests',
+  '/api/v1/teams/{teamId}/action-desk/services',
+  '/api/v1/teams/{teamId}/action-desk/requests',
   '/api/v1/teams/{teamId}/credentials',
   '/api/v1/teams/{teamId}/oauth-clients',
   '/api/v1/teams/{teamId}/webhooks',
@@ -926,6 +1152,10 @@ export const getOpenApiDocument = () => {
       {
         name: 'Time Off',
         description: 'Time-off requests, balances, and policies.',
+      },
+      {
+        name: 'Action Desk',
+        description: 'Configurable services and end-user request operations.',
       },
       {
         name: 'Credentials',

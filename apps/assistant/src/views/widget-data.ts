@@ -1,6 +1,8 @@
 import {
   balanceItemSchema,
+  actionServicesOutputSchema,
   equipmentRequestSchema,
+  serviceRequestsOutputSchema,
   timeOffAssessmentSchema,
   timeOffReceiptSchema,
   timeOffRequestSchema,
@@ -128,6 +130,43 @@ export type EquipmentRequestsViewData = {
 
 export type EquipmentRequestsViewState = LoadState<EquipmentRequestsViewData>;
 
+export type ActionServiceItem = {
+  readonly id: string;
+  readonly name: string;
+  readonly description: string;
+  readonly audience: 'PUBLIC' | 'CUSTOMER' | 'EMPLOYEE';
+  readonly slaHours: number | null;
+  readonly requiresApproval: boolean;
+};
+
+export type ActionServicesViewData = {
+  readonly team: string;
+  readonly services: readonly ActionServiceItem[];
+};
+
+export type ActionServicesViewState = LoadState<ActionServicesViewData>;
+
+export type ServiceRequestItem = {
+  readonly id: string;
+  readonly subject: string;
+  readonly description: string;
+  readonly priority: 'LOW' | 'NORMAL' | 'HIGH' | 'URGENT';
+  readonly status:
+    'OPEN' | 'IN_PROGRESS' | 'WAITING_ON_REQUESTER' | 'RESOLVED' | 'CANCELED';
+  readonly serviceName: string;
+  readonly requesterName?: string;
+  readonly resolution?: string;
+  readonly activityCount: number;
+};
+
+export type ServiceRequestsViewData = {
+  readonly team: string;
+  readonly activeCount: number;
+  readonly requests: readonly ServiceRequestItem[];
+};
+
+export type ServiceRequestsViewState = LoadState<ServiceRequestsViewData>;
+
 const TIME_OFF_TYPES = ['VACATION', 'SICK', 'PERSONAL', 'UNPAID'] as const;
 type TimeOffType = (typeof TIME_OFF_TYPES)[number];
 
@@ -162,8 +201,7 @@ const isDateOnly = (value: unknown): value is string => {
   }
   const date = new Date(`${value}T00:00:00.000Z`);
   return (
-    !Number.isNaN(date.getTime()) &&
-    date.toISOString().slice(0, 10) === value
+    !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value
   );
 };
 
@@ -187,7 +225,9 @@ const statusState = <T>(
   return undefined;
 };
 
-const parseBalance = (value: unknown): Omit<BalanceItem, 'type' | 'label'> | undefined => {
+const parseBalance = (
+  value: unknown
+): Omit<BalanceItem, 'type' | 'label'> | undefined => {
   const parsed = balanceItemSchema.safeParse(value);
   if (!parsed.success) return undefined;
   const balance = parsed.data;
@@ -282,7 +322,9 @@ const requesterName = (value: unknown) => {
   return optionalString(value.name);
 };
 
-const parseTimeOffRequest = (value: unknown): TimeOffRequestItem | undefined => {
+const parseTimeOffRequest = (
+  value: unknown
+): TimeOffRequestItem | undefined => {
   const parsed = timeOffRequestSchema.safeParse(value);
   if (
     !parsed.success ||
@@ -372,7 +414,8 @@ export function normalizeTimeOffRequests(
 
   const data = {
     team: input.team,
-    pendingCount: requests.filter((request) => request.status === 'PENDING').length,
+    pendingCount: requests.filter((request) => request.status === 'PENDING')
+      .length,
     requests,
   };
   const omitted = input.requests.length - requests.length;
@@ -411,7 +454,10 @@ export function normalizeBookingReceipt(
     request.endDate !== receipt.endDate ||
     receipt.team !== input.team
   ) {
-    return { kind: 'error', message: 'The booking receipt did not match the request.' };
+    return {
+      kind: 'error',
+      message: 'The booking receipt did not match the request.',
+    };
   }
 
   return {
@@ -460,7 +506,8 @@ export function normalizeEquipmentRequests(
 
   const data = {
     team: input.team,
-    pendingCount: requests.filter((request) => request.status === 'PENDING').length,
+    pendingCount: requests.filter((request) => request.status === 'PENDING')
+      .length,
     requests,
   };
   const omitted = input.requests.length - requests.length;
@@ -471,6 +518,82 @@ export function normalizeEquipmentRequests(
         message: `${omitted === 1 ? 'One request' : `${omitted} requests`} could not be displayed.`,
       }
     : { kind: 'ready', data };
+}
+
+export function normalizeActionServices(
+  input: unknown,
+  status?: ToolResultStatus
+): ActionServicesViewState {
+  const currentState = statusState<ActionServicesViewData>(
+    status,
+    "We couldn't load the service catalog."
+  );
+  if (currentState) return currentState;
+  const parsed = actionServicesOutputSchema.safeParse(input);
+  if (!parsed.success) {
+    return { kind: 'error', message: 'The service catalog was incomplete.' };
+  }
+  const services = parsed.data.services
+    .filter((service) => service.active)
+    .map((service) => ({
+      id: service.id,
+      name: service.name,
+      description: service.description,
+      audience: service.audience,
+      slaHours: service.slaHours,
+      requiresApproval: service.requiresApproval,
+    }));
+  if (!services.length) {
+    return {
+      kind: 'empty',
+      message: 'No Action Desk services are active yet.',
+    };
+  }
+  return { kind: 'ready', data: { team: parsed.data.team, services } };
+}
+
+export function normalizeServiceRequests(
+  input: unknown,
+  status?: ToolResultStatus
+): ServiceRequestsViewState {
+  const currentState = statusState<ServiceRequestsViewData>(
+    status,
+    "We couldn't load the Action Desk requests."
+  );
+  if (currentState) return currentState;
+  const parsed = serviceRequestsOutputSchema.safeParse(input);
+  if (!parsed.success) {
+    return { kind: 'error', message: 'The Action Desk result was incomplete.' };
+  }
+  if (!parsed.data.requests.length) {
+    return { kind: 'empty', message: 'No Action Desk requests yet.' };
+  }
+  const requests = parsed.data.requests.map((request) => ({
+    id: request.id,
+    subject: request.subject,
+    description: request.description,
+    priority: request.priority,
+    status: request.status,
+    serviceName: request.service.name,
+    ...(requesterName(request.requester)
+      ? { requesterName: requesterName(request.requester) }
+      : {}),
+    ...(optionalString(request.resolution)
+      ? { resolution: optionalString(request.resolution) }
+      : {}),
+    activityCount: request.events.length,
+  }));
+  return {
+    kind: 'ready',
+    data: {
+      team: parsed.data.team,
+      activeCount: requests.filter(
+        (request) =>
+          request.status !== 'RESOLVED' && request.status !== 'CANCELED'
+      ).length,
+      requests,
+    },
+  };
 }
 
 export function formatHalfDays(value: number) {

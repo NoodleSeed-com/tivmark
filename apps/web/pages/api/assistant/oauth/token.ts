@@ -15,9 +15,8 @@ import { issueAccessToken } from '@/lib/api/oauth';
 
 const GRANT = 'urn:ietf:params:oauth:grant-type:token-exchange';
 const TOKEN_URL = `${env.appUrl}/api/assistant/oauth/token`;
-// The scopes the assistant may act with. Time-off and equipment reads/writes plus the reviewer
-// sub-scopes and team listing. (Approve for a *user* principal is authorized by role, not this scope;
-// it is requested for intent/forward-compat.)
+// The scopes the assistant may act with. Queue-management scopes still require OWNER/ADMIN role at
+// the team API boundary; this allowlist expresses intent and cannot grant that role by itself.
 const ALLOWED_SCOPES = new Set([
   'teams',
   'time_off',
@@ -25,6 +24,8 @@ const ALLOWED_SCOPES = new Set([
   'time_off.policy',
   'equipment',
   'equipment.approve',
+  'service_requests',
+  'service_requests.manage',
 ]);
 
 // Cache the remote JWKS across warm invocations.

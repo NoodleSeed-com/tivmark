@@ -54,6 +54,40 @@ enum EquipmentStatus {
   CANCELED
 }
 
+enum ServiceAudience {
+  PUBLIC
+  CUSTOMER
+  EMPLOYEE
+}
+
+enum ServiceRequestStatus {
+  OPEN
+  IN_PROGRESS
+  WAITING_ON_REQUESTER
+  RESOLVED
+  CANCELED
+}
+
+enum ServiceRequestPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum ServiceRequestSource {
+  WEB
+  ASSISTANT
+  MCP
+}
+
+enum ServiceRequestEventType {
+  CREATED
+  STATUS_CHANGED
+  COMMENT
+  ASSIGNED
+}
+
 model Account {
   id                String  @id @default(uuid())
   userId            String
@@ -113,6 +147,9 @@ model User {
   reviewedTimeOffRequests   TimeOffRequest[]   @relation("TimeOffReviewer")
   equipmentRequests         EquipmentRequest[] @relation("EquipmentRequester")
   reviewedEquipmentRequests EquipmentRequest[] @relation("EquipmentReviewer")
+  serviceRequests            ServiceRequest[]  @relation("ServiceRequester")
+  assignedServiceRequests    ServiceRequest[]  @relation("ServiceAssignee")
+  serviceRequestEvents       ServiceRequestEvent[]
 }
 
 model Team {
@@ -135,6 +172,8 @@ model Team {
   timeOffPolicies       TimeOffPolicy[]
   timeOffRequests       TimeOffRequest[]
   equipmentRequests     EquipmentRequest[]
+  actionServices        ActionService[]
+  serviceRequests       ServiceRequest[]
   oauthClients          OAuthClient[]
 
   @@index([billingId])
@@ -204,6 +243,67 @@ model EquipmentRequest {
   @@index([teamId, status])
   @@index([teamId, requesterId])
   @@index([teamId, createdAt])
+}
+
+model ActionService {
+  id               String          @id @default(uuid())
+  teamId           String
+  slug             String          @db.VarChar(80)
+  name             String          @db.VarChar(100)
+  description      String          @db.VarChar(500)
+  audience         ServiceAudience @default(CUSTOMER)
+  active           Boolean         @default(true)
+  slaHours         Int?
+  requiresApproval Boolean         @default(false)
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  team     Team             @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  requests ServiceRequest[]
+
+  @@unique([teamId, slug])
+  @@index([teamId, active])
+}
+
+model ServiceRequest {
+  id          String                 @id @default(uuid())
+  teamId      String
+  serviceId   String
+  requesterId String
+  assigneeId  String?
+  subject     String                 @db.VarChar(160)
+  description String                 @db.VarChar(2000)
+  priority    ServiceRequestPriority @default(NORMAL)
+  status      ServiceRequestStatus   @default(OPEN)
+  source      ServiceRequestSource   @default(WEB)
+  resolution  String?                @db.VarChar(1000)
+  resolvedAt  DateTime?
+  createdAt   DateTime               @default(now())
+  updatedAt   DateTime               @updatedAt
+
+  team      Team           @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  service   ActionService  @relation(fields: [serviceId], references: [id], onDelete: Restrict)
+  requester User           @relation("ServiceRequester", fields: [requesterId], references: [id], onDelete: Cascade)
+  assignee  User?          @relation("ServiceAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  events    ServiceRequestEvent[]
+
+  @@index([teamId, status, createdAt])
+  @@index([teamId, requesterId, createdAt])
+  @@index([serviceId])
+}
+
+model ServiceRequestEvent {
+  id        String                  @id @default(uuid())
+  requestId String
+  actorId   String?
+  type      ServiceRequestEventType
+  message   String                  @db.VarChar(1000)
+  createdAt DateTime                @default(now())
+
+  request ServiceRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  actor   User?          @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([requestId, createdAt])
 }
 
 model TeamMember {

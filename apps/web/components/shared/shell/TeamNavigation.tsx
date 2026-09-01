@@ -1,5 +1,6 @@
 import {
   CalendarDaysIcon,
+  ChatBubbleLeftRightIcon,
   Cog6ToothIcon,
   ComputerDesktopIcon,
   SparklesIcon,
@@ -17,6 +18,7 @@ interface TeamNavigationLabels {
   mark: string;
   timeOff: string;
   equipment: string;
+  actionDesk: string;
   settings: string;
 }
 
@@ -27,6 +29,12 @@ export function buildTeamNavigation(
   openMark: () => void = () => openAssistant()
 ): MenuItem[] {
   return [
+    {
+      name: labels.actionDesk,
+      href: `/teams/${slug}/action-desk`,
+      icon: ChatBubbleLeftRightIcon,
+      active: activePathname === `/teams/${slug}/action-desk`,
+    },
     {
       name: labels.timeOff,
       href: `/teams/${slug}/time-off`,
@@ -54,6 +62,7 @@ export function buildTeamNavigation(
         activePathname?.startsWith(`/teams/${slug}`) &&
         !activePathname.includes('time-off') &&
         !activePathname.includes('equipment') &&
+        !activePathname.includes('action-desk') &&
         !activePathname.includes('products'),
     },
   ];
@@ -66,6 +75,7 @@ const TeamNavigation = ({ slug, activePathname }: NavigationItemsProps) => {
     mark: t('mark'),
     timeOff: t('time-off'),
     equipment: t('equipment'),
+    actionDesk: t('action-desk'),
     settings: t('settings'),
   });
 
