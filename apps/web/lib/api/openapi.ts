@@ -46,6 +46,8 @@ const uuid = z.string().uuid();
 const role = z.enum(['OWNER', 'ADMIN', 'MEMBER']);
 const leaveType = z.enum(['VACATION', 'SICK', 'PERSONAL', 'UNPAID']);
 const leaveStatus = z.enum(['PENDING', 'APPROVED', 'DECLINED', 'CANCELED']);
+const businessSizeBand = z.enum(['1-10', '11-50', '51-200', '201+']);
+const onboardingGoal = z.enum(['TIME_OFF', 'EQUIPMENT', 'BOTH']);
 
 const Problem = z
   .object({
@@ -74,6 +76,10 @@ const Team = z
     slug: z.string(),
     domain: z.string().nullable(),
     defaultRole: role,
+    businessSizeBand: businessSizeBand.nullable(),
+    timeZone: z.string().nullable(),
+    onboardingGoal: onboardingGoal.nullable(),
+    onboardingCompletedAt: z.string().datetime().nullable(),
     createdAt: z.string().datetime(),
     updatedAt: z.string().datetime(),
   })
@@ -179,6 +185,45 @@ const TimeOffReceipt = z.object({
   authenticated: z.literal(true),
 });
 
+const OnboardingBlueprint = z
+  .object({
+    businessName: z.string().trim().min(3).max(100),
+    teamSize: businessSizeBand,
+    timeZone: z.string().min(1).max(100),
+    primaryGoal: onboardingGoal,
+    vacationAllowanceDays: z.number().int().min(0).max(365),
+    sickAllowanceDays: z.number().int().min(0).max(365),
+    personalAllowanceDays: z.number().int().min(0).max(365),
+  })
+  .openapi('OnboardingBlueprint');
+
+const OnboardingReceipt = z
+  .object({
+    status: z.literal('READY'),
+    team: z.object({
+      id: uuid,
+      name: z.string(),
+      slug: z.string(),
+      teamSize: businessSizeBand.nullable(),
+      timeZone: z.string().nullable(),
+      primaryGoal: onboardingGoal.nullable(),
+      primaryGoalLabel: z.string(),
+      onboardingCompletedAt: z.string().datetime(),
+    }),
+    policies: z.array(
+      z.object({
+        type: leaveType,
+        allowanceHalfDays: z.number().int().nullable(),
+        allowanceDays: z.number().nullable(),
+      })
+    ),
+    nextSteps: z.array(
+      z.object({ id: z.string(), label: z.string(), url: z.string().url() })
+    ),
+    authenticated: z.literal(true),
+  })
+  .openapi('OnboardingReceipt');
+
 const TimeOffWorkspace = z
   .object({
     year: z.number().int(),
@@ -239,6 +284,22 @@ registry.registerPath({
   security,
   responses: {
     200: { description: 'Current user', content: json(data(User)) },
+    ...problemResponses,
+  },
+});
+
+registry.registerPath({
+  method: 'post',
+  path: '/api/v1/onboarding/complete',
+  tags: ['Onboarding'],
+  summary: 'Create or configure the signed-in owner’s business workspace',
+  security,
+  request: { body: { content: json(OnboardingBlueprint) } },
+  responses: {
+    200: {
+      description: 'Configured workspace receipt',
+      content: json(data(OnboardingReceipt)),
+    },
     ...problemResponses,
   },
 });
@@ -825,6 +886,7 @@ const operationIdFor = (method: string, path: string) =>
     .replace(/^_|_$/g, '')}`;
 
 const idempotentPaths = new Set([
+  '/api/v1/onboarding/complete',
   '/api/v1/teams',
   '/api/v1/teams/{teamId}/invitations',
   '/api/v1/teams/{teamId}/time-off/requests',
@@ -851,6 +913,10 @@ export const getOpenApiDocument = () => {
     servers: [{ url: 'https://app.tivmark.com', description: 'Production' }],
     tags: [
       { name: 'Profile', description: 'Current-user profile and sessions.' },
+      {
+        name: 'Onboarding',
+        description: 'Conversational business setup and activation.',
+      },
       { name: 'Teams', description: 'Team lifecycle and settings.' },
       { name: 'Members', description: 'Team membership and roles.' },
       {

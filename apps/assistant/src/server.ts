@@ -33,7 +33,7 @@ export default server(
   'tivmark_assistant',
   {
     title: 'Mark',
-    version: '1.2.0',
+    version: '1.3.0',
     interactions: { confirmationFallback: 'host' },
     instructions: createInstructions(),
     agentGuide: createAgentGuide(),
@@ -106,6 +106,7 @@ export default server(
             { kind: 'tool', name: 'equipment_guide' },
             { kind: 'tool', name: 'getting_started_guide' },
             { kind: 'tool', name: 'trust_and_security' },
+            { kind: 'tool', name: 'design_business_workspace' },
             // Identity-gated: delegated-connector-backed, so for an anonymous visitor the
             // service intercepts the call into the sign-in card (r601 classifies on the
             // connector's auth kind -- no `${user}` trick needed). Listing them here is what
@@ -118,6 +119,7 @@ export default server(
             { kind: 'tool', name: 'my_time_off' },
             { kind: 'tool', name: 'my_equipment' },
             { kind: 'tool', name: 'book_time_off' },
+            { kind: 'tool', name: 'complete_business_onboarding' },
           ],
         }),
         // The signed-in product. `capabilities` is omitted deliberately: an authenticated
@@ -160,10 +162,15 @@ export default server(
         composerPlaceholder: 'Message Mark…',
         open: 'Open Mark',
         close: 'Close Mark',
+        signInHeading: 'Save your Tivmark workspace',
+        signInBody:
+          'Sign in or create an account to keep this conversation and apply your blueprint.',
+        signInAction: 'Sign in',
+        signUpAction: 'Create account',
       },
       suggestedPrompts: [
-        // The most prominent prompt must work before sign-in.
-        'What can Tivmark do?',
+        // The flagship demo begins anonymously and becomes an authenticated confirmed write.
+        'Help me set up Tivmark for my business.',
         // The flagship public-to-action demo. It begins anonymously, raises sign-in at the
         // planning read, then resumes the same request as an authenticated confirmed write.
         'Can I take next Friday off? If so, book it.',
@@ -178,10 +185,11 @@ export default server(
     createTeamContextTool(toolConfig),
     publicTools.talkToSales,
     ...createGuideTools(toolConfig),
+    ...createOnboardingTools(contracts, toolConfig),
     ...createTimeOffTools(contracts, toolConfig),
     ...createEquipmentTools(contracts, toolConfig),
     ...createReviewTools(contracts, toolConfig),
-  ],
+  ]
 );
 
 // ---------------------------------------------------------------------------
@@ -285,6 +293,68 @@ function createContracts() {
     remainingAfterPendingHalfDays: z.number().nullable(),
     authenticated: z.boolean(),
   });
+  const businessSizeBand = z.enum(['1-10', '11-50', '51-200', '201+']);
+  const onboardingGoal = z.enum(['TIME_OFF', 'EQUIPMENT', 'BOTH']);
+  const onboardingBlueprintSchema = z.object({
+    businessName: z.string().min(3).max(100).describe('Business name'),
+    teamSize: businessSizeBand.describe('Number of people'),
+    timeZone: z
+      .string()
+      .min(1)
+      .max(100)
+      .describe('IANA time zone, for example America/Los_Angeles'),
+    primaryGoal: onboardingGoal.describe('First workflow to launch'),
+    vacationAllowanceDays: z
+      .number()
+      .int()
+      .min(0)
+      .max(365)
+      .describe('Annual vacation allowance in days'),
+    sickAllowanceDays: z
+      .number()
+      .int()
+      .min(0)
+      .max(365)
+      .describe('Annual sick allowance in days'),
+    personalAllowanceDays: z
+      .number()
+      .int()
+      .min(0)
+      .max(365)
+      .describe('Annual personal allowance in days'),
+  });
+  const onboardingReceiptSchema = z.object({
+    status: z.literal('READY'),
+    team: z.object({
+      id: z.string(),
+      name: z.string(),
+      slug: z.string(),
+      teamSize: businessSizeBand.nullable(),
+      timeZone: z.string().nullable(),
+      primaryGoal: onboardingGoal.nullable(),
+      primaryGoalLabel: z.string(),
+      onboardingCompletedAt: z.string(),
+    }),
+    policies: z
+      .array(
+        z.object({
+          type: z.string(),
+          allowanceHalfDays: z.number().nullable(),
+          allowanceDays: z.number().nullable(),
+        })
+      )
+      .max(4),
+    nextSteps: z
+      .array(
+        z.object({
+          id: z.string(),
+          label: z.string(),
+          url: z.string(),
+        })
+      )
+      .max(2),
+    authenticated: z.boolean(),
+  });
 
   return {
     leaveType,
@@ -308,6 +378,10 @@ function createContracts() {
     }),
     timeOffAssessmentSchema,
     timeOffReceiptSchema,
+    businessSizeBand,
+    onboardingGoal,
+    onboardingBlueprintSchema,
+    onboardingReceiptSchema,
   };
 }
 
@@ -323,6 +397,8 @@ function createTivmarkConnector({
   timeOffBalanceOutputSchema,
   timeOffAssessmentSchema,
   timeOffReceiptSchema,
+  onboardingBlueprintSchema,
+  onboardingReceiptSchema,
 }: Contracts) {
   // Every call runs as the signed-in user through delegated token exchange;
   // Tivmark's API remains the authorization boundary.
@@ -339,6 +415,7 @@ function createTivmarkConnector({
         scopes: [
           'teams',
           'time_off',
+          'time_off.policy',
           'time_off.approve',
           'equipment',
           'equipment.approve',
@@ -353,6 +430,23 @@ function createTivmarkConnector({
           input: z.object({}),
           output: z.object({ teams: z.array(z.unknown()) }),
           response: { teams: '${response.data}' },
+        },
+        complete_onboarding: {
+          type: 'action',
+          method: 'POST',
+          path: '/onboarding/complete',
+          input: onboardingBlueprintSchema,
+          request: {
+            businessName: '${args.businessName}',
+            teamSize: '${args.teamSize}',
+            timeZone: '${args.timeZone}',
+            primaryGoal: '${args.primaryGoal}',
+            vacationAllowanceDays: '${args.vacationAllowanceDays}',
+            sickAllowanceDays: '${args.sickAllowanceDays}',
+            personalAllowanceDays: '${args.personalAllowanceDays}',
+          },
+          output: z.object({ receipt: onboardingReceiptSchema }),
+          response: { receipt: '${response.data}' },
         },
         get_balances: {
           type: 'read',
@@ -555,10 +649,18 @@ function createKnowledge() {
         sourceUrl: 'https://tivmark.com/#features',
       }),
       file('./knowledge/time-off.md', { title: 'Time off in Tivmark' }),
-      file('./knowledge/equipment.md', { title: 'Equipment requests in Tivmark' }),
-      file('./knowledge/teams-and-roles.md', { title: 'Teams, roles, and access' }),
-      file('./knowledge/getting-started.md', { title: 'Getting started with Tivmark' }),
-      file('./knowledge/security-and-privacy.md', { title: 'Security and privacy' }),
+      file('./knowledge/equipment.md', {
+        title: 'Equipment requests in Tivmark',
+      }),
+      file('./knowledge/teams-and-roles.md', {
+        title: 'Teams, roles, and access',
+      }),
+      file('./knowledge/getting-started.md', {
+        title: 'Getting started with Tivmark',
+      }),
+      file('./knowledge/security-and-privacy.md', {
+        title: 'Security and privacy',
+      }),
     ],
     // The marketing site is a single page, and nginx serves it for every path, so a wider
     // glob would crawl the same document under unbounded URLs. Scope it to the one page.
@@ -594,7 +696,7 @@ function createPublicTools({ readOnly, widgetCsp }: ToolConfig) {
             label: z.string(),
             url: z.string(),
             detail: z.string(),
-          }),
+          })
         ),
       }),
       fulfil: () => ({
@@ -633,6 +735,86 @@ function createPublicTools({ readOnly, widgetCsp }: ToolConfig) {
   };
 }
 
+// One capability deliberately spans Tivmark's two surfaces. The blueprint is a pure,
+// anonymous planning result that the marketing host may use as untrusted prefill. Creating
+// the workspace is a separate delegated, confirmed action, so neither a cookie nor a model
+// utterance can cross the write boundary by itself.
+function createOnboardingTools(
+  { onboardingBlueprintSchema, onboardingReceiptSchema }: Contracts,
+  { readOnly, confirmed, widgetCsp, widgetDomain }: ToolConfig
+) {
+  return [
+    tool('design_business_workspace', {
+      title: 'Design a business workspace',
+      description:
+        'Turn the collected business name, size, IANA time zone, first workflow, and starter ' +
+        'leave allowances into a Tivmark workspace blueprint. Ask concise questions until every ' +
+        'field is known. This is anonymous planning only and does not create an account or change data.',
+      annotations: readOnly,
+      input: onboardingBlueprintSchema,
+      output: onboardingBlueprintSchema.extend({
+        policySummary: z.string(),
+        nextSteps: z.array(z.string()).max(3),
+      }),
+      fulfil: ({ input }) => ({
+        ...input,
+        policySummary:
+          `${input.vacationAllowanceDays} vacation, ${input.sickAllowanceDays} sick, and ` +
+          `${input.personalAllowanceDays} personal days per year, tracked in half-days.`,
+        nextSteps: [
+          'Create or sign in to a Tivmark owner account.',
+          'Review the exact workspace and policy configuration.',
+          'Confirm once to create and configure the workspace.',
+        ],
+      }),
+      viewTitle: 'Tivmark workspace blueprint',
+      viewDescription:
+        'The business profile, starter policy, and cross-surface setup plan.',
+      invoking: 'Designing your workspace…',
+      invoked: 'Your workspace blueprint is ready',
+      domain: 'https://tivmark.com',
+      csp: widgetCsp,
+      view: {
+        component: 'workspace-blueprint',
+        entry: './views/workspace-blueprint.tsx',
+      },
+    }),
+    tool('complete_business_onboarding', {
+      title: 'Create and configure business workspace',
+      description:
+        'Create or configure the signed-in owner’s Tivmark workspace from an existing blueprint. ' +
+        'Preserve every blueprint value exactly and call only after the user asks to create it. ' +
+        'This authenticated action shows the complete business profile and leave allowances for confirmation.',
+      annotations: confirmed,
+      input: onboardingBlueprintSchema,
+      output: z.object({ receipt: onboardingReceiptSchema }),
+      fulfil: ({ input, connectors }) => {
+        const result = connectors.tiv.complete_onboarding({
+          businessName: input.businessName,
+          teamSize: input.teamSize,
+          timeZone: input.timeZone,
+          primaryGoal: input.primaryGoal,
+          vacationAllowanceDays: input.vacationAllowanceDays,
+          sickAllowanceDays: input.sickAllowanceDays,
+          personalAllowanceDays: input.personalAllowanceDays,
+        });
+        return { receipt: result.receipt };
+      },
+      viewTitle: 'Workspace ready',
+      viewDescription:
+        'Authenticated receipt for the business profile and starter policy now live in Tivmark.',
+      invoking: 'Creating and configuring your workspace…',
+      invoked: 'Your workspace is ready',
+      domain: widgetDomain,
+      csp: widgetCsp,
+      view: {
+        component: 'workspace-ready',
+        entry: './views/workspace-ready.tsx',
+      },
+    }),
+  ];
+}
+
 // Branded explainer cards for the public site. Like talk_to_sales they touch no
 // connector and reference no `${user}`, so an anonymous visitor can run them -- they are
 // the card-shaped versions of the knowledge answers, sourced from src/knowledge/*.md.
@@ -657,11 +839,13 @@ function createGuideTools({ readOnly, widgetCsp }: ToolConfig) {
         features: [
           {
             title: 'Time off',
-            detail: 'Balances, requests, and approvals per team, counted in half-days.',
+            detail:
+              'Balances, requests, and approvals per team, counted in half-days.',
           },
           {
             title: 'Equipment',
-            detail: 'Request, approve, and fulfil hardware without a spreadsheet.',
+            detail:
+              'Request, approve, and fulfil hardware without a spreadsheet.',
           },
           {
             title: 'Approvals',
@@ -707,10 +891,10 @@ function createGuideTools({ readOnly, widgetCsp }: ToolConfig) {
       input: z.object({}),
       output: z.object({
         leaveTypes: z.array(
-          z.object({ type: z.string(), label: z.string(), detail: z.string() }),
+          z.object({ type: z.string(), label: z.string(), detail: z.string() })
         ),
         balanceParts: z.array(
-          z.object({ term: z.string(), detail: z.string() }),
+          z.object({ term: z.string(), detail: z.string() })
         ),
         note: z.string(),
       }),
@@ -771,15 +955,27 @@ function createGuideTools({ readOnly, widgetCsp }: ToolConfig) {
             category: z.string(),
             label: z.string(),
             examples: z.string(),
-          }),
+          })
         ),
         lifecycle: z.array(z.object({ stage: z.string(), detail: z.string() })),
       }),
       fulfil: () => ({
         categories: [
-          { category: 'LAPTOP', label: 'Laptop', examples: 'Work laptops and docking stations' },
-          { category: 'MONITOR', label: 'Monitor', examples: 'External displays' },
-          { category: 'PHONE', label: 'Phone', examples: 'Work phones and tablets' },
+          {
+            category: 'LAPTOP',
+            label: 'Laptop',
+            examples: 'Work laptops and docking stations',
+          },
+          {
+            category: 'MONITOR',
+            label: 'Monitor',
+            examples: 'External displays',
+          },
+          {
+            category: 'PHONE',
+            label: 'Phone',
+            examples: 'Work phones and tablets',
+          },
           {
             category: 'PERIPHERAL',
             label: 'Peripheral',
@@ -790,7 +986,11 @@ function createGuideTools({ readOnly, widgetCsp }: ToolConfig) {
             label: 'Furniture',
             examples: 'Desks, chairs, standing desk converters',
           },
-          { category: 'OTHER', label: 'Other', examples: 'Anything that fits no category' },
+          {
+            category: 'OTHER',
+            label: 'Other',
+            examples: 'Anything that fits no category',
+          },
         ],
         lifecycle: [
           { stage: 'Pending', detail: 'Submitted and waiting for a reviewer.' },
@@ -833,19 +1033,23 @@ function createGuideTools({ readOnly, widgetCsp }: ToolConfig) {
           },
           {
             title: 'Create your first team',
-            detail: 'Name it and give it a slug; split into more teams as you grow.',
+            detail:
+              'Name it and give it a slug; split into more teams as you grow.',
           },
           {
             title: 'Set allowances',
-            detail: 'Vacation, sick, personal, and unpaid — any type can be unlimited.',
+            detail:
+              'Vacation, sick, personal, and unpaid — any type can be unlimited.',
           },
           {
             title: 'Invite people',
-            detail: 'By email, or connect SCIM so your directory does it for you.',
+            detail:
+              'By email, or connect SCIM so your directory does it for you.',
           },
           {
             title: 'Assign reviewers',
-            detail: 'Make the right people owners or admins before members arrive.',
+            detail:
+              'Make the right people owners or admins before members arrive.',
           },
         ],
       }),
@@ -876,23 +1080,28 @@ function createGuideTools({ readOnly, widgetCsp }: ToolConfig) {
         points: [
           {
             title: 'Sign-in',
-            detail: 'Password or SAML SSO; SCIM keeps accounts in step with your directory.',
+            detail:
+              'Password or SAML SSO; SCIM keeps accounts in step with your directory.',
           },
           {
             title: 'Visibility',
-            detail: 'Per team, not per company — nobody sees another team\u2019s data.',
+            detail:
+              'Per team, not per company — nobody sees another team\u2019s data.',
           },
           {
             title: 'One boundary',
-            detail: 'The API enforces permissions for every client, the assistant included.',
+            detail:
+              'The API enforces permissions for every client, the assistant included.',
           },
           {
             title: 'Confirmed writes',
-            detail: 'Every consequential action shows exactly what will happen and waits.',
+            detail:
+              'Every consequential action shows exactly what will happen and waits.',
           },
           {
             title: 'Verified identity',
-            detail: 'Identity comes from Tivmark\u2019s backend, never from the browser.',
+            detail:
+              'Identity comes from Tivmark\u2019s backend, never from the browser.',
           },
         ],
         privacyUrl: 'https://tivmark.com/privacy',
@@ -944,7 +1153,7 @@ function createTimeOffTools(
     confirmedDestructive,
     widgetCsp,
     widgetDomain,
-  }: ToolConfig,
+  }: ToolConfig
 ) {
   return [
     tool('time_off_balance', {
@@ -1117,7 +1326,7 @@ function createTimeOffTools(
         };
       },
     }),
-      // The widget-facing twin of cancel_time_off_request. `visibility: ['app']` keeps it
+    // The widget-facing twin of cancel_time_off_request. `visibility: ['app']` keeps it
     // out of the model's tool list, and it skips the chat confirmation because the card
     // renders its own confirm step in place -- the same shape as review_*_app, pinned by
     // test/server.test.ts.
@@ -1127,7 +1336,10 @@ function createTimeOffTools(
       description:
         "Cancel one of the signed-in user's time-off requests by id.",
       annotations: annotations.action(),
-      input: z.object({ team: z.string().default(''), id: z.string().default('') }),
+      input: z.object({
+        team: z.string().default(''),
+        id: z.string().default(''),
+      }),
       output: z.object({ status: z.string(), request: z.unknown() }),
       fulfil: ({ input, connectors }) => {
         const res = connectors.tiv.cancel_time_off({
@@ -1155,7 +1367,7 @@ function createEquipmentTools(
     confirmedDestructive,
     widgetCsp,
     widgetDomain,
-  }: ToolConfig,
+  }: ToolConfig
 ) {
   return [
     tool('my_equipment', {
@@ -1287,7 +1499,10 @@ function createEquipmentTools(
       description:
         "Cancel one of the signed-in user's equipment requests by id.",
       annotations: annotations.action(),
-      input: z.object({ team: z.string().default(''), id: z.string().default('') }),
+      input: z.object({
+        team: z.string().default(''),
+        id: z.string().default(''),
+      }),
       output: z.object({ status: z.string(), request: z.unknown() }),
       fulfil: ({ input, connectors }) => {
         const res = connectors.tiv.cancel_equipment({
@@ -1304,8 +1519,12 @@ function createEquipmentTools(
 }
 
 function createReviewTools(
-  { decision, timeOffRequestsOutputSchema, equipmentRequestsOutputSchema }: Contracts,
-  { readOnly, confirmed, widgetCsp, widgetDomain }: ToolConfig,
+  {
+    decision,
+    timeOffRequestsOutputSchema,
+    equipmentRequestsOutputSchema,
+  }: Contracts,
+  { readOnly, confirmed, widgetCsp, widgetDomain }: ToolConfig
 ) {
   return [
     tool('team_time_off_queue', {
@@ -1485,12 +1704,31 @@ function createReviewTools(
 function createAgentGuide(): AgentGuideSource {
   return {
     description:
-      'Use Mark to explain Tivmark and complete authenticated people-ops requests with policy-grounded reads before confirmed writes.',
+      'Use Mark to explain Tivmark, design a new-business workspace anonymously, and complete authenticated people-ops actions behind explicit confirmation.',
     useWhen: [
+      'A prospective customer wants to set up Tivmark for a new business.',
       'The user asks whether they can take time off or asks Mark to submit it.',
       'The user wants to inspect or manage their Tivmark people-ops data.',
     ],
     workflows: [
+      {
+        id: 'onboard_business',
+        title: 'Design and create a business workspace',
+        intent:
+          'Carry a prospective owner from a public conversation through signup into one authenticated, confirmed workspace configuration.',
+        steps: [
+          {
+            capability: { kind: 'tool', name: 'design_business_workspace' },
+            guidance:
+              'Collect business name, size band, IANA time zone, first workflow, and leave allowances. Offer 20 vacation, 10 sick, and 3 personal days as defaults. Call once every value is explicit.',
+          },
+          {
+            capability: { kind: 'tool', name: 'complete_business_onboarding' },
+            guidance:
+              'Only after the user asks to create the workspace, preserve the blueprint values exactly. The platform raises account creation or sign-in when needed, resumes the pending call inside Tivmark, and presents the exact write for confirmation.',
+          },
+        ],
+      },
       {
         id: 'book_time_off_if_eligible',
         title: 'Assess and book time off',
@@ -1516,12 +1754,18 @@ function createAgentGuide(): AgentGuideSource {
       },
     ],
     boundaries: [
+      'A workspace blueprint is planning data only; never say the business exists until complete_business_onboarding returns status READY.',
+      'Never change a blueprint value between design_business_workspace and complete_business_onboarding without telling the user and regenerating the blueprint.',
       'Never claim eligibility without a current time_off_balance assessment for the exact team, type, and dates.',
       'Never call book_time_off after an ineligible assessment or when the user asked only whether the dates work.',
       'A successful booking creates a pending request, not approved leave.',
       'Treat session claims as conversation context only; Tivmark connector authorization remains authoritative.',
     ],
     examples: [
+      {
+        prompt: 'Help me set up Tivmark for my business.',
+        workflow: 'onboard_business',
+      },
       {
         prompt: 'Can I take next Friday off? If so, book it.',
         workflow: 'book_time_off_if_eligible',
@@ -1535,6 +1779,16 @@ function createInstructions() {
     "You are Mark, Tivmark's people-ops assistant. Help the signed-in user with TIME OFF " +
     '(check balances, review their requests, book new time off, cancel a request) and EQUIPMENT ' +
     '(review their requests, request an item, cancel a request). ' +
+    'BUSINESS ONBOARDING: when someone wants to set up a new business, run a short, ' +
+    'conversational interview for business name, size (1-10, 11-50, 51-200, or 201+), IANA ' +
+    'time zone, and whether their first workflow is TIME_OFF, EQUIPMENT, or BOTH. Offer a ' +
+    'starter policy of 20 vacation, 10 sick, and 3 personal days, but accept changes. Ask no ' +
+    'more than two questions per message. Once every value is explicit, call ' +
+    'design_business_workspace. If they then ask to create or continue with it, call ' +
+    'complete_business_onboarding with every blueprint value unchanged. The platform will ' +
+    'ask an anonymous visitor to create an account or sign in, preserve the pending action, ' +
+    'and show the exact authenticated write for confirmation. Do not call complete_business_onboarding ' +
+    'merely because the blueprint was displayed, and do not claim success until its READY receipt. ' +
     'Resolve relative dates from the current date and local time zone into concrete YYYY-MM-DD dates. ' +
     'Resolve every team from trusted context: use its slug, silently choose the only team, ask when ' +
     'there are several, and never invent one. ' +
@@ -1544,8 +1798,8 @@ function createInstructions() {
     'user already asked to book. A booking is a pending request, never approved leave. ' +
     'Use book_time_off or order_equipment when every required detail is known; otherwise use the ' +
     'matching guided tool to collect missing details before confirmation. ' +
-    'Prefer tools over prose: when a matching tool exists, call it and let its card carry the '  +
-    'data — accompany a card with at most one or two short sentences, and never restate what '  +
+    'Prefer tools over prose: when a matching tool exists, call it and let its card carry the ' +
+    'data — accompany a card with at most one or two short sentences, and never restate what ' +
     'the card already shows. Keep every reply crisp and concise. ' +
     'For questions about how Tivmark works, prefer the guide cards — explore_tivmark, ' +
     'time_off_guide, equipment_guide, getting_started_guide, trust_and_security — and add ' +
@@ -1561,7 +1815,8 @@ function createInstructions() {
     'on the public Tivmark website who is not signed in. Answer their questions about how ' +
     'Tivmark works with the guide cards first, citing search_tivmark_help alongside when ' +
     'useful, and use talk_to_sales ' +
-    'when they want a walkthrough, a workspace, or support. Never guess a team, a balance, or ' +
+    'when they want a walkthrough or support. For a new workspace, use the business onboarding ' +
+    'workflow above; its design step is intentionally available before sign-in. Never guess a team, a balance, or ' +
     'a request. When they ask about their own time off or equipment, call the matching tool: ' +
     'for a visitor it raises a sign-in card instead of running, and after they sign in the ' +
     'conversation continues with you remembering it. Mention that signing in keeps the ' +

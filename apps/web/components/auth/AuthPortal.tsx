@@ -25,6 +25,7 @@ import Join from './Join';
 import JoinWithInvitation from './JoinWithInvitation';
 import GoogleReCAPTCHA from '@/components/shared/GoogleReCAPTCHA';
 import TogglePasswordVisibility from '@/components/shared/TogglePasswordVisibility';
+import { safeCallbackUrl, type OnboardingBlueprint } from '@/lib/onboarding';
 
 type AuthProviders = {
   github: boolean;
@@ -39,6 +40,7 @@ interface AuthPortalProps {
   authProviders: AuthProviders;
   recaptchaSiteKey: string | null;
   initialTab: 'login' | 'signup';
+  onboardingBlueprint?: OnboardingBlueprint;
 }
 
 interface Message {
@@ -63,9 +65,7 @@ const LoginForm = ({
   const recaptchaRef = useRef<ReCAPTCHA>(null);
   const redirectUrl = token
     ? `/invitations/${token}`
-    : callbackUrl?.startsWith('/')
-      ? callbackUrl
-      : env.redirectIfAuthenticated;
+    : safeCallbackUrl(callbackUrl, env.redirectIfAuthenticated);
 
   const formik = useFormik({
     initialValues: { email: '', password: '' },
@@ -232,6 +232,7 @@ const AuthPortal = ({
   authProviders,
   recaptchaSiteKey,
   initialTab,
+  onboardingBlueprint,
 }: AuthPortalProps) => {
   const router = useRouter();
   const { status } = useSession();
@@ -247,18 +248,27 @@ const AuthPortal = ({
       ? router.query.callbackUrl
       : undefined;
   const isSignup = initialTab === 'signup';
+  const authenticatedDestination = safeCallbackUrl(
+    callbackUrl,
+    onboardingBlueprint ? '/onboarding' : env.redirectIfAuthenticated
+  );
 
   useEffect(() => {
     if (status === 'authenticated') {
-      router.replace(env.redirectIfAuthenticated);
+      router.replace(authenticatedDestination);
     }
-  }, [router, status]);
+  }, [authenticatedDestination, router, status]);
 
   if (status === 'loading' || status === 'authenticated') {
     return <Loading />;
   }
 
-  const query = token ? `&token=${encodeURIComponent(token)}` : '';
+  const preservedQuery = new URLSearchParams();
+  if (token) preservedQuery.set('token', token);
+  if (callbackUrl) preservedQuery.set('callbackUrl', callbackUrl);
+  const query = preservedQuery.toString()
+    ? `&${preservedQuery.toString()}`
+    : '';
 
   return (
     <main className="relative flex min-h-screen items-center justify-center bg-ui-canvas px-4 py-16 text-ui-text sm:px-6">
@@ -324,7 +334,11 @@ const AuthPortal = ({
               ) : (
                 <>
                   <SignupProviders authProviders={authProviders} />
-                  <Join recaptchaSiteKey={recaptchaSiteKey} />
+                  <Join
+                    recaptchaSiteKey={recaptchaSiteKey}
+                    callbackUrl={callbackUrl}
+                    onboardingBlueprint={onboardingBlueprint}
+                  />
                 </>
               )
             ) : (

@@ -22,6 +22,7 @@ const ALLOWED_SCOPES = new Set([
   'teams',
   'time_off',
   'time_off.approve',
+  'time_off.policy',
   'equipment',
   'equipment.approve',
 ]);

@@ -108,3 +108,43 @@ export const timeOffBalanceOutputSchema = z.object({
   userId: z.string(),
   balances: z.record(z.record(balanceItemSchema)),
 });
+
+export const onboardingBlueprintSchema = z.object({
+  businessName: z.string().min(3),
+  teamSize: z.enum(['1-10', '11-50', '51-200', '201+']),
+  timeZone: z.string().min(1),
+  primaryGoal: z.enum(['TIME_OFF', 'EQUIPMENT', 'BOTH']),
+  vacationAllowanceDays: z.number().int().nonnegative(),
+  sickAllowanceDays: z.number().int().nonnegative(),
+  personalAllowanceDays: z.number().int().nonnegative(),
+  policySummary: z.string().optional(),
+  nextSteps: z.array(z.string()).optional(),
+});
+
+export const onboardingReceiptSchema = z.object({
+  status: z.literal('READY'),
+  team: z.object({
+    id: z.string(),
+    name: z.string(),
+    slug: z.string(),
+    teamSize: z.enum(['1-10', '11-50', '51-200', '201+']).nullable(),
+    timeZone: z.string().nullable(),
+    primaryGoal: z.enum(['TIME_OFF', 'EQUIPMENT', 'BOTH']).nullable(),
+    primaryGoalLabel: z.string(),
+    onboardingCompletedAt: z.string(),
+  }),
+  policies: z.array(
+    z.object({
+      type: z.string(),
+      allowanceHalfDays: z.number().nullable(),
+      allowanceDays: z.number().nullable(),
+    })
+  ),
+  nextSteps: z.array(
+    z.object({ id: z.string(), label: z.string(), url: z.string() })
+  ),
+  authenticated: z.boolean(),
+});
+
+export type OnboardingBlueprintData = z.infer<typeof onboardingBlueprintSchema>;
+export type OnboardingReceiptData = z.infer<typeof onboardingReceiptSchema>;

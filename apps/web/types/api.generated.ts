@@ -22,6 +22,23 @@ export interface paths {
     patch: operations['patch_me'];
     trace?: never;
   };
+  '/api/v1/onboarding/complete': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Create or configure the signed-in owner’s business workspace */
+    post: operations['post_onboarding_complete'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/v1/me/password': {
     parameters: {
       query?: never;
@@ -521,6 +538,49 @@ export interface components {
         [key: string]: string[];
       };
     };
+    OnboardingReceipt: {
+      /** @enum {string} */
+      status: 'READY';
+      team: {
+        /** Format: uuid */
+        id: string;
+        name: string;
+        slug: string;
+        /** @enum {string|null} */
+        teamSize: '1-10' | '11-50' | '51-200' | '201+' | null;
+        timeZone: string | null;
+        /** @enum {string|null} */
+        primaryGoal: 'TIME_OFF' | 'EQUIPMENT' | 'BOTH' | null;
+        primaryGoalLabel: string;
+        /** Format: date-time */
+        onboardingCompletedAt: string;
+      };
+      policies: {
+        /** @enum {string} */
+        type: 'VACATION' | 'SICK' | 'PERSONAL' | 'UNPAID';
+        allowanceHalfDays: number | null;
+        allowanceDays: number | null;
+      }[];
+      nextSteps: {
+        id: string;
+        label: string;
+        /** Format: uri */
+        url: string;
+      }[];
+      /** @enum {boolean} */
+      authenticated: true;
+    };
+    OnboardingBlueprint: {
+      businessName: string;
+      /** @enum {string} */
+      teamSize: '1-10' | '11-50' | '51-200' | '201+';
+      timeZone: string;
+      /** @enum {string} */
+      primaryGoal: 'TIME_OFF' | 'EQUIPMENT' | 'BOTH';
+      vacationAllowanceDays: number;
+      sickAllowanceDays: number;
+      personalAllowanceDays: number;
+    };
     Team: {
       /** Format: uuid */
       id: string;
@@ -529,6 +589,13 @@ export interface components {
       domain: string | null;
       /** @enum {string} */
       defaultRole: 'OWNER' | 'ADMIN' | 'MEMBER';
+      /** @enum {string|null} */
+      businessSizeBand: '1-10' | '11-50' | '51-200' | '201+' | null;
+      timeZone: string | null;
+      /** @enum {string|null} */
+      onboardingGoal: 'TIME_OFF' | 'EQUIPMENT' | 'BOTH' | null;
+      /** Format: date-time */
+      onboardingCompletedAt: string | null;
       /** Format: date-time */
       createdAt: string;
       /** Format: date-time */
@@ -742,6 +809,98 @@ export interface operations {
         content: {
           'application/json': {
             data: components['schemas']['User'];
+          };
+        };
+      };
+      /** @description Invalid request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+      /** @description Insufficient permissions */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+      /** @description Resource not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+      /** @description Resource conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+      /** @description Validation failed */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+      /** @description Rate limit exceeded */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
+  post_onboarding_complete: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description Unique retry key. Reusing it with the same body returns the original response for 24 hours. */
+        'Idempotency-Key'?: string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        'application/json': components['schemas']['OnboardingBlueprint'];
+      };
+    };
+    responses: {
+      /** @description Configured workspace receipt */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            data: components['schemas']['OnboardingReceipt'];
           };
         };
       };

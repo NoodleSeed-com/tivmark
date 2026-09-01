@@ -85,6 +85,14 @@ const widgetContracts = {
     teamScoped: false,
     itemFields: ['title', 'detail'],
   },
+  design_business_workspace: {
+    component: 'workspace-blueprint',
+    teamScoped: false,
+  },
+  complete_business_onboarding: {
+    component: 'workspace-ready',
+    teamScoped: false,
+  },
 } satisfies Record<string, WidgetContract>;
 
 type JsonSchema = {
@@ -116,12 +124,16 @@ describe('manifest widget contract coverage', () => {
     const manifest = await app.toManifest();
 
     for (const [toolName, contract] of Object.entries(widgetContracts)) {
-      const tool = manifest.tools.find((candidate) => candidate.name === toolName);
+      const tool = manifest.tools.find(
+        (candidate) => candidate.name === toolName
+      );
       expect(tool, `missing manifest tool ${toolName}`).toBeDefined();
       const output = tool?.outputSchema as JsonSchema;
 
       if (contract.teamScoped !== false) {
-        expect(output.required, `${toolName} must require team`).toContain('team');
+        expect(output.required, `${toolName} must require team`).toContain(
+          'team'
+        );
       }
 
       if (contract.itemFields) {

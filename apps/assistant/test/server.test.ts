@@ -10,11 +10,11 @@ describe('tivmark_assistant', () => {
     const manifest = await app.toManifest();
     const modelVisibleTools = manifest.tools.filter(
       (tool: { visibility?: string[] }) =>
-        !tool.visibility || tool.visibility.includes('model'),
+        !tool.visibility || tool.visibility.includes('model')
     );
 
     expect(
-      modelVisibleTools.map((tool: { name: string }) => tool.name).sort(),
+      modelVisibleTools.map((tool: { name: string }) => tool.name).sort()
     ).toEqual(
       [
         // identity / teams
@@ -26,6 +26,8 @@ describe('tivmark_assistant', () => {
         'equipment_guide',
         'getting_started_guide',
         'trust_and_security',
+        'design_business_workspace',
+        'complete_business_onboarding',
         // time off (employee)
         'time_off_balance',
         'my_time_off',
@@ -43,7 +45,7 @@ describe('tivmark_assistant', () => {
         'review_time_off',
         'review_equipment',
         'fulfill_equipment',
-      ].sort(),
+      ].sort()
     );
 
     // Interactive widgets drive their actions through app-only helpers, so the model
@@ -56,7 +58,7 @@ describe('tivmark_assistant', () => {
       'cancel_equipment_app',
     ]) {
       const appOnlyReviewTool = manifest.tools.find(
-        (tool: { name: string }) => tool.name === name,
+        (tool: { name: string }) => tool.name === name
       ) as { visibility?: string[] } | undefined;
       expect(appOnlyReviewTool, `missing app-only tool ${name}`).toBeDefined();
       expect(appOnlyReviewTool?.visibility).toEqual(['app']);
@@ -70,7 +72,7 @@ describe('tivmark_assistant', () => {
       manifest.tools.map((tool: { name: string; title?: string }) => [
         tool.name,
         tool.title,
-      ]),
+      ])
     );
 
     expect(titles).toEqual({
@@ -78,6 +80,8 @@ describe('tivmark_assistant', () => {
       book_time_off_guided: 'Book time off with a form',
       cancel_equipment_request: 'Cancel equipment request',
       cancel_time_off_request: 'Cancel time-off request',
+      complete_business_onboarding: 'Create and configure business workspace',
+      design_business_workspace: 'Design a business workspace',
       fulfill_equipment: 'Fulfill equipment request',
       my_equipment: 'List my equipment requests',
       my_teams: 'List my teams',
@@ -105,7 +109,7 @@ describe('tivmark_assistant', () => {
   it('uses the team lookup as the portable application context provider', async () => {
     const manifest = await app.toManifest();
     const teamTool = manifest.tools.find(
-      (tool: { name: string }) => tool.name === 'my_teams',
+      (tool: { name: string }) => tool.name === 'my_teams'
     ) as { contextProvider?: boolean };
 
     expect(teamTool.contextProvider).toBe(true);
@@ -122,18 +126,19 @@ describe('tivmark_assistant', () => {
     expect(text).toContain('tiv.create_time_off');
     expect(text).toContain('tiv.create_equipment');
     expect(text).toContain('tiv.review_time_off');
+    expect(text).toContain('tiv.complete_onboarding');
   });
 
   it('publishes the API-authoritative Tivmark user for balance lookup', async () => {
     const manifest = await app.toManifest();
     const balanceTool = manifest.tools.find(
-      (tool: { name: string }) => tool.name === 'time_off_balance',
+      (tool: { name: string }) => tool.name === 'time_off_balance'
     ) as {
       fulfilment?: { output?: { userId?: string } };
     };
 
     expect(balanceTool.fulfilment?.output?.userId).toBe(
-      '${steps.get_balances.userId}',
+      '${steps.get_balances.userId}'
     );
   });
 
@@ -143,7 +148,7 @@ describe('tivmark_assistant', () => {
     expect(manifest.server.title).toBe('Mark');
     expect(manifest.server.branding?.name).toBe('Mark');
     expect(manifest.server.instructions).toContain(
-      "You are Mark, Tivmark's people-ops assistant.",
+      "You are Mark, Tivmark's people-ops assistant."
     );
     expect(manifest.server.assistant?.labels).toMatchObject({
       welcomeHeading: 'How can Mark help?',
@@ -154,7 +159,7 @@ describe('tivmark_assistant', () => {
       close: 'Close Mark',
     });
     expect(manifest.server.assistant?.suggestedPrompts).toEqual([
-      'What can Tivmark do?',
+      'Help me set up Tivmark for my business.',
       'Can I take next Friday off? If so, book it.',
       'How does booking time off work?',
       'Who can approve requests?',
@@ -185,7 +190,7 @@ describe('tivmark_assistant', () => {
       if (surface.mode === 'authenticated') continue;
       expect(
         surface.sessionClaims,
-        `${surface.mode} surface must not declare session claims`,
+        `${surface.mode} surface must not declare session claims`
       ).toBeUndefined();
     }
   });
@@ -198,7 +203,7 @@ describe('tivmark_assistant', () => {
     for (const tool of manifest.tools) {
       expect(
         JSON.stringify(tool.fulfilment ?? {}),
-        `${tool.name} reads a session claim in its fulfilment`,
+        `${tool.name} reads a session claim in its fulfilment`
       ).not.toContain('user.claims');
     }
   });
@@ -216,7 +221,9 @@ describe('tivmark_assistant', () => {
   it('tells Mark to lead with cards, not prose', async () => {
     const manifest = await app.toManifest();
     expect(manifest.server.instructions).toContain('Prefer tools over prose');
-    expect(manifest.server.instructions).toContain('never restate what the card already shows');
+    expect(manifest.server.instructions).toContain(
+      'never restate what the card already shows'
+    );
   });
 
   it('gates every write behind an end-user confirmation', async () => {
@@ -231,12 +238,13 @@ describe('tivmark_assistant', () => {
       'review_time_off',
       'review_equipment',
       'fulfill_equipment',
+      'complete_business_onboarding',
     ];
     for (const tool of manifest.tools as Array<Record<string, unknown>>) {
       if (writes.includes(tool.name as string)) {
         expect(
           JSON.stringify(tool).includes('"confirm":true'),
-          `${tool.name as string} should be confirm-gated`,
+          `${tool.name as string} should be confirm-gated`
         ).toBe(true);
       }
     }
