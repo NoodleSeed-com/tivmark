@@ -305,5 +305,17 @@
   "credential-scope-directory_sync": "Directory sync",
   "credential-scope-webhooks": "Webhooks",
   "credential-scope-audit_logs": "Audit logs",
-  "credential-scope-billing": "Billing"
+  "credential-scope-billing": "Billing",
+  "onboarding-blueprint-loaded": "Loaded from the workspace blueprint you created with Mark.",
+  "onboarding-page-title": "Workspace onboarding | Tivmark",
+  "onboarding-label": "Conversational onboarding",
+  "onboarding-open-mark": "Open Mark to finish",
+  "onboarding-open-time-off": "Open time-off workspace",
+  "onboarding-business-profile": "Business profile",
+  "onboarding-business": "Business",
+  "onboarding-team-size": "Team size",
+  "onboarding-time-zone": "Time zone",
+  "onboarding-first-workflow": "First workflow",
+  "onboarding-starter-policy": "Starter leave policy",
+  "onboarding-policy-note": "Balances remain tracked in half-days after setup."
 }

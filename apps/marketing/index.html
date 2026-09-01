@@ -791,8 +791,8 @@
           </button>
         </div>
         <p class="hero-demo-prompt">
-          <strong>One-click scenario:</strong> “Can I take next Friday off? If
-          so, book it.”
+          <strong>End-to-end scenario:</strong> “Help me set up Tivmark for my
+          business.”
         </p>
         <span
           class="sr-only hero-demo-status"
@@ -1071,7 +1071,7 @@
         // upgrade race documented in the platform's older onReady contract.
         const demoButton = document.querySelector(".hero-demo-cta");
         const demoStatus = document.querySelector(".hero-demo-status");
-        const demoPrompt = "Can I take next Friday off? If so, book it.";
+        const demoPrompt = "Help me set up Tivmark for my business.";
         demoButton.addEventListener("click", async () => {
           if (demoButton.getAttribute("aria-busy") === "true") return;
           demoButton.setAttribute("aria-busy", "true");
@@ -1090,11 +1090,76 @@
               .querySelector("noodle-assistant")
               ?.setAttribute("open", "");
             demoStatus.textContent =
-              "Mark is open. Ask: Can I take next Friday off? If so, book it.";
+              "Mark is open. Ask: Help me set up Tivmark for my business.";
           } finally {
             demoButton.removeAttribute("aria-busy");
           }
         });
+
+        // The blueprint tool is anonymous and read-only. Persist only its bounded,
+        // schema-shaped output so the signup form and onboarding shell can show continuity
+        // while the Noodle sign-in ticket remains the authoritative conversation handoff.
+        // This cookie is prefill, never authorization; the signed-in confirmed tool sends
+        // the exact values again before Tivmark writes anything.
+        const onboardingFields = [
+          "businessName",
+          "teamSize",
+          "timeZone",
+          "primaryGoal",
+          "vacationAllowanceDays",
+          "sickAllowanceDays",
+          "personalAllowanceDays",
+        ];
+        const saveOnboardingBlueprint = (result) => {
+          const source = result && (result.blueprint || result);
+          if (!source || typeof source !== "object") return;
+          const blueprint = Object.fromEntries(
+            onboardingFields.map((field) => [field, source[field]]),
+          );
+          const valid =
+            typeof blueprint.businessName === "string" &&
+            blueprint.businessName.length >= 3 &&
+            ["1-10", "11-50", "51-200", "201+"].includes(blueprint.teamSize) &&
+            typeof blueprint.timeZone === "string" &&
+            ["TIME_OFF", "EQUIPMENT", "BOTH"].includes(blueprint.primaryGoal) &&
+            [
+              blueprint.vacationAllowanceDays,
+              blueprint.sickAllowanceDays,
+              blueprint.personalAllowanceDays,
+            ].every(
+              (value) => Number.isInteger(value) && value >= 0 && value <= 365,
+            );
+          if (!valid) return;
+          const production =
+            location.hostname === "tivmark.com" ||
+            location.hostname.endsWith(".tivmark.com");
+          document.cookie =
+            `tiv_onboarding_blueprint=${encodeURIComponent(JSON.stringify(blueprint))}` +
+            `; Path=/; Max-Age=3600; SameSite=Lax${production ? "; Domain=.tivmark.com; Secure" : ""}`;
+        };
+        if (window.customElements) {
+          customElements.whenDefined("noodle-assistant").then(() => {
+            let attempts = 0;
+            const bindOnboardingEvents = () => {
+              const assistant = document.querySelector("noodle-assistant");
+              if (!assistant && attempts < 50) {
+                attempts += 1;
+                window.setTimeout(bindOnboardingEvents, 100);
+                return;
+              }
+              if (!assistant || assistant.dataset.onboardingBound === "true")
+                return;
+              assistant.dataset.onboardingBound = "true";
+              // This event is intentionally scoped to the element rather than document.
+              assistant.addEventListener("assistant-view-available", (event) => {
+                if (event.detail?.tool === "design_business_workspace") {
+                  saveOnboardingBlueprint(event.detail.result);
+                }
+              });
+            };
+            bindOnboardingEvents();
+          });
+        }
 
         // Mid-conversation sign-in. The widget raises this when a visitor reaches for
         // something that needs an account; the ticket names a conversation and nothing more,
@@ -1118,7 +1183,15 @@
           document.cookie =
             `tiv_assistant_signin=${encodeURIComponent(ticket)}` +
             "; Path=/; Max-Age=600; SameSite=Lax; Domain=.tivmark.com; Secure";
-          location.href = "https://app.tivmark.com/mark";
+          const hasBlueprint = document.cookie
+            .split("; ")
+            .some((value) => value.startsWith("tiv_onboarding_blueprint="));
+          const callbackUrl = hasBlueprint ? "/onboarding" : "/mark";
+          const authPath =
+            event.detail?.intent === "sign-up" ? "/auth/join" : "/auth/login";
+          location.href =
+            `https://app.tivmark.com${authPath}?callbackUrl=` +
+            encodeURIComponent(callbackUrl);
         });
         const applyTheme = (preference, persist = true) => {
           const dark =

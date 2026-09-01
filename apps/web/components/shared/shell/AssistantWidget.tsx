@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import dynamic from 'next/dynamic';
+import { useRouter } from 'next/router';
 import type { NoodleAssistantElement } from '@noodleseed/assistant';
 
 import env from '@/lib/env';
@@ -89,6 +90,7 @@ export default function AssistantWidget() {
   // diverge from the app theme and mismatch the launcher against the canvas (e.g. a navy launcher
   // on the dark navy background). `resolvedTheme` updates reactively on toggle and OS change.
   const { resolvedTheme } = useTheme();
+  const router = useRouter();
   const assistantRef = useRef<NoodleAssistantElement | null>(null);
 
   useEffect(() => {
@@ -112,6 +114,18 @@ export default function AssistantWidget() {
       sessionEndpoint="/api/assistant/session"
       theme={resolvedTheme}
       appearance={ASSISTANT_APPEARANCE}
+      pageContext={
+        router.pathname === '/onboarding'
+          ? {
+              route: router.asPath.split('?')[0],
+              surface: 'business_onboarding',
+              onboardingStage: 'review_and_confirm',
+            }
+          : {
+              route: router.asPath.split('?')[0],
+              surface: 'application',
+            }
+      }
       onEvent={(event) => {
         // The service resumes the question that triggered sign-in as the session's first turn
         // (assistant 1.21.0). That answer arrives with the panel still closed after the redirect
@@ -119,6 +133,16 @@ export default function AssistantWidget() {
         // non-null-but-wrong in the field.
         if (event.event === 'resume_started') {
           document.querySelector('noodle-assistant')?.setAttribute('open', '');
+        }
+
+        // A completed onboarding write is authoritative only after the assistant receives
+        // the connector-backed receipt. Let the onboarding shell refresh from the database;
+        // never infer completion from the public blueprint cookie or a model message.
+        if (
+          event.event === 'view_available' &&
+          event.data.tool === 'complete_business_onboarding'
+        ) {
+          window.dispatchEvent(new Event('tivmark-onboarding-completed'));
         }
       }}
       onAppearanceWarning={(warning) =>

@@ -11,6 +11,10 @@
   ],
   "tags": [
     { "name": "Profile", "description": "Current-user profile and sessions." },
+    {
+      "name": "Onboarding",
+      "description": "Conversational business setup and activation."
+    },
     { "name": "Teams", "description": "Team lifecycle and settings." },
     { "name": "Members", "description": "Team membership and roles." },
     {
@@ -99,6 +103,116 @@
         },
         "required": ["type", "code", "title", "status", "detail"]
       },
+      "OnboardingReceipt": {
+        "type": "object",
+        "properties": {
+          "status": { "type": "string", "enum": ["READY"] },
+          "team": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string", "format": "uuid" },
+              "name": { "type": "string" },
+              "slug": { "type": "string" },
+              "teamSize": {
+                "type": ["string", "null"],
+                "enum": ["1-10", "11-50", "51-200", "201+"]
+              },
+              "timeZone": { "type": ["string", "null"] },
+              "primaryGoal": {
+                "type": ["string", "null"],
+                "enum": ["TIME_OFF", "EQUIPMENT", "BOTH"]
+              },
+              "primaryGoalLabel": { "type": "string" },
+              "onboardingCompletedAt": {
+                "type": "string",
+                "format": "date-time"
+              }
+            },
+            "required": [
+              "id",
+              "name",
+              "slug",
+              "teamSize",
+              "timeZone",
+              "primaryGoal",
+              "primaryGoalLabel",
+              "onboardingCompletedAt"
+            ]
+          },
+          "policies": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "enum": ["VACATION", "SICK", "PERSONAL", "UNPAID"]
+                },
+                "allowanceHalfDays": { "type": ["integer", "null"] },
+                "allowanceDays": { "type": ["number", "null"] }
+              },
+              "required": ["type", "allowanceHalfDays", "allowanceDays"]
+            }
+          },
+          "nextSteps": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": { "type": "string" },
+                "label": { "type": "string" },
+                "url": { "type": "string", "format": "uri" }
+              },
+              "required": ["id", "label", "url"]
+            }
+          },
+          "authenticated": { "type": "boolean", "enum": [true] }
+        },
+        "required": ["status", "team", "policies", "nextSteps", "authenticated"]
+      },
+      "OnboardingBlueprint": {
+        "type": "object",
+        "properties": {
+          "businessName": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 100
+          },
+          "teamSize": {
+            "type": "string",
+            "enum": ["1-10", "11-50", "51-200", "201+"]
+          },
+          "timeZone": { "type": "string", "minLength": 1, "maxLength": 100 },
+          "primaryGoal": {
+            "type": "string",
+            "enum": ["TIME_OFF", "EQUIPMENT", "BOTH"]
+          },
+          "vacationAllowanceDays": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 365
+          },
+          "sickAllowanceDays": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 365
+          },
+          "personalAllowanceDays": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 365
+          }
+        },
+        "required": [
+          "businessName",
+          "teamSize",
+          "timeZone",
+          "primaryGoal",
+          "vacationAllowanceDays",
+          "sickAllowanceDays",
+          "personalAllowanceDays"
+        ]
+      },
       "Team": {
         "type": "object",
         "properties": {
@@ -110,6 +224,19 @@
             "type": "string",
             "enum": ["OWNER", "ADMIN", "MEMBER"]
           },
+          "businessSizeBand": {
+            "type": ["string", "null"],
+            "enum": ["1-10", "11-50", "51-200", "201+"]
+          },
+          "timeZone": { "type": ["string", "null"] },
+          "onboardingGoal": {
+            "type": ["string", "null"],
+            "enum": ["TIME_OFF", "EQUIPMENT", "BOTH"]
+          },
+          "onboardingCompletedAt": {
+            "type": ["string", "null"],
+            "format": "date-time"
+          },
           "createdAt": { "type": "string", "format": "date-time" },
           "updatedAt": { "type": "string", "format": "date-time" }
         },
@@ -119,6 +246,10 @@
           "slug",
           "domain",
           "defaultRole",
+          "businessSizeBand",
+          "timeZone",
+          "onboardingGoal",
+          "onboardingCompletedAt",
           "createdAt",
           "updatedAt"
         ]
@@ -457,6 +588,102 @@
           }
         },
         "operationId": "patch_me"
+      }
+    },
+    "/api/v1/onboarding/complete": {
+      "post": {
+        "tags": ["Onboarding"],
+        "summary": "Create or configure the signed-in owner’s business workspace",
+        "security": [{ "oauth2": [] }, { "bearerAuth": [] }],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/OnboardingBlueprint" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Configured workspace receipt",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": { "$ref": "#/components/schemas/OnboardingReceipt" }
+                  },
+                  "required": ["data"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Problem" }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Problem" }
+              }
+            }
+          },
+          "403": {
+            "description": "Insufficient permissions",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Problem" }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Problem" }
+              }
+            }
+          },
+          "409": {
+            "description": "Resource conflict",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Problem" }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Problem" }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Problem" }
+              }
+            }
+          }
+        },
+        "operationId": "post_onboarding_complete",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "description": "Unique retry key. Reusing it with the same body returns the original response for 24 hours.",
+            "schema": { "type": "string", "minLength": 8, "maxLength": 200 }
+          }
+        ]
       }
     },
     "/api/v1/me/password": {

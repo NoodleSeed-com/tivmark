@@ -708,9 +708,64 @@ button {
   margin-top: 12px;
 }
 
+.tv-onboarding-facts {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.tv-policy-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1px;
+  margin-top: 10px;
+  overflow: hidden;
+  border: 1px solid var(--tv-border);
+  background: var(--tv-border);
+}
+
+.tv-policy-grid > div {
+  min-width: 0;
+  padding: 9px;
+  background: var(--tv-surface);
+}
+
+.tv-policy-grid span,
+.tv-policy-grid strong {
+  display: block;
+}
+
+.tv-policy-grid span {
+  color: var(--tv-muted);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: capitalize;
+}
+
+.tv-policy-grid strong {
+  margin-top: 4px;
+  color: var(--tv-heading);
+  font-size: 12.5px;
+}
+
+.tv-plan-line {
+  color: var(--tv-accent);
+}
+
+.tv-next-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
 @media (max-width: 439px) {
   .tv-facts,
-  .tv-receipt-facts {
+  .tv-receipt-facts,
+  .tv-onboarding-facts {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .tv-policy-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }

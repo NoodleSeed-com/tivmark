@@ -19,6 +19,7 @@ const ANONYMOUS_SAFE_TOOLS = new Set([
   'equipment_guide',
   'getting_started_guide',
   'trust_and_security',
+  'design_business_workspace',
 ]);
 
 /**
@@ -33,6 +34,7 @@ const IDENTITY_GATED_TOOLS = new Set([
   'my_time_off',
   'my_equipment',
   'book_time_off',
+  'complete_business_onboarding',
 ]);
 
 const PUBLIC_ORIGINS = ['https://tivmark.com', 'https://www.tivmark.com'];
@@ -47,10 +49,10 @@ describe('public website surface', () => {
     const surfaces = manifest.server.assistant?.surfaces ?? [];
 
     const publicSurfaces = surfaces.filter(
-      (surface) => surface.mode === 'public' || surface.mode === 'mixed',
+      (surface) => surface.mode === 'public' || surface.mode === 'mixed'
     );
     const authenticatedSurfaces = surfaces.filter(
-      (surface) => surface.mode === 'authenticated',
+      (surface) => surface.mode === 'authenticated'
     );
 
     // At most one of each is a platform rule; exactly one of each is this product's shape.
@@ -63,10 +65,10 @@ describe('public website surface', () => {
     // Both the apex and www serve the marketing site with no redirect between them. Origins
     // are matched character-for-character, so dropping either silently breaks that host.
     expect([...publicSurfaces[0]!.origins].sort()).toEqual(
-      [...PUBLIC_ORIGINS].sort(),
+      [...PUBLIC_ORIGINS].sort()
     );
     expect([...authenticatedSurfaces[0]!.origins].sort()).toEqual(
-      [...AUTHENTICATED_ORIGINS].sort(),
+      [...AUTHENTICATED_ORIGINS].sort()
     );
 
     // An origin on two surfaces would make "which projection is this request?" ambiguous.
@@ -77,7 +79,7 @@ describe('public website surface', () => {
   it('splits the mixed surface into anonymous-safe and identity-gated capabilities', async () => {
     const manifest = await app.toManifest();
     const surface = (manifest.server.assistant?.surfaces ?? []).find(
-      (candidate) => candidate.mode === 'public' || candidate.mode === 'mixed',
+      (candidate) => candidate.mode === 'public' || candidate.mode === 'mixed'
     );
     expect(surface).toBeDefined();
 
@@ -91,11 +93,11 @@ describe('public website surface', () => {
       const identityGated = IDENTITY_GATED_TOOLS.has(capability.name);
       expect(
         anonymousSafe !== identityGated,
-        `${capability.name} must be on exactly one of the two deliberate lists`,
+        `${capability.name} must be on exactly one of the two deliberate lists`
       ).toBe(true);
 
       const tool = manifest.tools.find(
-        (candidate) => candidate.name === capability.name,
+        (candidate) => candidate.name === capability.name
       );
       expect(tool, `missing manifest tool ${capability.name}`).toBeDefined();
       const fulfilment = JSON.stringify(tool?.fulfilment ?? {});
@@ -108,12 +110,12 @@ describe('public website surface', () => {
         // identity, and no connector whose delegated credential does not exist.
         expect(
           fulfilment.includes('${user'),
-          `${capability.name} reads \${user} but must run anonymously`,
+          `${capability.name} reads \${user} but must run anonymously`
         ).toBe(false);
         expect(tool?.authorization).toBeUndefined();
         expect(
           touchesConnector,
-          `${capability.name} calls a connector, which needs a signed-in user's credential`,
+          `${capability.name} calls a connector, which needs a signed-in user's credential`
         ).toBe(false);
       } else {
         // The sign-in card only raises for a tool the service classifies as needing
@@ -121,16 +123,15 @@ describe('public website surface', () => {
         // connector and read no \${user} would silently run anonymously instead.
         expect(
           touchesConnector || fulfilment.includes('${user'),
-          `${capability.name} is listed as identity-gated but nothing would gate it`,
+          `${capability.name} is listed as identity-gated but nothing would gate it`
         ).toBe(true);
         // Public/mixed compiler rule: connector-touching tools must be read-only or
         // confirmed, so an elevated visitor still reviews any write.
         const annotations = tool?.annotations as
-          | { readOnlyHint?: boolean; confirm?: boolean }
-          | undefined;
+          { readOnlyHint?: boolean; confirm?: boolean } | undefined;
         expect(
           annotations?.readOnlyHint === true || annotations?.confirm === true,
-          `${capability.name} must be read-only or confirm-gated on a mixed surface`,
+          `${capability.name} must be read-only or confirm-gated on a mixed surface`
         ).toBe(true);
       }
     }
@@ -139,7 +140,7 @@ describe('public website surface', () => {
   it('grounds the public surface in the Tivmark knowledge component', async () => {
     const manifest = await app.toManifest();
     const surface = (manifest.server.assistant?.surfaces ?? []).find(
-      (candidate) => candidate.mode === 'public' || candidate.mode === 'mixed',
+      (candidate) => candidate.mode === 'public' || candidate.mode === 'mixed'
     );
 
     expect(surface?.capabilities).toContainEqual({
@@ -149,12 +150,18 @@ describe('public website surface', () => {
 
     const declared = manifest.server.knowledge ?? [];
     const component = declared.find((entry) => entry.name === 'tivmark_help');
-    expect(component, 'tivmark_help must be declared on the server').toBeDefined();
+    expect(
+      component,
+      'tivmark_help must be declared on the server'
+    ).toBeDefined();
 
     // Documents ship with the app; the site scope is the freshness half.
     expect(component?.documents.length).toBeGreaterThanOrEqual(6);
     for (const document of component?.documents ?? []) {
-      expect(document.title, 'every document needs a citation label').toBeTruthy();
+      expect(
+        document.title,
+        'every document needs a citation label'
+      ).toBeTruthy();
       expect(document.path).toMatch(/^\.\/knowledge\/.+\.md$/);
     }
 
@@ -181,15 +188,18 @@ describe('public website surface', () => {
     // component -- so the public surface opens with something that actually works.
     const firstPersonPrompt = /\bmy\b|\bI\b|\bme\b/i;
     const anonymousAnswerable = prompts.filter(
-      (prompt) => !firstPersonPrompt.test(prompt),
+      (prompt) =>
+        prompt === 'Help me set up Tivmark for my business.' ||
+        !firstPersonPrompt.test(prompt)
     );
     expect(
       anonymousAnswerable.length,
-      `most starter prompts must work without an account; got ${JSON.stringify(prompts)}`,
+      `most starter prompts must work without an account; got ${JSON.stringify(prompts)}`
     ).toBeGreaterThanOrEqual(Math.ceil(prompts.length / 2));
 
-    // The first prompt is the most prominent one, so it must be the safe one.
-    expect(firstPersonPrompt.test(prompts[0] ?? '')).toBe(false);
+    // The first prompt is the most prominent one, so it must be the anonymous planning
+    // scenario, not a personal-data read that would immediately raise sign-in.
+    expect(prompts[0]).toBe('Help me set up Tivmark for my business.');
   });
 
   it('discloses a privacy policy to anonymous visitors', async () => {
@@ -207,17 +217,17 @@ describe('public website surface', () => {
     const allowedDomains = ['https://tivmark.com', 'https://app.tivmark.com'];
     const manifest = await app.toManifest();
     const tool = manifest.tools.find(
-      (candidate) => candidate.name === 'talk_to_sales',
+      (candidate) => candidate.name === 'talk_to_sales'
     );
     const urls = JSON.stringify(tool?.fulfilment ?? {}).match(
-      /https:\/\/[^"'\\ ]+/g,
+      /https:\/\/[^"'\\ ]+/g
     );
 
     expect(urls, 'talk_to_sales must offer at least one link').toBeTruthy();
     for (const url of urls ?? []) {
       expect(
         allowedDomains.some((domain) => url.startsWith(domain)),
-        `${url} is offered to visitors but is outside handoff.allowedDomains`,
+        `${url} is offered to visitors but is outside handoff.allowedDomains`
       ).toBe(true);
     }
   });
