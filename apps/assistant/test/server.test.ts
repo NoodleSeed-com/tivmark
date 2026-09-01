@@ -142,6 +142,23 @@ describe('tivmark_assistant', () => {
     );
   });
 
+  it('projects every blueprint input into the hosted widget result', async () => {
+    const manifest = await app.toManifest();
+    const blueprintTool = manifest.tools.find(
+      (tool: { name: string }) => tool.name === 'design_business_workspace'
+    ) as { fulfilment?: { output?: Record<string, unknown> } } | undefined;
+
+    expect(blueprintTool?.fulfilment?.output).toMatchObject({
+      businessName: '${input.businessName}',
+      teamSize: '${input.teamSize}',
+      timeZone: '${input.timeZone}',
+      primaryGoal: '${input.primaryGoal}',
+      vacationAllowanceDays: '${input.vacationAllowanceDays}',
+      sickAllowanceDays: '${input.sickAllowanceDays}',
+      personalAllowanceDays: '${input.personalAllowanceDays}',
+    });
+  });
+
   it('presents the embedded assistant as Mark with focused starter prompts', async () => {
     const manifest = await app.toManifest();
 
