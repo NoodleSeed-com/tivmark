@@ -31,6 +31,8 @@ const ALLOWED_SCOPES = [
   'time_off.approve',
   'equipment',
   'equipment.approve',
+  'service_requests',
+  'service_requests.manage',
   'teams',
 ];
 

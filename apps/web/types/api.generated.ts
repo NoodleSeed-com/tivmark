@@ -497,6 +497,93 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/v1/teams/{teamId}/action-desk': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get the service catalog and authorized request queue */
+    get: operations['get_teams_teamId_action_desk'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/teams/{teamId}/action-desk/services': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List services in the team catalog */
+    get: operations['get_teams_teamId_action_desk_services'];
+    put?: never;
+    /** Add a service to the team catalog */
+    post: operations['post_teams_teamId_action_desk_services'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/teams/{teamId}/action-desk/services/{serviceId}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /** Update a catalog service */
+    patch: operations['patch_teams_teamId_action_desk_services_serviceId'];
+    trace?: never;
+  };
+  '/api/v1/teams/{teamId}/action-desk/requests': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List authorized service requests */
+    get: operations['get_teams_teamId_action_desk_requests'];
+    put?: never;
+    /** Create a service request */
+    post: operations['post_teams_teamId_action_desk_requests'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/teams/{teamId}/action-desk/requests/{requestId}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /** Move a service request through the queue */
+    patch: operations['patch_teams_teamId_action_desk_requests_requestId'];
+    trace?: never;
+  };
   '/api/v1/teams/{teamId}/time-off/requests': {
     parameters: {
       query?: never;
@@ -853,6 +940,84 @@ export interface components {
           };
         };
       };
+    };
+    ActionService: {
+      /** Format: uuid */
+      id: string;
+      slug: string;
+      name: string;
+      description: string;
+      /** @enum {string} */
+      audience: 'PUBLIC' | 'CUSTOMER' | 'EMPLOYEE';
+      active: boolean;
+      slaHours: number | null;
+      requiresApproval: boolean;
+      /** Format: date-time */
+      createdAt: string;
+      /** Format: date-time */
+      updatedAt: string;
+    };
+    ServiceRequest: {
+      /** Format: uuid */
+      id: string;
+      subject: string;
+      description: string;
+      /** @enum {string} */
+      priority: 'LOW' | 'NORMAL' | 'HIGH' | 'URGENT';
+      /** @enum {string} */
+      status:
+        | 'OPEN'
+        | 'IN_PROGRESS'
+        | 'WAITING_ON_REQUESTER'
+        | 'RESOLVED'
+        | 'CANCELED';
+      /** @enum {string} */
+      source: 'WEB' | 'ASSISTANT' | 'MCP';
+      resolution: string | null;
+      /** Format: date-time */
+      resolvedAt: string | null;
+      /** Format: date-time */
+      createdAt: string;
+      /** Format: date-time */
+      updatedAt: string;
+      service: components['schemas']['ActionService'];
+      requester: {
+        /** Format: uuid */
+        id: string;
+        name: string;
+        /** Format: email */
+        email: string;
+      };
+      assignee: {
+        /** Format: uuid */
+        id: string;
+        name: string;
+        /** Format: email */
+        email: string;
+      } | null;
+      events: {
+        /** Format: uuid */
+        id: string;
+        /** @enum {string} */
+        type: 'CREATED' | 'STATUS_CHANGED' | 'COMMENT' | 'ASSIGNED';
+        message: string;
+        /** Format: date-time */
+        createdAt: string;
+        actor: {
+          /** Format: uuid */
+          id: string;
+          name: string;
+          /** Format: email */
+          email: string;
+        } | null;
+      }[];
+    };
+    ActionDeskWorkspace: {
+      canManage: boolean;
+      /** Format: uuid */
+      currentUserId: string;
+      services: components['schemas']['ActionService'][];
+      requests: components['schemas']['ServiceRequest'][];
     };
     Credential: {
       /** Format: uuid */
@@ -5164,6 +5329,695 @@ export interface operations {
         content: {
           'application/json': {
             data: components['schemas']['TimeOffWorkspace'];
+          };
+        };
+      };
+      /** @description Invalid request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+      /** @description Insufficient permissions */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+      /** @description Resource not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+      /** @description Resource conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+      /** @description Validation failed */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+      /** @description Rate limit exceeded */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
+  get_teams_teamId_action_desk: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        teamId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Action Desk workspace */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            data: components['schemas']['ActionDeskWorkspace'];
+          };
+        };
+      };
+      /** @description Invalid request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+      /** @description Insufficient permissions */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+      /** @description Resource not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+      /** @description Resource conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+      /** @description Validation failed */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+      /** @description Rate limit exceeded */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
+  get_teams_teamId_action_desk_services: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        teamId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Service catalog */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            data: components['schemas']['ActionService'][];
+            meta?: {
+              nextCursor: string | null;
+            };
+          };
+        };
+      };
+      /** @description Invalid request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+      /** @description Insufficient permissions */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+      /** @description Resource not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+      /** @description Resource conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+      /** @description Validation failed */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+      /** @description Rate limit exceeded */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
+  post_teams_teamId_action_desk_services: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description Unique retry key. Reusing it with the same body returns the original response for 24 hours. */
+        'Idempotency-Key'?: string;
+      };
+      path: {
+        teamId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        'application/json': {
+          name: string;
+          description: string;
+          /** @enum {string} */
+          audience: 'PUBLIC' | 'CUSTOMER' | 'EMPLOYEE';
+          active?: boolean;
+          slaHours?: number | null;
+          requiresApproval?: boolean;
+        };
+      };
+    };
+    responses: {
+      /** @description Created service */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            data: components['schemas']['ActionService'];
+          };
+        };
+      };
+      /** @description Invalid request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+      /** @description Insufficient permissions */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+      /** @description Resource not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+      /** @description Resource conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+      /** @description Validation failed */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+      /** @description Rate limit exceeded */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
+  patch_teams_teamId_action_desk_services_serviceId: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        teamId: string;
+        serviceId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        'application/json': {
+          name: string;
+          description: string;
+          /** @enum {string} */
+          audience: 'PUBLIC' | 'CUSTOMER' | 'EMPLOYEE';
+          active: boolean;
+          slaHours: number | null;
+          requiresApproval: boolean;
+        };
+      };
+    };
+    responses: {
+      /** @description Updated service */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            data: components['schemas']['ActionService'];
+          };
+        };
+      };
+      /** @description Invalid request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+      /** @description Insufficient permissions */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+      /** @description Resource not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+      /** @description Resource conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+      /** @description Validation failed */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+      /** @description Rate limit exceeded */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
+  get_teams_teamId_action_desk_requests: {
+    parameters: {
+      query?: {
+        status?:
+          | 'OPEN'
+          | 'IN_PROGRESS'
+          | 'WAITING_ON_REQUESTER'
+          | 'RESOLVED'
+          | 'CANCELED';
+        requesterId?: string;
+      };
+      header?: never;
+      path: {
+        teamId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Service requests */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            data: components['schemas']['ServiceRequest'][];
+            meta?: {
+              nextCursor: string | null;
+            };
+          };
+        };
+      };
+      /** @description Invalid request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+      /** @description Insufficient permissions */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+      /** @description Resource not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+      /** @description Resource conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+      /** @description Validation failed */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+      /** @description Rate limit exceeded */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
+  post_teams_teamId_action_desk_requests: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description Unique retry key. Reusing it with the same body returns the original response for 24 hours. */
+        'Idempotency-Key'?: string;
+      };
+      path: {
+        teamId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        'application/json': {
+          /** Format: uuid */
+          requesterId?: string;
+          /** Format: uuid */
+          serviceId: string;
+          subject: string;
+          description: string;
+          /**
+           * @default NORMAL
+           * @enum {string}
+           */
+          priority?: 'LOW' | 'NORMAL' | 'HIGH' | 'URGENT';
+          /**
+           * @default WEB
+           * @enum {string}
+           */
+          source?: 'WEB' | 'ASSISTANT' | 'MCP';
+        };
+      };
+    };
+    responses: {
+      /** @description Created request */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            data: components['schemas']['ServiceRequest'];
+          };
+        };
+      };
+      /** @description Invalid request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+      /** @description Insufficient permissions */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+      /** @description Resource not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+      /** @description Resource conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+      /** @description Validation failed */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+      /** @description Rate limit exceeded */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
+  patch_teams_teamId_action_desk_requests_requestId: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        teamId: string;
+        requestId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        'application/json': {
+          /** @enum {string} */
+          status:
+            | 'OPEN'
+            | 'IN_PROGRESS'
+            | 'WAITING_ON_REQUESTER'
+            | 'RESOLVED'
+            | 'CANCELED';
+          note?: string | null;
+        };
+      };
+    };
+    responses: {
+      /** @description Updated request */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            data: components['schemas']['ServiceRequest'];
           };
         };
       };

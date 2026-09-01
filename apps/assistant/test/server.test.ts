@@ -24,6 +24,7 @@ describe('tivmark_assistant', () => {
         'explore_tivmark',
         'time_off_guide',
         'equipment_guide',
+        'action_desk_guide',
         'getting_started_guide',
         'trust_and_security',
         'design_business_workspace',
@@ -42,6 +43,12 @@ describe('tivmark_assistant', () => {
         'order_equipment',
         'order_equipment_guided',
         'cancel_equipment_request',
+        // Action Desk (customer, employee, public, and operator)
+        'action_desk_services',
+        'my_service_requests',
+        'start_service_request',
+        'team_service_request_queue',
+        'review_service_request',
         // admin review (OWNER/ADMIN)
         'team_time_off_queue',
         'team_equipment_queue',
@@ -59,6 +66,7 @@ describe('tivmark_assistant', () => {
       'review_equipment_app',
       'cancel_time_off_app',
       'cancel_equipment_app',
+      'review_service_request_app',
     ]) {
       const appOnlyReviewTool = manifest.tools.find(
         (tool: { name: string }) => tool.name === name
@@ -66,7 +74,7 @@ describe('tivmark_assistant', () => {
       expect(appOnlyReviewTool, `missing app-only tool ${name}`).toBeDefined();
       expect(appOnlyReviewTool?.visibility).toEqual(['app']);
     }
-    expect(manifest.tools).toHaveLength(modelVisibleTools.length + 4);
+    expect(manifest.tools).toHaveLength(modelVisibleTools.length + 5);
   });
 
   it('publishes business-facing titles for every tool', async () => {
@@ -79,6 +87,8 @@ describe('tivmark_assistant', () => {
     );
 
     expect(titles).toEqual({
+      action_desk_guide: 'Explore the Action Desk',
+      action_desk_services: 'Find an Action Desk service',
       book_time_off: 'Book time off',
       book_time_off_guided: 'Book time off with a form',
       cancel_equipment_request: 'Cancel equipment request',
@@ -87,12 +97,15 @@ describe('tivmark_assistant', () => {
       design_business_workspace: 'Design a business workspace',
       fulfill_equipment: 'Fulfill equipment request',
       my_equipment: 'List my equipment requests',
+      my_service_requests: 'List my Action Desk requests',
       my_teams: 'List my teams',
       talk_to_sales: 'Talk to the Tivmark team',
       my_time_off: 'List my time-off requests',
       order_equipment: 'Request equipment',
       order_equipment_guided: 'Request equipment with a form',
       review_equipment: 'Review equipment request',
+      review_service_request: 'Update an Action Desk request',
+      review_service_request_app: 'Update an Action Desk request in app',
       review_time_off: 'Review time-off request',
       review_time_off_app: 'Review time-off request in app',
       review_equipment_app: 'Review equipment request in app',
@@ -106,7 +119,9 @@ describe('tivmark_assistant', () => {
       launch_new_hire: 'Launch a new hire',
       plan_new_hire_launch: 'Plan a new-hire launch',
       trust_and_security: 'Show security and privacy',
+      start_service_request: 'Start an Action Desk request',
       team_equipment_queue: 'Open equipment review queue',
+      team_service_request_queue: 'Open the Action Desk queue',
       team_time_off_queue: 'Open time-off review queue',
       time_off_balance: 'Check time-off balance',
     });
@@ -136,6 +151,9 @@ describe('tivmark_assistant', () => {
     expect(text).toContain('tiv.plan_new_hire');
     expect(text).toContain('tiv.launch_new_hire');
     expect(text).toContain('tiv.get_new_hire_status');
+    expect(text).toContain('tiv.list_action_services');
+    expect(text).toContain('tiv.create_service_request');
+    expect(text).toContain('tiv.transition_service_request');
   });
 
   it('publishes the API-authoritative Tivmark user for balance lookup', async () => {
@@ -174,12 +192,12 @@ describe('tivmark_assistant', () => {
     expect(manifest.server.title).toBe('Mark');
     expect(manifest.server.branding?.name).toBe('Mark');
     expect(manifest.server.instructions).toContain(
-      "You are Mark, Tivmark's people-ops assistant."
+      "You are Mark, Tivmark's Action Desk and people-ops assistant."
     );
     expect(manifest.server.assistant?.labels).toMatchObject({
       welcomeHeading: 'How can Mark help?',
       welcomeMessage:
-        'Ask Mark to onboard a new hire, or help with time off and equipment.',
+        'Tell Mark what you need. Launch a new hire, complete an action, or track the outcome.',
       launcherPlaceholder: 'Ask Mark anything…',
       composerPlaceholder: 'Message Mark…',
       open: 'Open Mark',
@@ -191,10 +209,12 @@ describe('tivmark_assistant', () => {
       signUpAction: 'Create account',
     });
     expect(manifest.server.assistant?.suggestedPrompts).toEqual([
+      'I need help — find the right service and start a request.',
       'Help me set up Tivmark for my business.',
       'Onboard Maya Chen as a product designer starting October 5 in London. Give her the design equipment package.',
       'Can I take next Friday off? If so, book it.',
       'How does booking time off work?',
+      'What can the Action Desk handle?',
     ]);
   });
 

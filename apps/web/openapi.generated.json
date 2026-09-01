@@ -30,6 +30,10 @@
       "description": "Time-off requests, balances, and policies."
     },
     {
+      "name": "Action Desk",
+      "description": "Configurable services and end-user request operations."
+    },
+    {
       "name": "Credentials",
       "description": "Scoped service credentials and OAuth clients."
     },
@@ -68,6 +72,9 @@
               "time_off": "Read and manage time-off requests",
               "time_off.approve": "Approve or decline time-off requests",
               "time_off.policy": "Manage time-off allowances",
+              "equipment.approve": "Approve or decline equipment requests",
+              "service_requests": "Read and create Action Desk requests",
+              "service_requests.manage": "Manage the Action Desk queue and catalog",
               "credentials": "Manage service credentials and OAuth clients",
               "sso": "Manage single sign-on",
               "directory_sync": "Manage directory synchronization",
@@ -674,6 +681,139 @@
           "members",
           "balances"
         ]
+      },
+      "ActionService": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "slug": { "type": "string" },
+          "name": { "type": "string" },
+          "description": { "type": "string" },
+          "audience": {
+            "type": "string",
+            "enum": ["PUBLIC", "CUSTOMER", "EMPLOYEE"]
+          },
+          "active": { "type": "boolean" },
+          "slaHours": { "type": ["integer", "null"] },
+          "requiresApproval": { "type": "boolean" },
+          "createdAt": { "type": "string", "format": "date-time" },
+          "updatedAt": { "type": "string", "format": "date-time" }
+        },
+        "required": [
+          "id",
+          "slug",
+          "name",
+          "description",
+          "audience",
+          "active",
+          "slaHours",
+          "requiresApproval",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "ServiceRequest": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "subject": { "type": "string" },
+          "description": { "type": "string" },
+          "priority": {
+            "type": "string",
+            "enum": ["LOW", "NORMAL", "HIGH", "URGENT"]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "OPEN",
+              "IN_PROGRESS",
+              "WAITING_ON_REQUESTER",
+              "RESOLVED",
+              "CANCELED"
+            ]
+          },
+          "source": { "type": "string", "enum": ["WEB", "ASSISTANT", "MCP"] },
+          "resolution": { "type": ["string", "null"] },
+          "resolvedAt": { "type": ["string", "null"], "format": "date-time" },
+          "createdAt": { "type": "string", "format": "date-time" },
+          "updatedAt": { "type": "string", "format": "date-time" },
+          "service": { "$ref": "#/components/schemas/ActionService" },
+          "requester": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string", "format": "uuid" },
+              "name": { "type": "string" },
+              "email": { "type": "string", "format": "email" }
+            },
+            "required": ["id", "name", "email"]
+          },
+          "assignee": {
+            "type": ["object", "null"],
+            "properties": {
+              "id": { "type": "string", "format": "uuid" },
+              "name": { "type": "string" },
+              "email": { "type": "string", "format": "email" }
+            },
+            "required": ["id", "name", "email"]
+          },
+          "events": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": { "type": "string", "format": "uuid" },
+                "type": {
+                  "type": "string",
+                  "enum": ["CREATED", "STATUS_CHANGED", "COMMENT", "ASSIGNED"]
+                },
+                "message": { "type": "string" },
+                "createdAt": { "type": "string", "format": "date-time" },
+                "actor": {
+                  "type": ["object", "null"],
+                  "properties": {
+                    "id": { "type": "string", "format": "uuid" },
+                    "name": { "type": "string" },
+                    "email": { "type": "string", "format": "email" }
+                  },
+                  "required": ["id", "name", "email"]
+                }
+              },
+              "required": ["id", "type", "message", "createdAt", "actor"]
+            }
+          }
+        },
+        "required": [
+          "id",
+          "subject",
+          "description",
+          "priority",
+          "status",
+          "source",
+          "resolution",
+          "resolvedAt",
+          "createdAt",
+          "updatedAt",
+          "service",
+          "requester",
+          "assignee",
+          "events"
+        ]
+      },
+      "ActionDeskWorkspace": {
+        "type": "object",
+        "properties": {
+          "canManage": { "type": "boolean" },
+          "currentUserId": { "type": "string", "format": "uuid" },
+          "services": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/ActionService" }
+          },
+          "requests": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/ServiceRequest" }
+          }
+        },
+        "required": ["canManage", "currentUserId", "services", "requests"]
       },
       "Credential": {
         "type": "object",
@@ -5083,6 +5223,817 @@
           }
         },
         "operationId": "get_teams_teamId_time_off"
+      }
+    },
+    "/api/v1/teams/{teamId}/action-desk": {
+      "get": {
+        "tags": ["Action Desk"],
+        "summary": "Get the service catalog and authorized request queue",
+        "security": [{ "oauth2": [] }, { "bearerAuth": [] }],
+        "parameters": [
+          {
+            "schema": { "type": "string", "format": "uuid" },
+            "required": true,
+            "in": "path",
+            "name": "teamId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Action Desk workspace",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/ActionDeskWorkspace"
+                    }
+                  },
+                  "required": ["data"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Problem" }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Problem" }
+              }
+            }
+          },
+          "403": {
+            "description": "Insufficient permissions",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Problem" }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Problem" }
+              }
+            }
+          },
+          "409": {
+            "description": "Resource conflict",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Problem" }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Problem" }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Problem" }
+              }
+            }
+          }
+        },
+        "operationId": "get_teams_teamId_action_desk"
+      }
+    },
+    "/api/v1/teams/{teamId}/action-desk/services": {
+      "get": {
+        "tags": ["Action Desk"],
+        "summary": "List services in the team catalog",
+        "security": [{ "oauth2": [] }, { "bearerAuth": [] }],
+        "parameters": [
+          {
+            "schema": { "type": "string", "format": "uuid" },
+            "required": true,
+            "in": "path",
+            "name": "teamId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Service catalog",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/ActionService" }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "properties": {
+                        "nextCursor": { "type": ["string", "null"] }
+                      },
+                      "required": ["nextCursor"]
+                    }
+                  },
+                  "required": ["data"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Problem" }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Problem" }
+              }
+            }
+          },
+          "403": {
+            "description": "Insufficient permissions",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Problem" }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Problem" }
+              }
+            }
+          },
+          "409": {
+            "description": "Resource conflict",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Problem" }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Problem" }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Problem" }
+              }
+            }
+          }
+        },
+        "operationId": "get_teams_teamId_action_desk_services"
+      },
+      "post": {
+        "tags": ["Action Desk"],
+        "summary": "Add a service to the team catalog",
+        "security": [{ "oauth2": [] }, { "bearerAuth": [] }],
+        "parameters": [
+          {
+            "schema": { "type": "string", "format": "uuid" },
+            "required": true,
+            "in": "path",
+            "name": "teamId"
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "description": "Unique retry key. Reusing it with the same body returns the original response for 24 hours.",
+            "schema": { "type": "string", "minLength": 8, "maxLength": 200 }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100
+                  },
+                  "description": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 500
+                  },
+                  "audience": {
+                    "type": "string",
+                    "enum": ["PUBLIC", "CUSTOMER", "EMPLOYEE"]
+                  },
+                  "active": { "type": "boolean" },
+                  "slaHours": {
+                    "type": ["integer", "null"],
+                    "minimum": 1,
+                    "maximum": 8760
+                  },
+                  "requiresApproval": { "type": "boolean" }
+                },
+                "required": ["name", "description", "audience"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created service",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": { "$ref": "#/components/schemas/ActionService" }
+                  },
+                  "required": ["data"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Problem" }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Problem" }
+              }
+            }
+          },
+          "403": {
+            "description": "Insufficient permissions",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Problem" }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Problem" }
+              }
+            }
+          },
+          "409": {
+            "description": "Resource conflict",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Problem" }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Problem" }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Problem" }
+              }
+            }
+          }
+        },
+        "operationId": "post_teams_teamId_action_desk_services"
+      }
+    },
+    "/api/v1/teams/{teamId}/action-desk/services/{serviceId}": {
+      "patch": {
+        "tags": ["Action Desk"],
+        "summary": "Update a catalog service",
+        "security": [{ "oauth2": [] }, { "bearerAuth": [] }],
+        "parameters": [
+          {
+            "schema": { "type": "string", "format": "uuid" },
+            "required": true,
+            "name": "teamId",
+            "in": "path"
+          },
+          {
+            "schema": { "type": "string", "format": "uuid" },
+            "required": true,
+            "name": "serviceId",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100
+                  },
+                  "description": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 500
+                  },
+                  "audience": {
+                    "type": "string",
+                    "enum": ["PUBLIC", "CUSTOMER", "EMPLOYEE"]
+                  },
+                  "active": { "type": "boolean" },
+                  "slaHours": {
+                    "type": ["integer", "null"],
+                    "minimum": 1,
+                    "maximum": 8760
+                  },
+                  "requiresApproval": { "type": "boolean" }
+                },
+                "required": [
+                  "name",
+                  "description",
+                  "audience",
+                  "active",
+                  "slaHours",
+                  "requiresApproval"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated service",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": { "$ref": "#/components/schemas/ActionService" }
+                  },
+                  "required": ["data"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Problem" }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Problem" }
+              }
+            }
+          },
+          "403": {
+            "description": "Insufficient permissions",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Problem" }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Problem" }
+              }
+            }
+          },
+          "409": {
+            "description": "Resource conflict",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Problem" }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Problem" }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Problem" }
+              }
+            }
+          }
+        },
+        "operationId": "patch_teams_teamId_action_desk_services_serviceId"
+      }
+    },
+    "/api/v1/teams/{teamId}/action-desk/requests": {
+      "get": {
+        "tags": ["Action Desk"],
+        "summary": "List authorized service requests",
+        "security": [{ "oauth2": [] }, { "bearerAuth": [] }],
+        "parameters": [
+          {
+            "schema": { "type": "string", "format": "uuid" },
+            "required": true,
+            "in": "path",
+            "name": "teamId"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "OPEN",
+                "IN_PROGRESS",
+                "WAITING_ON_REQUESTER",
+                "RESOLVED",
+                "CANCELED"
+              ]
+            },
+            "required": false,
+            "name": "status",
+            "in": "query"
+          },
+          {
+            "schema": { "type": "string", "format": "uuid" },
+            "required": false,
+            "name": "requesterId",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Service requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/ServiceRequest" }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "properties": {
+                        "nextCursor": { "type": ["string", "null"] }
+                      },
+                      "required": ["nextCursor"]
+                    }
+                  },
+                  "required": ["data"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Problem" }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Problem" }
+              }
+            }
+          },
+          "403": {
+            "description": "Insufficient permissions",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Problem" }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Problem" }
+              }
+            }
+          },
+          "409": {
+            "description": "Resource conflict",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Problem" }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Problem" }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Problem" }
+              }
+            }
+          }
+        },
+        "operationId": "get_teams_teamId_action_desk_requests"
+      },
+      "post": {
+        "tags": ["Action Desk"],
+        "summary": "Create a service request",
+        "security": [{ "oauth2": [] }, { "bearerAuth": [] }],
+        "parameters": [
+          {
+            "schema": { "type": "string", "format": "uuid" },
+            "required": true,
+            "in": "path",
+            "name": "teamId"
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "description": "Unique retry key. Reusing it with the same body returns the original response for 24 hours.",
+            "schema": { "type": "string", "minLength": 8, "maxLength": 200 }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "requesterId": { "type": "string", "format": "uuid" },
+                  "serviceId": { "type": "string", "format": "uuid" },
+                  "subject": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 160
+                  },
+                  "description": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 2000
+                  },
+                  "priority": {
+                    "type": "string",
+                    "enum": ["LOW", "NORMAL", "HIGH", "URGENT"],
+                    "default": "NORMAL"
+                  },
+                  "source": {
+                    "type": "string",
+                    "enum": ["WEB", "ASSISTANT", "MCP"],
+                    "default": "WEB"
+                  }
+                },
+                "required": ["serviceId", "subject", "description"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": { "$ref": "#/components/schemas/ServiceRequest" }
+                  },
+                  "required": ["data"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Problem" }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Problem" }
+              }
+            }
+          },
+          "403": {
+            "description": "Insufficient permissions",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Problem" }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Problem" }
+              }
+            }
+          },
+          "409": {
+            "description": "Resource conflict",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Problem" }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Problem" }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Problem" }
+              }
+            }
+          }
+        },
+        "operationId": "post_teams_teamId_action_desk_requests"
+      }
+    },
+    "/api/v1/teams/{teamId}/action-desk/requests/{requestId}": {
+      "patch": {
+        "tags": ["Action Desk"],
+        "summary": "Move a service request through the queue",
+        "security": [{ "oauth2": [] }, { "bearerAuth": [] }],
+        "parameters": [
+          {
+            "schema": { "type": "string", "format": "uuid" },
+            "required": true,
+            "name": "teamId",
+            "in": "path"
+          },
+          {
+            "schema": { "type": "string", "format": "uuid" },
+            "required": true,
+            "name": "requestId",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "OPEN",
+                      "IN_PROGRESS",
+                      "WAITING_ON_REQUESTER",
+                      "RESOLVED",
+                      "CANCELED"
+                    ]
+                  },
+                  "note": { "type": ["string", "null"], "maxLength": 1000 }
+                },
+                "required": ["status"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": { "$ref": "#/components/schemas/ServiceRequest" }
+                  },
+                  "required": ["data"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Problem" }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Problem" }
+              }
+            }
+          },
+          "403": {
+            "description": "Insufficient permissions",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Problem" }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Problem" }
+              }
+            }
+          },
+          "409": {
+            "description": "Resource conflict",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Problem" }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Problem" }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Problem" }
+              }
+            }
+          }
+        },
+        "operationId": "patch_teams_teamId_action_desk_requests_requestId"
       }
     },
     "/api/v1/teams/{teamId}/time-off/requests": {

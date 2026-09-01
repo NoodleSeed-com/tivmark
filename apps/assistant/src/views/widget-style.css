@@ -535,6 +535,10 @@ button {
   list-style: none;
 }
 
+.tv-section-gap {
+  margin-top: 12px;
+}
+
 .tv-guide-row {
   display: grid;
   grid-template-columns: minmax(88px, auto) 1fr;

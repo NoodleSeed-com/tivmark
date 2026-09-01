@@ -153,6 +153,7 @@ export default server(
             { kind: 'tool', name: 'explore_tivmark' },
             { kind: 'tool', name: 'time_off_guide' },
             { kind: 'tool', name: 'equipment_guide' },
+            { kind: 'tool', name: 'action_desk_guide' },
             { kind: 'tool', name: 'getting_started_guide' },
             { kind: 'tool', name: 'trust_and_security' },
             { kind: 'tool', name: 'design_business_workspace' },
@@ -167,6 +168,9 @@ export default server(
             { kind: 'tool', name: 'time_off_balance' },
             { kind: 'tool', name: 'my_time_off' },
             { kind: 'tool', name: 'my_equipment' },
+            { kind: 'tool', name: 'action_desk_services' },
+            { kind: 'tool', name: 'my_service_requests' },
+            { kind: 'tool', name: 'start_service_request' },
             { kind: 'tool', name: 'book_time_off' },
             { kind: 'tool', name: 'complete_business_onboarding' },
           ],
@@ -256,7 +260,7 @@ export default server(
       labels: {
         welcomeHeading: 'How can Mark help?',
         welcomeMessage:
-          'Ask Mark to onboard a new hire, or help with time off and equipment.',
+          'Tell Mark what you need. Launch a new hire, complete an action, or track the outcome.',
         launcherPlaceholder: 'Ask Mark anything…',
         composerPlaceholder: 'Message Mark…',
         thinking: 'Mark is thinking…',
@@ -285,11 +289,12 @@ export default server(
         sessionError: "Mark couldn't connect",
         signInHeading: 'Save your Tivmark workspace',
         signInBody:
-          'Sign in or create an account to keep this conversation and apply your blueprint.',
+          'Sign in or create an account to continue this request and keep its outcome.',
         signInAction: 'Sign in',
         signUpAction: 'Create account',
       },
       suggestedPrompts: [
+        'I need help — find the right service and start a request.',
         // The flagship demo begins anonymously and becomes an authenticated confirmed write.
         'Help me set up Tivmark for my business.',
         'Onboard Maya Chen as a product designer starting October 5 in London. Give her the design equipment package.',
@@ -298,6 +303,7 @@ export default server(
         'Can I take next Friday off? If so, book it.',
         // Answerable by anyone, from the knowledge component.
         'How does booking time off work?',
+        'What can the Action Desk handle?',
       ],
       locale: 'en-US',
       direction: 'auto',
@@ -312,6 +318,7 @@ export default server(
     ...createNewHireTools(contracts, toolConfig),
     ...createTimeOffTools(contracts, toolConfig),
     ...createEquipmentTools(contracts, toolConfig),
+    ...createActionDeskTools(contracts, toolConfig),
     ...createReviewTools(contracts, toolConfig),
   ]
 );
@@ -565,6 +572,51 @@ function createContracts() {
     activatedAt: z.string().nullable(),
     authenticated: z.boolean(),
   });
+  const serviceAudience = z.enum(['PUBLIC', 'CUSTOMER', 'EMPLOYEE']);
+  const serviceRequestStatus = z.enum([
+    'OPEN',
+    'IN_PROGRESS',
+    'WAITING_ON_REQUESTER',
+    'RESOLVED',
+    'CANCELED',
+  ]);
+  const serviceRequestPriority = z.enum(['LOW', 'NORMAL', 'HIGH', 'URGENT']);
+  const actionServiceSchema = z.object({
+    id: z.string(),
+    slug: nonEmptyString,
+    name: nonEmptyString,
+    description: nonEmptyString,
+    audience: serviceAudience,
+    active: z.boolean(),
+    slaHours: z.number().int().positive().nullable(),
+    requiresApproval: z.boolean(),
+  });
+  const serviceRequestSchema = z
+    .object({
+      id: z.string(),
+      subject: nonEmptyString,
+      description: nonEmptyString,
+      priority: serviceRequestPriority,
+      status: serviceRequestStatus,
+      source: z.enum(['WEB', 'ASSISTANT', 'MCP']),
+      resolution: z.string().nullable(),
+      createdAt: nonEmptyString,
+      service: actionServiceSchema,
+      requester,
+      events: z
+        .array(
+          z
+            .object({
+              id: z.string(),
+              type: nonEmptyString,
+              message: nonEmptyString,
+              createdAt: nonEmptyString,
+            })
+            .passthrough()
+        )
+        .max(50),
+    })
+    .passthrough();
 
   return {
     leaveType,
@@ -596,6 +648,18 @@ function createContracts() {
     newHireLaunchInputSchema,
     newHirePlanSchema,
     newHireReceiptSchema,
+    serviceRequestStatus,
+    serviceRequestPriority,
+    actionServiceSchema,
+    serviceRequestSchema,
+    actionServicesOutputSchema: z.object({
+      team: z.string(),
+      services: z.array(actionServiceSchema).max(50),
+    }),
+    serviceRequestsOutputSchema: z.object({
+      team: z.string(),
+      requests: z.array(serviceRequestSchema).max(100),
+    }),
   };
 }
 
@@ -616,6 +680,10 @@ function createTivmarkConnector({
   newHireLaunchInputSchema,
   newHirePlanSchema,
   newHireReceiptSchema,
+  serviceRequestStatus,
+  serviceRequestPriority,
+  actionServiceSchema,
+  serviceRequestSchema,
 }: Contracts) {
   // Every call runs as the signed-in user through delegated token exchange;
   // Tivmark's API remains the authorization boundary.
@@ -637,6 +705,8 @@ function createTivmarkConnector({
           'equipment',
           'equipment.approve',
           'invitations',
+          'service_requests',
+          'service_requests.manage',
         ],
         authMethod: 'client_secret_basic',
       },
@@ -874,6 +944,65 @@ function createTivmarkConnector({
           output: z.object({ request: z.unknown() }),
           response: { request: '${response.data}' },
         },
+        list_action_services: {
+          type: 'read',
+          method: 'GET',
+          path: '/teams/{team}/action-desk/services',
+          input: z.object({ team: z.string() }),
+          output: z.object({ services: z.array(actionServiceSchema) }),
+          response: { services: '${response.data}' },
+        },
+        list_service_requests: {
+          type: 'read',
+          method: 'GET',
+          path: '/teams/{team}/action-desk/requests',
+          query: ['requesterId', 'status'],
+          input: z.object({
+            team: z.string(),
+            requesterId: z.string().optional(),
+            status: serviceRequestStatus.optional(),
+          }),
+          output: z.object({ requests: z.array(serviceRequestSchema) }),
+          response: { requests: '${response.data}' },
+        },
+        create_service_request: {
+          type: 'action',
+          method: 'POST',
+          path: '/teams/{team}/action-desk/requests',
+          input: z.object({
+            team: z.string(),
+            serviceId: z.string(),
+            subject: z.string(),
+            description: z.string(),
+            priority: serviceRequestPriority,
+          }),
+          request: {
+            serviceId: '${args.serviceId}',
+            subject: '${args.subject}',
+            description: '${args.description}',
+            priority: '${args.priority}',
+            source: 'ASSISTANT',
+          },
+          output: z.object({ request: serviceRequestSchema }),
+          response: { request: '${response.data}' },
+        },
+        transition_service_request: {
+          type: 'action',
+          method: 'PATCH',
+          path: '/teams/{team}/action-desk/requests/{id}',
+          input: z.object({
+            team: z.string(),
+            id: z.string(),
+            status: serviceRequestStatus,
+            note: z.string(),
+          }),
+          request: {
+            status: '${args.status}',
+            note: '${args.note}',
+          },
+          output: z.object({ request: serviceRequestSchema }),
+          response: { request: '${response.data}' },
+        },
       },
     });
 }
@@ -906,8 +1035,8 @@ function createKnowledge() {
   return knowledge('tivmark_help', {
     title: 'Tivmark help',
     description:
-      'How Tivmark works: what the product does, time-off and equipment workflows, teams ' +
-      'and roles, getting started, and security and privacy. Use this to answer questions ' +
+      'How Tivmark works: its Action Desk, time-off and equipment workflows, teams and roles, ' +
+      'getting started, and security and privacy. Use this to answer questions ' +
       'about Tivmark itself, and cite what it returns.',
     documents: [
       file('./knowledge/product-overview.md', {
@@ -917,6 +1046,10 @@ function createKnowledge() {
       file('./knowledge/time-off.md', { title: 'Time off in Tivmark' }),
       file('./knowledge/equipment.md', {
         title: 'Equipment requests in Tivmark',
+      }),
+      file('./knowledge/action-desk.md', {
+        title: 'Action Desk services and requests',
+        sourceUrl: 'https://tivmark.com/#features',
       }),
       file('./knowledge/teams-and-roles.md', {
         title: 'Teams, roles, and access',
@@ -1209,6 +1342,78 @@ function createNewHireTools(
 // Keep the two in step when either changes.
 function createGuideTools({ readOnly, widgetCsp }: ToolConfig) {
   return [
+    tool('action_desk_guide', {
+      title: 'Explore the Action Desk',
+      description:
+        'Show how Tivmark turns a plain-language need into a routed, trackable business request. ' +
+        'Use this for public questions about customer support, sales, employee services, or the Action Desk.',
+      annotations: readOnly,
+      input: z.object({}),
+      output: z.object({
+        headline: z.string(),
+        services: z
+          .array(
+            z.object({
+              id: z.string(),
+              name: z.string(),
+              audience: z.string(),
+              description: z.string(),
+            })
+          )
+          .max(8),
+        steps: z.array(z.string()).max(6),
+      }),
+      fulfil: () => ({
+        headline: 'One front door for every request your business handles.',
+        services: [
+          {
+            id: 'sales-consultation',
+            name: 'Sales consultation',
+            audience: 'Anyone',
+            description:
+              'Qualify a need, recommend the right next step, and arrange a walkthrough.',
+          },
+          {
+            id: 'customer-support',
+            name: 'Customer support',
+            audience: 'Customers',
+            description:
+              'Capture the problem and route it with context instead of starting another thread.',
+          },
+          {
+            id: 'software-access',
+            name: 'Software access',
+            audience: 'Employees',
+            description:
+              'Request an application or entitlement and keep the approval visible.',
+          },
+          {
+            id: 'general-request',
+            name: 'General request',
+            audience: 'Anyone',
+            description:
+              'Give every other need a durable, trackable path to the right operator.',
+          },
+        ],
+        steps: [
+          'Explain what you need in your own words.',
+          'Mark matches it to the team’s live service catalog.',
+          'Review and confirm one durable request.',
+          'Return later for grounded status and resolution.',
+        ],
+      }),
+      viewTitle: 'Tivmark Action Desk',
+      viewDescription:
+        'A reusable AI front door for customer and employee needs.',
+      invoking: 'Opening the Action Desk…',
+      invoked: 'Here is what the Action Desk can handle',
+      domain: 'https://tivmark.com',
+      csp: widgetCsp,
+      view: {
+        component: 'action-desk-guide',
+        entry: './views/action-desk-guide.tsx',
+      },
+    }),
     tool('explore_tivmark', {
       title: 'Show what Tivmark does',
       description:
@@ -1223,8 +1428,13 @@ function createGuideTools({ readOnly, widgetCsp }: ToolConfig) {
         portalUrl: z.string(),
       }),
       fulfil: () => ({
-        tagline: 'Time off and equipment, handled.',
+        tagline: 'Every business request, handled.',
         features: [
+          {
+            title: 'Action Desk',
+            detail:
+              'One AI-guided front door for sales, support, access, and custom business services.',
+          },
           {
             title: 'Time off',
             detail:
@@ -1906,6 +2116,188 @@ function createEquipmentTools(
   ];
 }
 
+function createActionDeskTools(
+  {
+    serviceRequestStatus,
+    serviceRequestPriority,
+    actionServicesOutputSchema,
+    serviceRequestsOutputSchema,
+    serviceRequestSchema,
+  }: Contracts,
+  { readOnly, confirmed, widgetCsp, widgetDomain }: ToolConfig
+) {
+  return [
+    tool('action_desk_services', {
+      title: 'Find an Action Desk service',
+      description:
+        'List the signed-in team’s live service catalog. Use this to match a natural-language ' +
+        'need to a service id before creating a request; never invent a service id.',
+      annotations: readOnly,
+      input: z.object({ team: z.string() }),
+      output: actionServicesOutputSchema,
+      fulfil: ({ input, connectors }) => {
+        const res = connectors.tiv.list_action_services({ team: input.team });
+        return { team: input.team, services: res.services };
+      },
+      viewTitle: 'Action Desk services',
+      viewDescription: 'The live services available for this team.',
+      invoking: 'Loading the service catalog…',
+      invoked: 'Service catalog ready',
+      domain: widgetDomain,
+      csp: widgetCsp,
+      view: {
+        component: 'action-desk-services',
+        entry: './views/action-desk-services.tsx',
+      },
+    }),
+    tool('my_service_requests', {
+      title: 'List my Action Desk requests',
+      description:
+        "List the signed-in user's service requests, current status, and activity for a team.",
+      annotations: readOnly,
+      input: z.object({ team: z.string() }),
+      output: serviceRequestsOutputSchema,
+      fulfil: ({ input, user, connectors }) => {
+        const res = connectors.tiv.list_service_requests({
+          team: input.team,
+          requesterId: user.subject,
+        });
+        return { team: input.team, requests: res.requests };
+      },
+      viewTitle: 'Your Action Desk requests',
+      viewDescription: 'Track every request and its latest outcome.',
+      invoking: 'Loading your requests…',
+      invoked: 'Requests ready',
+      domain: widgetDomain,
+      csp: widgetCsp,
+      view: {
+        component: 'service-requests',
+        entry: './views/service-requests.tsx',
+      },
+    }),
+    tool('start_service_request', {
+      title: 'Start an Action Desk request',
+      description:
+        'Create a durable service request for the signed-in user. First call action_desk_services, ' +
+        'select an exact active service id, collect a short subject and useful detail, then show all ' +
+        'fields for confirmation.',
+      annotations: confirmed,
+      input: z.object({
+        team: z.string(),
+        serviceId: z.string().describe('Exact id from action_desk_services'),
+        subject: z.string().min(1).max(160),
+        description: z.string().min(1).max(2000),
+        priority: serviceRequestPriority.default('NORMAL'),
+      }),
+      output: serviceRequestsOutputSchema.extend({
+        status: z.string(),
+        request: serviceRequestSchema,
+      }),
+      fulfil: ({ input, connectors }) => {
+        const res = connectors.tiv.create_service_request({
+          team: input.team,
+          serviceId: input.serviceId,
+          subject: input.subject,
+          description: input.description,
+          priority: input.priority,
+        });
+        return {
+          team: input.team,
+          status: `Created Action Desk request ${res.request.id}.`,
+          request: res.request,
+          requests: [res.request],
+        };
+      },
+      viewTitle: 'Action Desk request created',
+      viewDescription:
+        'A durable receipt with service, status, and request id.',
+      invoking: 'Creating your request…',
+      invoked: 'Request created',
+      domain: widgetDomain,
+      csp: widgetCsp,
+      view: {
+        component: 'service-requests',
+        entry: './views/service-requests.tsx',
+      },
+    }),
+    tool('team_service_request_queue', {
+      title: 'Open the Action Desk queue',
+      description:
+        'List the team service-request queue. Only useful to an OWNER or ADMIN of that team.',
+      annotations: readOnly,
+      input: z.object({ team: z.string() }),
+      output: serviceRequestsOutputSchema,
+      fulfil: ({ input, connectors }) => {
+        const res = connectors.tiv.list_service_requests({ team: input.team });
+        return { team: input.team, requests: res.requests };
+      },
+      viewTitle: 'Action Desk queue',
+      viewDescription:
+        'Open, active, waiting, and recently completed requests.',
+      invoking: 'Loading the Action Desk queue…',
+      invoked: 'Queue ready',
+      domain: widgetDomain,
+      csp: widgetCsp,
+      view: {
+        component: 'service-request-queue',
+        entry: './views/service-request-queue.tsx',
+      },
+    }),
+    tool('review_service_request', {
+      title: 'Update an Action Desk request',
+      description:
+        'Move a team service request to in progress, waiting on requester, resolved, canceled, ' +
+        'or reopen it. OWNER/ADMIN only. The operator confirms the exact status and note.',
+      annotations: confirmed,
+      input: z.object({
+        team: z.string(),
+        id: z.string(),
+        status: serviceRequestStatus,
+        note: z.string().max(1000).default(''),
+      }),
+      output: z.object({ status: z.string(), request: serviceRequestSchema }),
+      fulfil: ({ input, connectors }) => {
+        const res = connectors.tiv.transition_service_request({
+          team: input.team,
+          id: input.id,
+          status: input.status,
+          note: input.note,
+        });
+        return {
+          status: `Moved request ${input.id} to ${input.status}.`,
+          request: res.request,
+        };
+      },
+    }),
+    tool('review_service_request_app', {
+      title: 'Update an Action Desk request in app',
+      visibility: ['app'],
+      description:
+        'Move a team service request to its next status (OWNER/ADMIN only).',
+      annotations: annotations.action(),
+      input: z.object({
+        team: z.string().default(''),
+        id: z.string().default(''),
+        status: serviceRequestStatus.default('IN_PROGRESS'),
+        note: z.string().default(''),
+      }),
+      output: z.object({ status: z.string(), request: serviceRequestSchema }),
+      fulfil: ({ input, connectors }) => {
+        const res = connectors.tiv.transition_service_request({
+          team: input.team,
+          id: input.id,
+          status: input.status,
+          note: input.note,
+        });
+        return {
+          status: `Moved request ${input.id} to ${input.status}.`,
+          request: res.request,
+        };
+      },
+    }),
+  ];
+}
+
 function createReviewTools(
   {
     decision,
@@ -2092,14 +2484,44 @@ function createReviewTools(
 function createAgentGuide(): AgentGuideSource {
   return {
     description:
-      'Use Mark to explain Tivmark, design a new-business workspace anonymously, and complete authenticated people-ops actions behind explicit confirmation.',
+      'Use Mark as a reusable Action Desk for business services, onboarding, and people-ops actions behind explicit confirmation.',
     useWhen: [
+      'A customer, employee, or public visitor needs help and should be routed to the right business service.',
+      'An owner or administrator wants to operate the team service-request queue.',
       'A prospective customer wants to set up Tivmark for a new business.',
       'An owner or admin wants to onboard and launch a new employee.',
       'The user asks whether they can take time off or asks Mark to submit it.',
       'The user wants to inspect or manage their Tivmark people-ops data.',
     ],
     workflows: [
+      {
+        id: 'resolve_business_need',
+        title: 'Route and track a business need',
+        intent:
+          'Carry a plain-language customer or employee need into a grounded, durable request and later status.',
+        steps: [
+          {
+            capability: { kind: 'tool', name: 'action_desk_guide' },
+            guidance:
+              'For a public visitor, show the reusable kinds of service the Action Desk supports. Do not imply these static examples are a signed-in team’s live catalog.',
+          },
+          {
+            capability: { kind: 'tool', name: 'action_desk_services' },
+            guidance:
+              'Once identity and team are available, load the live catalog and match the need to one exact active service id. Ask one short clarifying question if more than one service fits.',
+          },
+          {
+            capability: { kind: 'tool', name: 'start_service_request' },
+            guidance:
+              'Collect a concise subject, useful detail, and bounded priority. Call only after service lookup and preserve the selected service id; confirmation is the write boundary.',
+          },
+          {
+            capability: { kind: 'tool', name: 'my_service_requests' },
+            guidance:
+              'Use for later status questions. Treat the returned status, resolution, and events as authoritative.',
+          },
+        ],
+      },
       {
         id: 'launch_new_hire',
         title: 'Launch a new hire end to end',
@@ -2174,6 +2596,9 @@ function createAgentGuide(): AgentGuideSource {
       'Never call launch_new_hire without a successful plan_new_hire_launch for the same team, person, role, date, location, time zone, and equipment package.',
       'READY means the invitation and readiness work exist; the person becomes an active member only when status is ACTIVE.',
       'A prepared equipment request is pending, not approved or fulfilled.',
+      'Never invent a service id or submit against a static public example; call action_desk_services for the signed-in team first.',
+      'Never say a request exists until start_service_request returns its durable request id.',
+      'Only offer team_service_request_queue or review_service_request to an OWNER or ADMIN of the relevant team.',
       'A workspace blueprint is planning data only; never say the business exists until complete_business_onboarding returns status READY.',
       'Never change a blueprint value between design_business_workspace and complete_business_onboarding without telling the user and regenerating the blueprint.',
       'Never claim eligibility without a current time_off_balance assessment for the exact team, type, and dates.',
@@ -2186,6 +2611,10 @@ function createAgentGuide(): AgentGuideSource {
         prompt:
           'Onboard Maya Chen as a product designer starting October 5 in London. Give her the design equipment package.',
         workflow: 'launch_new_hire',
+      },
+      {
+        prompt: 'I need help — find the right service and start a request.',
+        workflow: 'resolve_business_need',
       },
       {
         prompt: 'Help me set up Tivmark for my business.',
@@ -2201,9 +2630,14 @@ function createAgentGuide(): AgentGuideSource {
 
 function createInstructions() {
   return (
-    "You are Mark, Tivmark's people-ops assistant. Help with new-hire launches, time off, " +
-    'equipment, and business setup. Address the user by name when known. Resolve teams only ' +
-    'from trusted context: silently choose the sole team, ask when there are several, and never invent one. ' +
+    "You are Mark, Tivmark's Action Desk and people-ops assistant. " +
+    'ACTION DESK: help customers, employees, and visitors explain a need, reach the right ' +
+    'business service, create a durable request, and retrieve grounded status. Public visitors ' +
+    'get action_desk_guide examples. For a signed-in user, resolve the team and call ' +
+    'action_desk_services before start_service_request; never invent a service id. Collect a ' +
+    'short subject, actionable context, and LOW, NORMAL, HIGH, or URGENT priority. Ask one ' +
+    'clarifying question when the match is ambiguous. A submitted request is OPEN, not resolved. ' +
+    'Use my_service_requests for status. Offer queue and transition tools only to an OWNER or ADMIN. ' +
     'NEW HIRES: for an OWNER or ADMIN, collect only missing full name, work email, title, concrete ' +
     'start date, location, IANA time zone, role, and package. Default to MEMBER; infer DESIGN ' +
     'for design roles, ENGINEERING for engineering roles, otherwise STANDARD unless they say none. ' +
@@ -2211,20 +2645,24 @@ function createInstructions() {
     'launch_new_hire only after that plan succeeds and the user asks to launch; preserve every ' +
     'value exactly and let the platform show one confirmation. READY means prepared, not a member; ' +
     'ACTIVE means accepted. Equipment stays pending. Use get_new_hire_status to verify later. ' +
-    'BUSINESS SETUP: collect name, size band, IANA time zone, first workflow, and leave allowances. ' +
-    'Offer 20 vacation, 10 sick, and 3 personal days. Call design_business_workspace when complete. ' +
-    'Only after the user asks to create it, call complete_business_onboarding with unchanged values. ' +
-    'Do not claim creation before its READY receipt. ' +
-    'TIME OFF: resolve relative dates to YYYY-MM-DD. For “if eligible,” call time_off_balance with ' +
-    'the exact dates and year; default generic leave to VACATION. Call book_time_off only after an ' +
-    'eligible assessment and an existing request to book. A booking is pending, never approved. ' +
-    'Use guided booking or equipment tools when details are missing. Only offer queues, reviews, ' +
-    'or fulfillment for reviewerTeamSlugs, but treat claims as conversation context: Tivmark API ' +
-    'authorization is final. Prefer tools over prose; use at most two short sentences with a card ' +
-    'and never restate what the card already shows. Keep replies crisp. For product questions use ' +
-    'guide cards, with one cited search_tivmark_help sentence only when additive. ' +
-    'ANONYMOUS: absent ambient teams means a public visitor. Use guide cards and talk_to_sales. ' +
-    'Use the business blueprint before sign-in. For personal data or actions, call the matching ' +
-    'tool so the platform raises sign-in and continues the conversation. Never guess private data.'
+    'TIME OFF AND EQUIPMENT: check the signed-in user’s balances and requests, create or cancel ' +
+    'requests, and help authorized reviewers. Resolve relative dates to YYYY-MM-DD in the current ' +
+    'time zone. For “if eligible,” call time_off_balance for the exact dates, default generic ' +
+    'leave to VACATION, and book only when eligible and already requested. A booking is pending. ' +
+    'Use direct tools when all required values are known and guided tools when values are missing. ' +
+    'ONBOARDING: collect business name, size band, IANA time zone, first workflow, and starter ' +
+    'vacation, sick, and personal allowances. Ask at most two questions per turn. Use ' +
+    'design_business_workspace once explicit. Call complete_business_onboarding only after the ' +
+    'user asks to create it, with unchanged values; claim success only from its READY receipt. ' +
+    'CONTEXT: use a trusted team slug, choose the only team, ask if several, and never guess. ' +
+    'reviewerTeamSlugs guides what to offer but Tivmark API authorization is authoritative. ' +
+    'Address the user by name when known. Prefer tools over prose; let the matching card carry ' +
+    'the data, add at most two short sentences, and never restate what the card already shows. ' +
+    'For product questions prefer explore_tivmark, action_desk_guide, ' +
+    'time_off_guide, equipment_guide, getting_started_guide, or trust_and_security; add one cited ' +
+    'search_tivmark_help fact only when useful. Keep replies concise. ' +
+    'ANONYMOUS: absence of ambient team context means public visitor. Use public guides or ' +
+    'talk_to_sales. For personal data or actions, call the matching identity-gated tool so the ' +
+    'platform can offer sign-in and resume. Never guess personal data or promise transcript display.'
   );
 }

@@ -150,6 +150,12 @@ describe('OAuth 2.1 helpers', () => {
     );
   });
 
+  it('advertises Action Desk request and manager scopes', () => {
+    expect(oauthMetadata.scopes_supported).toEqual(
+      expect.arrayContaining(['service_requests', 'service_requests.manage'])
+    );
+  });
+
   it('uses an environment-specific configured audience, never the bare tivmark-api', () => {
     // Noodle requires an (issuer, audience) pair to belong to exactly one app environment. The bare
     // `tivmark-api` was shared, which quarantines every environment that declares it.
@@ -172,13 +178,13 @@ describe('OAuth 2.1 helpers', () => {
   });
 
   it('covers exactly the versions that name us as their authorization server', () => {
-    // v8-v24 declare customerAuth.oidc against https://app.tivmark.com/oauth, so their clients come
-    // here for a token and each needs an entry. v1-v7 predate that switch (customerAuth.bridge) and
-    // route to Noodle's own AS — listing them would widen the allowlist for no one.
+    // v8-v28 declare customerAuth.oidc against https://app.tivmark.com/oauth; v29 is reserved for
+    // this rollout so the web authorization server can deploy before the assistant. v1-v7 predate
+    // that switch and route to Noodle's own AS, so listing them would widen the allowlist for no one.
     const url = (v: number) =>
       `https://noodleseed.cloud.noodleseed.dev/tivmark-assistant/v${v}/mcp`;
 
-    for (let v = 8; v <= 24; v += 1) {
+    for (let v = 8; v <= 29; v += 1) {
       expect([v, isAllowedResource(url(v))]).toEqual([v, true]);
     }
     for (let v = 1; v <= 7; v += 1) {
