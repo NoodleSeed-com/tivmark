@@ -757,7 +757,16 @@ function createOnboardingTools(
         nextSteps: z.array(z.string()).max(3),
       }),
       fulfil: ({ input }) => ({
-        ...input,
+        // Noodle fulfilments are compiled into a declarative projection. Keep each
+        // input field explicit: object spread is not retained by the hosted projection,
+        // which would leave the widget with only the two computed fields below.
+        businessName: input.businessName,
+        teamSize: input.teamSize,
+        timeZone: input.timeZone,
+        primaryGoal: input.primaryGoal,
+        vacationAllowanceDays: input.vacationAllowanceDays,
+        sickAllowanceDays: input.sickAllowanceDays,
+        personalAllowanceDays: input.personalAllowanceDays,
         policySummary:
           `${input.vacationAllowanceDays} vacation, ${input.sickAllowanceDays} sick, and ` +
           `${input.personalAllowanceDays} personal days per year, tracked in half-days.`,
