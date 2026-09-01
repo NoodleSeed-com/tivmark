@@ -103,6 +103,75 @@ export const equipmentRequestsOutputSchema = z.object({
   requests: z.array(equipmentRequestSchema),
 });
 
+export const actionServiceSchema = z.object({
+  id: z.string().min(1),
+  slug: z.string().min(1),
+  name: z.string().min(1),
+  description: z.string().min(1),
+  audience: z.enum(['PUBLIC', 'CUSTOMER', 'EMPLOYEE']),
+  active: z.boolean(),
+  slaHours: z.number().int().positive().nullable(),
+  requiresApproval: z.boolean(),
+});
+
+export const serviceRequestSchema = z
+  .object({
+    id: z.string().min(1),
+    subject: z.string().min(1),
+    description: z.string().min(1),
+    priority: z.enum(['LOW', 'NORMAL', 'HIGH', 'URGENT']),
+    status: z.enum([
+      'OPEN',
+      'IN_PROGRESS',
+      'WAITING_ON_REQUESTER',
+      'RESOLVED',
+      'CANCELED',
+    ]),
+    source: z.enum(['WEB', 'ASSISTANT', 'MCP']),
+    resolution: z.string().nullable(),
+    createdAt: z.string().min(1),
+    service: actionServiceSchema,
+    requester: requesterSchema,
+    events: z
+      .array(
+        z
+          .object({
+            id: z.string().min(1),
+            type: z.string().min(1),
+            message: z.string().min(1),
+            createdAt: z.string().min(1),
+          })
+          .passthrough()
+      )
+      .max(50),
+  })
+  .passthrough();
+
+export const actionServicesOutputSchema = z.object({
+  team: z.string().min(1),
+  services: z.array(actionServiceSchema).max(50),
+});
+
+export const serviceRequestsOutputSchema = z.object({
+  team: z.string().min(1),
+  requests: z.array(serviceRequestSchema).max(100),
+});
+
+export const actionDeskGuideSchema = z.object({
+  headline: z.string().min(1),
+  services: z
+    .array(
+      z.object({
+        id: z.string().min(1),
+        name: z.string().min(1),
+        audience: z.string().min(1),
+        description: z.string().min(1),
+      })
+    )
+    .max(8),
+  steps: z.array(z.string().min(1)).max(6),
+});
+
 export const timeOffBalanceOutputSchema = z.object({
   team: z.string(),
   userId: z.string(),

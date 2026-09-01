@@ -70,13 +70,19 @@ export function WidgetFeedback({
         : 'status';
   return (
     <div className={`tv-feedback tv-feedback-${kind}`} role={role}>
-      {kind === 'loading' ? <span className="tv-feedback-pulse" aria-hidden="true" /> : null}
+      {kind === 'loading' ? (
+        <span className="tv-feedback-pulse" aria-hidden="true" />
+      ) : null}
       <p>{children}</p>
     </div>
   );
 }
 
 const STATUS_TONES: Record<string, string> = {
+  OPEN: 'warning',
+  IN_PROGRESS: 'neutral',
+  WAITING_ON_REQUESTER: 'warning',
+  RESOLVED: 'success',
   PENDING: 'warning',
   APPROVED: 'success',
   FULFILLED: 'success',
@@ -194,11 +200,7 @@ export function WidgetAction({
     <button
       {...props}
       type={type}
-      className={[
-        'tv-btn',
-        `tv-btn-${tone}`,
-        className,
-      ]
+      className={['tv-btn', `tv-btn-${tone}`, className]
         .filter(Boolean)
         .join(' ')}
       disabled={disabled || pending}
@@ -225,7 +227,11 @@ type FollowUpChipsProps = {
 // Conversation chips rendered inside a card. The panel's own suggested prompts are
 // welcome-screen-only (hidden forever once the conversation has messages), so cards carry
 // their own just-in-time follow-ups: clicking one injects a real user turn via the host.
-export function FollowUpChips({ chips, onSend, supported = true }: FollowUpChipsProps) {
+export function FollowUpChips({
+  chips,
+  onSend,
+  supported = true,
+}: FollowUpChipsProps) {
   const [sending, setSending] = useState<string>();
   if (!supported || chips.length === 0) return null;
   return (

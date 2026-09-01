@@ -16,6 +16,58 @@ type WidgetContract = {
 };
 
 const widgetContracts = {
+  action_desk_guide: {
+    component: 'action-desk-guide',
+    collection: 'services',
+    teamScoped: false,
+    itemFields: ['id', 'name', 'audience', 'description'],
+  },
+  action_desk_services: {
+    component: 'action-desk-services',
+    collection: 'services',
+    itemFields: [
+      'id',
+      'name',
+      'description',
+      'audience',
+      'active',
+      'slaHours',
+      'requiresApproval',
+    ],
+  },
+  my_service_requests: {
+    component: 'service-requests',
+    itemFields: [
+      'id',
+      'subject',
+      'description',
+      'priority',
+      'status',
+      'service',
+    ],
+  },
+  start_service_request: {
+    component: 'service-requests',
+    itemFields: [
+      'id',
+      'subject',
+      'description',
+      'priority',
+      'status',
+      'service',
+    ],
+  },
+  team_service_request_queue: {
+    component: 'service-request-queue',
+    itemFields: [
+      'id',
+      'subject',
+      'description',
+      'priority',
+      'status',
+      'service',
+    ],
+  },
   talk_to_sales: {
     component: 'contact-options',
     collection: 'options',

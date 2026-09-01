@@ -17,6 +17,7 @@ const ANONYMOUS_SAFE_TOOLS = new Set([
   'explore_tivmark',
   'time_off_guide',
   'equipment_guide',
+  'action_desk_guide',
   'getting_started_guide',
   'trust_and_security',
   'design_business_workspace',
@@ -33,6 +34,9 @@ const IDENTITY_GATED_TOOLS = new Set([
   'time_off_balance',
   'my_time_off',
   'my_equipment',
+  'action_desk_services',
+  'my_service_requests',
+  'start_service_request',
   'book_time_off',
   'complete_business_onboarding',
 ]);
@@ -190,6 +194,8 @@ describe('public website surface', () => {
     const anonymousAnswerable = prompts.filter(
       (prompt) =>
         prompt === 'Help me set up Tivmark for my business.' ||
+        prompt ===
+          'I need help — find the right service and start a request.' ||
         !firstPersonPrompt.test(prompt)
     );
     expect(
@@ -199,7 +205,9 @@ describe('public website surface', () => {
 
     // The first prompt is the most prominent one, so it must be the anonymous planning
     // scenario, not a personal-data read that would immediately raise sign-in.
-    expect(prompts[0]).toBe('Help me set up Tivmark for my business.');
+    expect(prompts[0]).toBe(
+      'I need help — find the right service and start a request.'
+    );
   });
 
   it('discloses a privacy policy to anonymous visitors', async () => {
