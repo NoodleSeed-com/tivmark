@@ -16,7 +16,7 @@ const ThemeToggle = ({ className = '' }: ThemeToggleProps) => {
     <button
       type="button"
       onClick={toggleTheme}
-      className={`inline-flex h-10 w-10 shrink-0 items-center justify-center border border-ui-border bg-ui-surface text-ui-heading transition-colors hover:border-tivmark-gold hover:text-tivmark-gold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-tivmark-gold ${className}`}
+      className={`inline-flex h-10 w-10 shrink-0 items-center justify-center border border-ui-border bg-ui-surface text-ui-heading transition-colors hover:border-ui-accent hover:text-ui-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ui-accent ${className}`}
       aria-label={`${t('switch-theme')}: ${nextTheme}`}
       title={`${t('switch-theme')}: ${nextTheme}`}
     >

@@ -39,9 +39,9 @@ export default server(
     agentGuide: createAgentGuide(),
     branding: {
       name: 'Mark',
-      accent: '#b08d57',
+      accent: '#795f2b',
       theme: {
-        light: { accent: '#b08d57', accentText: '#111c33' },
+        light: { accent: '#795f2b', accentText: '#f7f5f0' },
         dark: { accent: '#c9a96e', accentText: '#111c33' },
       },
       radius: 'lg',

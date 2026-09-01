@@ -26,7 +26,7 @@ const CheckboxComponent = ({
           defaultChecked={Boolean(defaultChecked)}
           className="h-4 w-4 rounded [--chkfg:oklch(var(--p))] [--chkbg:white]"
         />
-        <span className="text-gray-700">{label}</span>
+        <span className="text-ui-text">{label}</span>
       </label>
     </div>
   );

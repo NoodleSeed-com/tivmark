@@ -29,7 +29,7 @@ const InputWithLabel = (props: InputWithLabelProps) => {
       <Input className={classes.join(' ')} {...rest} />
       {(error || descriptionText) && (
         <label className="label">
-          <span className={`label-text-alt ${error ? 'text-red-500' : ''}`}>
+          <span className={`label-text-alt ${error ? 'text-error' : ''}`}>
             {error || descriptionText}
           </span>
         </label>

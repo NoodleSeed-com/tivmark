@@ -13,15 +13,15 @@
   --tivmark-gold: #b08d57;
   --tivmark-gold-light: #c9a96e;
   --tivmark-ink: #2a2a2a;
-  --tivmark-muted: #6b6b6b;
+  --tivmark-muted: #646464;
   --ui-canvas: 247 245 240;
   --ui-surface: 255 255 255;
   --ui-surface-muted: 236 232 223;
-  --ui-border: 216 208 192;
+  --ui-border: 139 131 115;
   --ui-text: 42 42 42;
-  --ui-muted: 107 107 107;
+  --ui-muted: 100 100 100;
   --ui-heading: 26 39 68;
-  --ui-accent: 176 141 87;
+  --ui-accent: 121 95 43;
 }
 
 [data-theme='tivmark-dark'] {
@@ -29,7 +29,7 @@
   --ui-canvas: 11 18 34;
   --ui-surface: 17 28 51;
   --ui-surface-muted: 26 39 68;
-  --ui-border: 61 79 107;
+  --ui-border: 111 130 160;
   --ui-text: 247 245 240;
   --ui-muted: 196 192 184;
   --ui-heading: 255 255 255;
@@ -90,6 +90,40 @@ a {
   .btn-error:focus-visible {
     @apply outline-error;
   }
+
+  /* BoxyHQ's enterprise SSO/SCIM views ship with fixed light surfaces. Keep the
+     integration inside Tivmark's semantic palette so its forms and tables remain
+     readable when the surrounding application is dark. */
+  .boxyhq-theme input:not([type='checkbox']):not([type='radio']),
+  .boxyhq-theme textarea,
+  .boxyhq-theme select,
+  .boxyhq-theme table,
+  .boxyhq-theme caption,
+  .boxyhq-theme thead,
+  .boxyhq-theme tbody tr {
+    color: rgb(var(--ui-text)) !important;
+    background-color: rgb(var(--ui-surface)) !important;
+    border-color: rgb(var(--ui-border)) !important;
+  }
+
+  .boxyhq-theme thead,
+  .boxyhq-theme caption,
+  .boxyhq-theme tbody tr:hover {
+    background-color: rgb(var(--ui-surface-muted)) !important;
+  }
+
+  .boxyhq-theme input::placeholder,
+  .boxyhq-theme textarea::placeholder {
+    color: rgb(var(--ui-muted)) !important;
+    opacity: 1;
+  }
+
+  .boxyhq-theme input[type='checkbox'],
+  .boxyhq-theme input[type='radio'] {
+    color: rgb(var(--ui-heading)) !important;
+    background-color: rgb(var(--ui-surface)) !important;
+    border-color: rgb(var(--ui-border)) !important;
+  }
 }
 
 .btn-md {
@@ -119,6 +153,105 @@ a {
 
 .scrollbar::-webkit-scrollbar-button {
   display: none;
+}
+
+/* Swagger UI owns its markup and ships a fixed light palette with low-contrast HTTP
+   method badges. Scope a semantic override to the API documentation so it participates
+   in Tivmark's theme without changing Swagger's layout or interaction model. */
+.swagger-theme .swagger-ui,
+.swagger-theme .swagger-ui * {
+  color: rgb(var(--ui-text)) !important;
+}
+
+.swagger-theme .swagger-ui,
+.swagger-theme .swagger-ui .information-container,
+.swagger-theme .swagger-ui .scheme-container,
+.swagger-theme .swagger-ui .models,
+.swagger-theme .swagger-ui .model-container,
+.swagger-theme .swagger-ui .model-box,
+.swagger-theme .swagger-ui .opblock-body,
+.swagger-theme .swagger-ui .opblock-section-header,
+.swagger-theme .swagger-ui .responses-inner,
+.swagger-theme .swagger-ui .dialog-ux .modal-ux {
+  background-color: rgb(var(--ui-surface)) !important;
+}
+
+.swagger-theme .swagger-ui .scheme-container,
+.swagger-theme .swagger-ui .models,
+.swagger-theme .swagger-ui .model-container,
+.swagger-theme .swagger-ui .opblock,
+.swagger-theme .swagger-ui .opblock-section-header,
+.swagger-theme .swagger-ui table,
+.swagger-theme .swagger-ui th,
+.swagger-theme .swagger-ui td {
+  border-color: rgb(var(--ui-border)) !important;
+}
+
+.swagger-theme .swagger-ui input,
+.swagger-theme .swagger-ui textarea,
+.swagger-theme .swagger-ui select,
+.swagger-theme .swagger-ui .btn {
+  border-color: rgb(var(--ui-border)) !important;
+  background-color: rgb(var(--ui-surface)) !important;
+  color: rgb(var(--ui-text)) !important;
+}
+
+.swagger-theme .swagger-ui input::placeholder,
+.swagger-theme .swagger-ui textarea::placeholder {
+  color: rgb(var(--ui-muted)) !important;
+  opacity: 1;
+}
+
+.swagger-theme .swagger-ui a,
+.swagger-theme .swagger-ui .info a,
+.swagger-theme .swagger-ui span.url,
+.swagger-theme .swagger-ui .btn.authorize {
+  color: rgb(var(--ui-accent)) !important;
+}
+
+.swagger-theme .swagger-ui svg,
+.swagger-theme .swagger-ui .btn.authorize svg {
+  fill: currentColor !important;
+}
+
+.swagger-theme .swagger-ui pre.version {
+  background-color: rgb(var(--ui-heading)) !important;
+  color: rgb(var(--ui-canvas)) !important;
+}
+
+.swagger-theme .swagger-ui button.json-schema-2020-12-expand-deep-button {
+  color: rgb(var(--ui-muted)) !important;
+}
+
+.swagger-theme .swagger-ui .opblock.opblock-get .opblock-summary-method {
+  background-color: #245b8a !important;
+  color: #ffffff !important;
+}
+
+.swagger-theme .swagger-ui .opblock.opblock-post .opblock-summary-method {
+  background-color: #2b704e !important;
+  color: #ffffff !important;
+}
+
+.swagger-theme .swagger-ui .opblock.opblock-put .opblock-summary-method {
+  background-color: #795f2b !important;
+  color: #ffffff !important;
+}
+
+.swagger-theme .swagger-ui .opblock.opblock-patch .opblock-summary-method {
+  background-color: #3d4f6b !important;
+  color: #ffffff !important;
+}
+
+.swagger-theme .swagger-ui .opblock.opblock-delete .opblock-summary-method {
+  background-color: #a83d3d !important;
+  color: #ffffff !important;
+}
+
+.swagger-theme .swagger-ui .highlight-code,
+.swagger-theme .swagger-ui .microlight {
+  background-color: rgb(var(--ui-canvas)) !important;
+  color: rgb(var(--ui-text)) !important;
 }
 
 /* The assistant's ONLY two modes: the floating launcher (element default, bottom right)

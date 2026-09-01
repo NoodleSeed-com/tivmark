@@ -32,50 +32,52 @@ const DirectorySync = ({ teamFeatures }) => {
         team={team}
         teamFeatures={teamFeatures}
       />
-      <DirectoriesWrapper
-        classNames={BOXYHQ_UI_CSS}
-        componentProps={{
-          directoryList: {
-            cols: ['name', 'type', 'status', 'actions'],
-            hideViewAction: true,
-          },
-          createDirectory: {
-            excludeFields: [
-              'product',
-              'tenant',
-              'webhook_secret',
-              'webhook_url',
-              'log_webhook_events',
-            ],
-            disableGoogleProvider: true,
-          },
-          editDirectory: {
-            excludeFields: [
-              'webhook_url',
-              'webhook_secret',
-              'log_webhook_events',
-            ],
-          },
-        }}
-        urls={{
-          get: `/api/v1/teams/${team.slug}/dsync`,
-          post: `/api/v1/teams/${team.slug}/dsync`,
-          patch: `/api/v1/teams/${team.slug}/dsync`,
-          delete: `/api/v1/teams/${team.slug}/dsync`,
-        }}
-        successCallback={({ operation }) => {
-          if (operation === 'CREATE') {
-            toast.success(`Connection created successfully.`);
-          } else if (operation === 'UPDATE') {
-            toast.success(`Connection updated successfully.`);
-          } else if (operation === 'DELETE') {
-            toast.success(`Connection deleted successfully.`);
-          } else if (operation === 'COPY') {
-            toast.success(`Contents copied to clipboard`);
-          }
-        }}
-        errorCallback={(errMessage) => toast.error(errMessage)}
-      />
+      <div className="boxyhq-theme text-ui-text">
+        <DirectoriesWrapper
+          classNames={BOXYHQ_UI_CSS}
+          componentProps={{
+            directoryList: {
+              cols: ['name', 'type', 'status', 'actions'],
+              hideViewAction: true,
+            },
+            createDirectory: {
+              excludeFields: [
+                'product',
+                'tenant',
+                'webhook_secret',
+                'webhook_url',
+                'log_webhook_events',
+              ],
+              disableGoogleProvider: true,
+            },
+            editDirectory: {
+              excludeFields: [
+                'webhook_url',
+                'webhook_secret',
+                'log_webhook_events',
+              ],
+            },
+          }}
+          urls={{
+            get: `/api/v1/teams/${team.slug}/dsync`,
+            post: `/api/v1/teams/${team.slug}/dsync`,
+            patch: `/api/v1/teams/${team.slug}/dsync`,
+            delete: `/api/v1/teams/${team.slug}/dsync`,
+          }}
+          successCallback={({ operation }) => {
+            if (operation === 'CREATE') {
+              toast.success(`Connection created successfully.`);
+            } else if (operation === 'UPDATE') {
+              toast.success(`Connection updated successfully.`);
+            } else if (operation === 'DELETE') {
+              toast.success(`Connection deleted successfully.`);
+            } else if (operation === 'COPY') {
+              toast.success(`Contents copied to clipboard`);
+            }
+          }}
+          errorCallback={(errMessage) => toast.error(errMessage)}
+        />
+      </div>
     </>
   );
 };

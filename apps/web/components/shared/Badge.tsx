@@ -8,7 +8,7 @@ const Badge = (props: BadgeProps) => {
     <>
       <BaseBadge
         {...props}
-        className={classNames('rounded text-xs py-2 text-white', className)}
+        className={classNames('rounded py-2 text-xs', className)}
       >
         {children}
       </BaseBadge>

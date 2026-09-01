@@ -104,7 +104,7 @@ const InviteViaLink = ({ team }: InviteViaLinkProps) => {
           value={invitation.url}
           className="text-sm w-full"
         />
-        <p className="text-sm text-slate-500 my-2">
+        <p className="my-2 text-sm text-ui-muted">
           {invitation.allowedDomains.length > 0
             ? `Anyone with an email address ending with ${invitation.allowedDomains} can use this link to join your team.`
             : 'Anyone can use this link to join your team.'}
@@ -161,7 +161,7 @@ const InviteViaLink = ({ team }: InviteViaLinkProps) => {
           {t('create-link')}
         </Button>
       </div>
-      <p className="text-sm text-slate-500 my-2">
+      <p className="my-2 text-sm text-ui-muted">
         {formik.values.domains && !formik.errors.domains
           ? `Anyone with an email address ending with ${formik.values.domains} can use this link to join your team.`
           : 'Anyone can use this link to join your team.'}

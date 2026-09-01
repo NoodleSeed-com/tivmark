@@ -29,44 +29,46 @@ const TeamSSO = ({ teamFeatures, SPConfigURL }) => {
   return (
     <>
       <TeamTab activeTab="sso" team={team} teamFeatures={teamFeatures} />
-      <ConnectionsWrapper
-        urls={{
-          spMetadata: SPConfigURL,
-          get: `/api/v1/teams/${team.slug}/sso`,
-          post: `/api/v1/teams/${team.slug}/sso`,
-          patch: `/api/v1/teams/${team.slug}/sso`,
-          delete: `/api/v1/teams/${team.slug}/sso`,
-        }}
-        successCallback={({
-          operation,
-          connectionIsSAML,
-          connectionIsOIDC,
-        }) => {
-          const ssoType = connectionIsSAML
-            ? 'SAML'
-            : connectionIsOIDC
-              ? 'OIDC'
-              : '';
-          if (operation === 'CREATE') {
-            toast.success(`${ssoType} connection created successfully.`);
-          } else if (operation === 'UPDATE') {
-            toast.success(`${ssoType} connection updated successfully.`);
-          } else if (operation === 'DELETE') {
-            toast.success(`${ssoType} connection deleted successfully.`);
-          } else if (operation === 'COPY') {
-            toast.success(`Contents copied to clipboard`);
-          }
-        }}
-        errorCallback={(errMessage) => toast.error(errMessage)}
-        classNames={BOXYHQ_UI_CSS}
-        componentProps={{
-          connectionList: {
-            cols: ['provider', 'type', 'status', 'actions'],
-          },
-          editOIDCConnection: { displayInfo: false },
-          editSAMLConnection: { displayInfo: false },
-        }}
-      />
+      <div className="boxyhq-theme text-ui-text">
+        <ConnectionsWrapper
+          urls={{
+            spMetadata: SPConfigURL,
+            get: `/api/v1/teams/${team.slug}/sso`,
+            post: `/api/v1/teams/${team.slug}/sso`,
+            patch: `/api/v1/teams/${team.slug}/sso`,
+            delete: `/api/v1/teams/${team.slug}/sso`,
+          }}
+          successCallback={({
+            operation,
+            connectionIsSAML,
+            connectionIsOIDC,
+          }) => {
+            const ssoType = connectionIsSAML
+              ? 'SAML'
+              : connectionIsOIDC
+                ? 'OIDC'
+                : '';
+            if (operation === 'CREATE') {
+              toast.success(`${ssoType} connection created successfully.`);
+            } else if (operation === 'UPDATE') {
+              toast.success(`${ssoType} connection updated successfully.`);
+            } else if (operation === 'DELETE') {
+              toast.success(`${ssoType} connection deleted successfully.`);
+            } else if (operation === 'COPY') {
+              toast.success(`Contents copied to clipboard`);
+            }
+          }}
+          errorCallback={(errMessage) => toast.error(errMessage)}
+          classNames={BOXYHQ_UI_CSS}
+          componentProps={{
+            connectionList: {
+              cols: ['provider', 'type', 'status', 'actions'],
+            },
+            editOIDCConnection: { displayInfo: false },
+            editSAMLConnection: { displayInfo: false },
+          }}
+        />
+      </div>
     </>
   );
 };

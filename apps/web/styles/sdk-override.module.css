@@ -1,4 +1,16 @@
 /* Override SDK styles */
+.sdk-input,
+.sdk-select {
+  border-color: rgb(var(--ui-border)) !important;
+  background-color: rgb(var(--ui-surface)) !important;
+  color: rgb(var(--ui-text)) !important;
+}
+
+.sdk-input::placeholder {
+  color: rgb(var(--ui-muted)) !important;
+  opacity: 1;
+}
+
 .sdk-input:focus,
 .sdk-select:focus-visible + span {
   /* Below styles copied from the tailwindcss/forms plugin */

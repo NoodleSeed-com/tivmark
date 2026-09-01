@@ -94,7 +94,7 @@ const ForgotPassword: NextPageWithLayout<
           </div>
         </form>
       </div>
-      <p className="text-center text-sm text-gray-600 mt-3">
+      <p className="mt-3 text-center text-sm text-ui-muted">
         {t('already-have-an-account')}
         <Link
           href="/auth/login"
