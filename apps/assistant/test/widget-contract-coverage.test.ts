@@ -93,6 +93,18 @@ const widgetContracts = {
     component: 'workspace-ready',
     teamScoped: false,
   },
+  plan_new_hire_launch: {
+    component: 'new-hire-launch-plan',
+    teamScoped: false,
+  },
+  launch_new_hire: {
+    component: 'new-hire-ready',
+    teamScoped: false,
+  },
+  get_new_hire_status: {
+    component: 'new-hire-status',
+    teamScoped: false,
+  },
 } satisfies Record<string, WidgetContract>;
 
 type JsonSchema = {

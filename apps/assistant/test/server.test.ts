@@ -28,6 +28,9 @@ describe('tivmark_assistant', () => {
         'trust_and_security',
         'design_business_workspace',
         'complete_business_onboarding',
+        'plan_new_hire_launch',
+        'launch_new_hire',
+        'get_new_hire_status',
         // time off (employee)
         'time_off_balance',
         'my_time_off',
@@ -99,6 +102,9 @@ describe('tivmark_assistant', () => {
       time_off_guide: 'Explain time off',
       equipment_guide: 'Explain equipment requests',
       getting_started_guide: 'Show the getting-started checklist',
+      get_new_hire_status: 'Check new-hire launch status',
+      launch_new_hire: 'Launch a new hire',
+      plan_new_hire_launch: 'Plan a new-hire launch',
       trust_and_security: 'Show security and privacy',
       team_equipment_queue: 'Open equipment review queue',
       team_time_off_queue: 'Open time-off review queue',
@@ -127,6 +133,9 @@ describe('tivmark_assistant', () => {
     expect(text).toContain('tiv.create_equipment');
     expect(text).toContain('tiv.review_time_off');
     expect(text).toContain('tiv.complete_onboarding');
+    expect(text).toContain('tiv.plan_new_hire');
+    expect(text).toContain('tiv.launch_new_hire');
+    expect(text).toContain('tiv.get_new_hire_status');
   });
 
   it('publishes the API-authoritative Tivmark user for balance lookup', async () => {
@@ -170,7 +179,7 @@ describe('tivmark_assistant', () => {
     expect(manifest.server.assistant?.labels).toMatchObject({
       welcomeHeading: 'How can Mark help?',
       welcomeMessage:
-        'Ask how Tivmark works, or — once you are signed in — about your own time off and equipment.',
+        'Ask Mark to onboard a new hire, or help with time off and equipment.',
       launcherPlaceholder: 'Ask Mark anything…',
       composerPlaceholder: 'Message Mark…',
       open: 'Open Mark',
@@ -183,9 +192,9 @@ describe('tivmark_assistant', () => {
     });
     expect(manifest.server.assistant?.suggestedPrompts).toEqual([
       'Help me set up Tivmark for my business.',
+      'Onboard Maya Chen as a product designer starting October 5 in London. Give her the design equipment package.',
       'Can I take next Friday off? If so, book it.',
       'How does booking time off work?',
-      'Who can approve requests?',
     ]);
   });
 
@@ -355,6 +364,7 @@ describe('tivmark_assistant', () => {
       'review_equipment',
       'fulfill_equipment',
       'complete_business_onboarding',
+      'launch_new_hire',
     ];
     for (const tool of manifest.tools as Array<Record<string, unknown>>) {
       if (writes.includes(tool.name as string)) {

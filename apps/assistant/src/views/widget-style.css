@@ -758,6 +758,76 @@ button {
   margin-top: 12px;
 }
 
+.tv-new-hire-facts {
+  margin-bottom: 10px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.tv-launch-bundle {
+  display: grid;
+  gap: 3px;
+  padding: 10px;
+  border: 1px solid var(--tv-border);
+  background: var(--tv-surface-muted);
+}
+
+.tv-launch-bundle span {
+  color: var(--tv-muted);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.tv-launch-bundle strong {
+  color: var(--tv-heading);
+  font-size: 13px;
+}
+
+.tv-launch-bundle small {
+  color: var(--tv-muted);
+  font-size: 11.5px;
+  line-height: 1.4;
+}
+
+.tv-checklist {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tv-checklist li {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 8px;
+  border: 1px solid var(--tv-border);
+  color: var(--tv-heading);
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.tv-checklist li span {
+  flex: none;
+  color: var(--tv-accent);
+}
+
+.tv-checklist-complete li span {
+  color: var(--tv-success);
+}
+
+@media (max-width: 439px) {
+  .tv-new-hire-facts,
+  .tv-policy-grid,
+  .tv-checklist {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 @media (max-width: 439px) {
   .tv-facts,
   .tv-receipt-facts,

@@ -39,6 +39,58 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/v1/teams/{teamId}/new-hire-launches/plan': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Preview a grounded new-hire launch plan without changing data */
+    post: operations['post_teams_teamId_new_hire_launches_plan'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/teams/{teamId}/new-hire-launches': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List recent new-hire launch receipts */
+    get: operations['get_teams_teamId_new_hire_launches'];
+    put?: never;
+    /** Atomically launch an invitation, role, leave inheritance, and equipment request */
+    post: operations['post_teams_teamId_new_hire_launches'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/teams/{teamId}/new-hire-launches/status': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get a new-hire launch receipt by invited email */
+    get: operations['get_teams_teamId_new_hire_launches_status'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/v1/me/password': {
     parameters: {
       query?: never;
@@ -581,6 +633,131 @@ export interface components {
       sickAllowanceDays: number;
       personalAllowanceDays: number;
     };
+    NewHirePlan: {
+      /** @enum {string} */
+      status: 'PLANNED';
+      team: {
+        /** Format: uuid */
+        id: string;
+        name: string;
+        slug: string;
+      };
+      newHire: {
+        jobTitle: string;
+        /** Format: date */
+        startDate: string;
+        workLocation: string;
+        timeZone: string;
+        /** @enum {string} */
+        role: 'ADMIN' | 'MEMBER';
+        name: string;
+        /** Format: email */
+        email: string;
+      };
+      equipment: {
+        /** @enum {string} */
+        package: 'STANDARD' | 'DESIGN' | 'ENGINEERING' | 'NONE';
+        label: string;
+        item: string | null;
+      };
+      policies: {
+        /** @enum {string} */
+        type: 'VACATION' | 'SICK' | 'PERSONAL' | 'UNPAID';
+        allowanceHalfDays: number | null;
+        allowanceDays: number | null;
+        /** @enum {string} */
+        assignment: 'ON_ACCEPTANCE';
+      }[];
+      checklist: {
+        id: string;
+        label: string;
+        /** @enum {string} */
+        status: 'WILL_CREATE';
+      }[];
+      /** @enum {boolean} */
+      authenticated: true;
+    };
+    NewHireLaunchInput: {
+      employeeName: string;
+      /** Format: email */
+      employeeEmail: string;
+      jobTitle: string;
+      /** Format: date */
+      startDate: string;
+      workLocation: string;
+      timeZone: string;
+      /** @enum {string} */
+      role: 'ADMIN' | 'MEMBER';
+      /** @enum {string} */
+      equipmentPackage: 'STANDARD' | 'DESIGN' | 'ENGINEERING' | 'NONE';
+    };
+    NewHireReceipt: {
+      /** @enum {string} */
+      status: 'READY' | 'ACTIVE';
+      /** Format: uuid */
+      launchId: string;
+      team: {
+        /** Format: uuid */
+        id: string;
+        name: string;
+        slug: string;
+      };
+      newHire: {
+        jobTitle: string;
+        /** Format: date */
+        startDate: string;
+        workLocation: string;
+        timeZone: string;
+        /** @enum {string} */
+        role: 'ADMIN' | 'MEMBER';
+        name: string;
+        /** Format: email */
+        email: string;
+      };
+      invitation: {
+        /** Format: uuid */
+        id: string | null;
+        /** @enum {string} */
+        status: 'PENDING' | 'ACCEPTED';
+        /** Format: date-time */
+        expiresAt: string | null;
+      };
+      equipment: {
+        /** @enum {string} */
+        package: 'STANDARD' | 'DESIGN' | 'ENGINEERING' | 'NONE';
+        label: string;
+        /** Format: uuid */
+        requestId: string | null;
+        item: string | null;
+        status: string | null;
+      };
+      policies: {
+        /** @enum {string} */
+        type: 'VACATION' | 'SICK' | 'PERSONAL' | 'UNPAID';
+        allowanceHalfDays: number | null;
+        allowanceDays: number | null;
+        /** @enum {string} */
+        assignment: 'ON_ACCEPTANCE';
+      }[];
+      checklist: {
+        id: string;
+        label: string;
+        /** @enum {string} */
+        status: 'COMPLETE';
+      }[];
+      nextSteps: {
+        id: string;
+        label: string;
+        /** Format: uri */
+        url: string;
+      }[];
+      /** Format: date-time */
+      createdAt: string;
+      /** Format: date-time */
+      activatedAt: string | null;
+      /** @enum {boolean} */
+      authenticated: true;
+    };
     Team: {
       /** Format: uuid */
       id: string;
@@ -901,6 +1078,370 @@ export interface operations {
         content: {
           'application/json': {
             data: components['schemas']['OnboardingReceipt'];
+          };
+        };
+      };
+      /** @description Invalid request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+      /** @description Insufficient permissions */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+      /** @description Resource not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+      /** @description Resource conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+      /** @description Validation failed */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+      /** @description Rate limit exceeded */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
+  post_teams_teamId_new_hire_launches_plan: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        teamId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        'application/json': components['schemas']['NewHireLaunchInput'];
+      };
+    };
+    responses: {
+      /** @description Grounded launch plan */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            data: components['schemas']['NewHirePlan'];
+          };
+        };
+      };
+      /** @description Invalid request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+      /** @description Insufficient permissions */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+      /** @description Resource not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+      /** @description Resource conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+      /** @description Validation failed */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+      /** @description Rate limit exceeded */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
+  get_teams_teamId_new_hire_launches: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        teamId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description New-hire launches */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            data: components['schemas']['NewHireReceipt'][];
+            meta?: {
+              nextCursor: string | null;
+            };
+          };
+        };
+      };
+      /** @description Invalid request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+      /** @description Insufficient permissions */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+      /** @description Resource not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+      /** @description Resource conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+      /** @description Validation failed */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+      /** @description Rate limit exceeded */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
+  post_teams_teamId_new_hire_launches: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description Unique retry key. Reusing it with the same body returns the original response for 24 hours. */
+        'Idempotency-Key'?: string;
+      };
+      path: {
+        teamId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        'application/json': components['schemas']['NewHireLaunchInput'];
+      };
+    };
+    responses: {
+      /** @description Verified launch receipt */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            data: components['schemas']['NewHireReceipt'];
+          };
+        };
+      };
+      /** @description Invalid request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+      /** @description Insufficient permissions */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+      /** @description Resource not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+      /** @description Resource conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+      /** @description Validation failed */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+      /** @description Rate limit exceeded */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
+  get_teams_teamId_new_hire_launches_status: {
+    parameters: {
+      query: {
+        email: string;
+      };
+      header?: never;
+      path: {
+        teamId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Verified launch status */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            data: components['schemas']['NewHireReceipt'];
           };
         };
       };

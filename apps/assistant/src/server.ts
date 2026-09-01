@@ -33,7 +33,7 @@ export default server(
   'tivmark_assistant',
   {
     title: 'Mark',
-    version: '1.4.0',
+    version: '1.5.0',
     interactions: { confirmationFallback: 'host' },
     instructions: createInstructions(),
     agentGuide: createAgentGuide(),
@@ -256,7 +256,7 @@ export default server(
       labels: {
         welcomeHeading: 'How can Mark help?',
         welcomeMessage:
-          'Ask how Tivmark works, or — once you are signed in — about your own time off and equipment.',
+          'Ask Mark to onboard a new hire, or help with time off and equipment.',
         launcherPlaceholder: 'Ask Mark anything…',
         composerPlaceholder: 'Message Mark…',
         thinking: 'Mark is thinking…',
@@ -292,12 +292,12 @@ export default server(
       suggestedPrompts: [
         // The flagship demo begins anonymously and becomes an authenticated confirmed write.
         'Help me set up Tivmark for my business.',
+        'Onboard Maya Chen as a product designer starting October 5 in London. Give her the design equipment package.',
         // The flagship public-to-action demo. It begins anonymously, raises sign-in at the
         // planning read, then resumes the same request as an authenticated confirmed write.
         'Can I take next Friday off? If so, book it.',
         // Answerable by anyone, from the knowledge component.
         'How does booking time off work?',
-        'Who can approve requests?',
       ],
       locale: 'en-US',
       direction: 'auto',
@@ -309,6 +309,7 @@ export default server(
     publicTools.talkToSales,
     ...createGuideTools(toolConfig),
     ...createOnboardingTools(contracts, toolConfig),
+    ...createNewHireTools(contracts, toolConfig),
     ...createTimeOffTools(contracts, toolConfig),
     ...createEquipmentTools(contracts, toolConfig),
     ...createReviewTools(contracts, toolConfig),
@@ -478,6 +479,92 @@ function createContracts() {
       .max(2),
     authenticated: z.boolean(),
   });
+  const newHireEquipmentPackage = z.enum([
+    'STANDARD',
+    'DESIGN',
+    'ENGINEERING',
+    'NONE',
+  ]);
+  const newHireLaunchInputSchema = z.object({
+    team: z.string().min(1).describe('Trusted Tivmark team slug'),
+    employeeName: z.string().min(2).max(120).describe('New hire full name'),
+    employeeEmail: z.string().email().max(320).describe('New hire work email'),
+    jobTitle: z.string().min(2).max(120).describe('Job title'),
+    startDate: dateOnly.describe('Start date in YYYY-MM-DD format'),
+    workLocation: z.string().min(2).max(120).describe('City or work location'),
+    timeZone: z.string().min(1).max(100).describe('IANA time zone'),
+    role: z.enum(['ADMIN', 'MEMBER']).default('MEMBER'),
+    equipmentPackage: newHireEquipmentPackage.default('STANDARD'),
+  });
+  const newHirePolicySchema = z.object({
+    type: z.string(),
+    allowanceHalfDays: z.number().int().nullable(),
+    allowanceDays: z.number().nullable(),
+    assignment: z.literal('ON_ACCEPTANCE'),
+  });
+  const newHirePlanSchema = z.object({
+    status: z.literal('PLANNED'),
+    team: z.object({ id: z.string(), name: z.string(), slug: z.string() }),
+    newHire: z.object({
+      name: z.string(),
+      email: z.string().email(),
+      jobTitle: z.string(),
+      startDate: dateOnly,
+      workLocation: z.string(),
+      timeZone: z.string(),
+      role: z.enum(['ADMIN', 'MEMBER']),
+    }),
+    equipment: z.object({
+      package: newHireEquipmentPackage,
+      label: z.string(),
+      item: z.string().nullable(),
+    }),
+    policies: z.array(newHirePolicySchema).max(4),
+    checklist: z
+      .array(
+        z.object({
+          id: z.string(),
+          label: z.string(),
+          status: z.literal('WILL_CREATE'),
+        })
+      )
+      .max(4),
+    authenticated: z.boolean(),
+  });
+  const newHireReceiptSchema = z.object({
+    status: z.enum(['READY', 'ACTIVE']),
+    launchId: z.string(),
+    team: z.object({ id: z.string(), name: z.string(), slug: z.string() }),
+    newHire: newHirePlanSchema.shape.newHire,
+    invitation: z.object({
+      id: z.string().nullable(),
+      status: z.enum(['PENDING', 'ACCEPTED']),
+      expiresAt: z.string().nullable(),
+    }),
+    equipment: z.object({
+      package: newHireEquipmentPackage,
+      label: z.string(),
+      requestId: z.string().nullable(),
+      item: z.string().nullable(),
+      status: z.string().nullable(),
+    }),
+    policies: z.array(newHirePolicySchema).max(4),
+    checklist: z
+      .array(
+        z.object({
+          id: z.string(),
+          label: z.string(),
+          status: z.literal('COMPLETE'),
+        })
+      )
+      .max(4),
+    nextSteps: z
+      .array(z.object({ id: z.string(), label: z.string(), url: z.string() }))
+      .max(2),
+    createdAt: z.string(),
+    activatedAt: z.string().nullable(),
+    authenticated: z.boolean(),
+  });
 
   return {
     leaveType,
@@ -505,6 +592,10 @@ function createContracts() {
     onboardingGoal,
     onboardingBlueprintSchema,
     onboardingReceiptSchema,
+    newHireEquipmentPackage,
+    newHireLaunchInputSchema,
+    newHirePlanSchema,
+    newHireReceiptSchema,
   };
 }
 
@@ -522,6 +613,9 @@ function createTivmarkConnector({
   timeOffReceiptSchema,
   onboardingBlueprintSchema,
   onboardingReceiptSchema,
+  newHireLaunchInputSchema,
+  newHirePlanSchema,
+  newHireReceiptSchema,
 }: Contracts) {
   // Every call runs as the signed-in user through delegated token exchange;
   // Tivmark's API remains the authorization boundary.
@@ -542,6 +636,7 @@ function createTivmarkConnector({
           'time_off.approve',
           'equipment',
           'equipment.approve',
+          'invitations',
         ],
         authMethod: 'client_secret_basic',
       },
@@ -569,6 +664,54 @@ function createTivmarkConnector({
             personalAllowanceDays: '${args.personalAllowanceDays}',
           },
           output: z.object({ receipt: onboardingReceiptSchema }),
+          response: { receipt: '${response.data}' },
+        },
+        plan_new_hire: {
+          type: 'read',
+          method: 'POST',
+          path: '/teams/{team}/new-hire-launches/plan',
+          input: newHireLaunchInputSchema,
+          request: {
+            employeeName: '${args.employeeName}',
+            employeeEmail: '${args.employeeEmail}',
+            jobTitle: '${args.jobTitle}',
+            startDate: '${args.startDate}',
+            workLocation: '${args.workLocation}',
+            timeZone: '${args.timeZone}',
+            role: '${args.role}',
+            equipmentPackage: '${args.equipmentPackage}',
+          },
+          output: z.object({ plan: newHirePlanSchema }),
+          response: { plan: '${response.data}' },
+        },
+        launch_new_hire: {
+          type: 'action',
+          method: 'POST',
+          path: '/teams/{team}/new-hire-launches',
+          input: newHireLaunchInputSchema,
+          request: {
+            employeeName: '${args.employeeName}',
+            employeeEmail: '${args.employeeEmail}',
+            jobTitle: '${args.jobTitle}',
+            startDate: '${args.startDate}',
+            workLocation: '${args.workLocation}',
+            timeZone: '${args.timeZone}',
+            role: '${args.role}',
+            equipmentPackage: '${args.equipmentPackage}',
+          },
+          output: z.object({ receipt: newHireReceiptSchema }),
+          response: { receipt: '${response.data}' },
+        },
+        get_new_hire_status: {
+          type: 'read',
+          method: 'GET',
+          path: '/teams/{team}/new-hire-launches/status',
+          query: ['email'],
+          input: z.object({
+            team: z.string(),
+            email: z.string().email(),
+          }),
+          output: z.object({ receipt: newHireReceiptSchema }),
           response: { receipt: '${response.data}' },
         },
         get_balances: {
@@ -942,6 +1085,119 @@ function createOnboardingTools(
       view: {
         component: 'workspace-ready',
         entry: './views/workspace-ready.tsx',
+      },
+    }),
+  ];
+}
+
+function createNewHireTools(
+  {
+    newHireLaunchInputSchema,
+    newHirePlanSchema,
+    newHireReceiptSchema,
+  }: Contracts,
+  { readOnly, confirmed, widgetCsp, widgetDomain }: ToolConfig
+) {
+  return [
+    tool('plan_new_hire_launch', {
+      title: 'Plan a new-hire launch',
+      description:
+        'Prepare a grounded, read-only launch plan for one new hire in a trusted team. ' +
+        'Use after collecting name, work email, title, concrete start date, location, IANA ' +
+        'time zone, team role, and equipment package. This verifies manager access and reads ' +
+        'the team’s real leave policies; it does not create anything.',
+      annotations: readOnly,
+      input: newHireLaunchInputSchema,
+      output: z.object({ plan: newHirePlanSchema }),
+      fulfil: ({ input, connectors }) => {
+        const result = connectors.tiv.plan_new_hire({
+          team: input.team,
+          employeeName: input.employeeName,
+          employeeEmail: input.employeeEmail,
+          jobTitle: input.jobTitle,
+          startDate: input.startDate,
+          workLocation: input.workLocation,
+          timeZone: input.timeZone,
+          role: input.role,
+          equipmentPackage: input.equipmentPackage,
+        });
+        return { plan: result.plan };
+      },
+      viewTitle: 'New-hire launch plan',
+      viewDescription:
+        'Verified team, role, leave inheritance, equipment, and exact changes before confirmation.',
+      invoking: 'Checking the team and preparing the launch…',
+      invoked: 'The new-hire launch plan is ready',
+      domain: widgetDomain,
+      csp: widgetCsp,
+      view: {
+        component: 'new-hire-launch-plan',
+        entry: './views/new-hire-launch-plan.tsx',
+      },
+    }),
+    tool('launch_new_hire', {
+      title: 'Launch a new hire',
+      description:
+        'Atomically create the reviewed new-hire invitation, team role, leave-policy ' +
+        'inheritance plan, equipment request, and readiness checklist. OWNER or ADMIN only. ' +
+        'Call only after plan_new_hire_launch and preserve every reviewed value exactly; the ' +
+        'user must explicitly confirm the complete launch.',
+      annotations: confirmed,
+      input: newHireLaunchInputSchema,
+      output: z.object({ receipt: newHireReceiptSchema }),
+      fulfil: ({ input, connectors }) => {
+        const result = connectors.tiv.launch_new_hire({
+          team: input.team,
+          employeeName: input.employeeName,
+          employeeEmail: input.employeeEmail,
+          jobTitle: input.jobTitle,
+          startDate: input.startDate,
+          workLocation: input.workLocation,
+          timeZone: input.timeZone,
+          role: input.role,
+          equipmentPackage: input.equipmentPackage,
+        });
+        return { receipt: result.receipt };
+      },
+      viewTitle: 'New hire ready',
+      viewDescription:
+        'Verified receipt for the invitation, leave inheritance, equipment, and readiness checklist.',
+      invoking: 'Launching the new hire in Tivmark…',
+      invoked: 'The new hire is ready',
+      domain: widgetDomain,
+      csp: widgetCsp,
+      view: {
+        component: 'new-hire-ready',
+        entry: './views/new-hire-ready.tsx',
+      },
+    }),
+    tool('get_new_hire_status', {
+      title: 'Check new-hire launch status',
+      description:
+        'Look up the verified readiness receipt for a launched new hire by team and work email. ' +
+        'Use to verify the launch after creation or to answer whether the invitation was accepted.',
+      annotations: readOnly,
+      input: z.object({
+        team: z.string().min(1).describe('Trusted Tivmark team slug'),
+        email: z.string().email().describe('Invited work email'),
+      }),
+      output: z.object({ receipt: newHireReceiptSchema }),
+      fulfil: ({ input, connectors }) => {
+        const result = connectors.tiv.get_new_hire_status({
+          team: input.team,
+          email: input.email,
+        });
+        return { receipt: result.receipt };
+      },
+      viewTitle: 'New-hire readiness',
+      viewDescription: 'Current invitation and readiness status from Tivmark.',
+      invoking: 'Checking new-hire readiness…',
+      invoked: 'Here is the current readiness status',
+      domain: widgetDomain,
+      csp: widgetCsp,
+      view: {
+        component: 'new-hire-status',
+        entry: './views/new-hire-status.tsx',
       },
     }),
   ];
@@ -1839,10 +2095,39 @@ function createAgentGuide(): AgentGuideSource {
       'Use Mark to explain Tivmark, design a new-business workspace anonymously, and complete authenticated people-ops actions behind explicit confirmation.',
     useWhen: [
       'A prospective customer wants to set up Tivmark for a new business.',
+      'An owner or admin wants to onboard and launch a new employee.',
       'The user asks whether they can take time off or asks Mark to submit it.',
       'The user wants to inspect or manage their Tivmark people-ops data.',
     ],
     workflows: [
+      {
+        id: 'launch_new_hire',
+        title: 'Launch a new hire end to end',
+        intent:
+          'Turn one manager request into a verified plan, one confirmation, an atomic people-ops launch, and a durable readiness receipt.',
+        steps: [
+          {
+            capability: { kind: 'tool', name: 'my_teams' },
+            guidance:
+              'Resolve the target team from trusted context. Silently select it only when there is exactly one; otherwise ask which team. Never infer authorization from the request text.',
+          },
+          {
+            capability: { kind: 'tool', name: 'plan_new_hire_launch' },
+            guidance:
+              'Collect only missing name, work email, title, concrete start date, location, IANA time zone, team role, and package. Default role to MEMBER. Infer DESIGN for design roles and ENGINEERING for engineering roles; otherwise offer STANDARD. This read verifies manager access and the live team policies.',
+          },
+          {
+            capability: { kind: 'tool', name: 'launch_new_hire' },
+            guidance:
+              'Call only after the verified plan is visible and the user asks to launch it. Preserve every planned value exactly. The confirmation is the single review boundary for the invitation, role, policy inheritance, equipment request, and checklist transaction.',
+          },
+          {
+            capability: { kind: 'tool', name: 'get_new_hire_status' },
+            guidance:
+              'Use when the manager asks to verify or revisit readiness. Treat READY as prepared and ACTIVE as invitation accepted; do not describe READY as an active team member.',
+          },
+        ],
+      },
       {
         id: 'onboard_business',
         title: 'Design and create a business workspace',
@@ -1886,6 +2171,9 @@ function createAgentGuide(): AgentGuideSource {
       },
     ],
     boundaries: [
+      'Never call launch_new_hire without a successful plan_new_hire_launch for the same team, person, role, date, location, time zone, and equipment package.',
+      'READY means the invitation and readiness work exist; the person becomes an active member only when status is ACTIVE.',
+      'A prepared equipment request is pending, not approved or fulfilled.',
       'A workspace blueprint is planning data only; never say the business exists until complete_business_onboarding returns status READY.',
       'Never change a blueprint value between design_business_workspace and complete_business_onboarding without telling the user and regenerating the blueprint.',
       'Never claim eligibility without a current time_off_balance assessment for the exact team, type, and dates.',
@@ -1894,6 +2182,11 @@ function createAgentGuide(): AgentGuideSource {
       'Treat session claims as conversation context only; Tivmark connector authorization remains authoritative.',
     ],
     examples: [
+      {
+        prompt:
+          'Onboard Maya Chen as a product designer starting October 5 in London. Give her the design equipment package.',
+        workflow: 'launch_new_hire',
+      },
       {
         prompt: 'Help me set up Tivmark for my business.',
         workflow: 'onboard_business',
@@ -1908,50 +2201,30 @@ function createAgentGuide(): AgentGuideSource {
 
 function createInstructions() {
   return (
-    "You are Mark, Tivmark's people-ops assistant. Help the signed-in user with TIME OFF " +
-    '(check balances, review their requests, book new time off, cancel a request) and EQUIPMENT ' +
-    '(review their requests, request an item, cancel a request). ' +
-    'BUSINESS ONBOARDING: when someone wants to set up a new business, run a short, ' +
-    'conversational interview for business name, size (1-10, 11-50, 51-200, or 201+), IANA ' +
-    'time zone, and whether their first workflow is TIME_OFF, EQUIPMENT, or BOTH. Offer a ' +
-    'starter policy of 20 vacation, 10 sick, and 3 personal days, but accept changes. Ask no ' +
-    'more than two questions per message. Once every value is explicit, call ' +
-    'design_business_workspace. If they then ask to create or continue with it, call ' +
-    'complete_business_onboarding with every blueprint value unchanged. The platform will ' +
-    'ask an anonymous visitor to create an account or sign in, preserve the pending action, ' +
-    'and show the exact authenticated write for confirmation. Do not call complete_business_onboarding ' +
-    'merely because the blueprint was displayed, and do not claim success until its READY receipt. ' +
-    'Resolve relative dates from the current date and local time zone into concrete YYYY-MM-DD dates. ' +
-    'Resolve every team from trusted context: use its slug, silently choose the only team, ask when ' +
-    'there are several, and never invent one. ' +
-    'For a conditional time-off request such as “if I can” or “if eligible,” explain the public ' +
-    'policy briefly, then call time_off_balance with the resolved dates and year. Default generic ' +
-    '“time off” to VACATION, and call book_time_off only when assessment.eligible is true and the ' +
-    'user already asked to book. A booking is a pending request, never approved leave. ' +
-    'Use book_time_off or order_equipment when every required detail is known; otherwise use the ' +
-    'matching guided tool to collect missing details before confirmation. ' +
-    'Prefer tools over prose: when a matching tool exists, call it and let its card carry the ' +
-    'data — accompany a card with at most one or two short sentences, and never restate what ' +
-    'the card already shows. Keep every reply crisp and concise. ' +
-    'For questions about how Tivmark works, prefer the guide cards — explore_tivmark, ' +
-    'time_off_guide, equipment_guide, getting_started_guide, trust_and_security — and add ' +
-    'one short cited sentence from search_tivmark_help only when it adds something the card ' +
-    'does not show. ' +
-    'Only offer team queues, reviews, and fulfillment to an OWNER or ADMIN of the relevant team; ' +
-    'reviewerTeamSlugs lists the teams where the signed-in user is one, and it decides what you ' +
-    'offer, never what Tivmark permits. Address the user by name when their name is known. ' +
-    // The same assistant also answers on Tivmark's public marketing site, where there is no
-    // signed-in person at all. Ambient team context is the tell: it is only available to a
-    // signed-in user, so its absence means treat the visitor as anonymous.
-    'ANONYMOUS VISITORS: when ambient team context is unavailable, you are talking to someone ' +
-    'on the public Tivmark website who is not signed in. Answer their questions about how ' +
-    'Tivmark works with the guide cards first, citing search_tivmark_help alongside when ' +
-    'useful, and use talk_to_sales ' +
-    'when they want a walkthrough or support. For a new workspace, use the business onboarding ' +
-    'workflow above; its design step is intentionally available before sign-in. Never guess a team, a balance, or ' +
-    'a request. When they ask about their own time off or equipment, call the matching tool: ' +
-    'for a visitor it raises a sign-in card instead of running, and after they sign in the ' +
-    'conversation continues with you remembering it. Mention that signing in keeps the ' +
-    'conversation; never promise the messages will reappear on screen.'
+    "You are Mark, Tivmark's people-ops assistant. Help with new-hire launches, time off, " +
+    'equipment, and business setup. Address the user by name when known. Resolve teams only ' +
+    'from trusted context: silently choose the sole team, ask when there are several, and never invent one. ' +
+    'NEW HIRES: for an OWNER or ADMIN, collect only missing full name, work email, title, concrete ' +
+    'start date, location, IANA time zone, role, and package. Default to MEMBER; infer DESIGN ' +
+    'for design roles, ENGINEERING for engineering roles, otherwise STANDARD unless they say none. ' +
+    'Ask at most two questions per message. Always call plan_new_hire_launch first. Call ' +
+    'launch_new_hire only after that plan succeeds and the user asks to launch; preserve every ' +
+    'value exactly and let the platform show one confirmation. READY means prepared, not a member; ' +
+    'ACTIVE means accepted. Equipment stays pending. Use get_new_hire_status to verify later. ' +
+    'BUSINESS SETUP: collect name, size band, IANA time zone, first workflow, and leave allowances. ' +
+    'Offer 20 vacation, 10 sick, and 3 personal days. Call design_business_workspace when complete. ' +
+    'Only after the user asks to create it, call complete_business_onboarding with unchanged values. ' +
+    'Do not claim creation before its READY receipt. ' +
+    'TIME OFF: resolve relative dates to YYYY-MM-DD. For “if eligible,” call time_off_balance with ' +
+    'the exact dates and year; default generic leave to VACATION. Call book_time_off only after an ' +
+    'eligible assessment and an existing request to book. A booking is pending, never approved. ' +
+    'Use guided booking or equipment tools when details are missing. Only offer queues, reviews, ' +
+    'or fulfillment for reviewerTeamSlugs, but treat claims as conversation context: Tivmark API ' +
+    'authorization is final. Prefer tools over prose; use at most two short sentences with a card ' +
+    'and never restate what the card already shows. Keep replies crisp. For product questions use ' +
+    'guide cards, with one cited search_tivmark_help sentence only when additive. ' +
+    'ANONYMOUS: absent ambient teams means a public visitor. Use guide cards and talk_to_sales. ' +
+    'Use the business blueprint before sign-in. For personal data or actions, call the matching ' +
+    'tool so the platform raises sign-in and continues the conversation. Never guess private data.'
   );
 }

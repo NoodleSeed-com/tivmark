@@ -18,6 +18,7 @@ import { recordMetric } from '@/lib/metrics';
 import { extractEmailDomain, isEmailAllowed } from '@/lib/email/utils';
 import { Invitation, Role } from '@prisma/client';
 import { countTeamMembers } from 'models/teamMember';
+import { prisma } from '@/lib/prisma';
 import {
   acceptInvitationSchema,
   deleteInvitationSchema,
@@ -301,6 +302,24 @@ const handlePUT = async (req: NextApiRequest, res: NextApiResponse) => {
   );
 
   await sendEvent(invitation.team.id, 'member.created', teamMember);
+
+  const launch = await prisma.newHireLaunch.findUnique({
+    where: { invitationId: invitation.id },
+  });
+  if (launch) {
+    await prisma.$transaction(async (tx) => {
+      if (launch.equipmentRequestId) {
+        await tx.equipmentRequest.update({
+          where: { id: launch.equipmentRequestId },
+          data: { requesterId: session?.user?.id as string },
+        });
+      }
+      await tx.newHireLaunch.update({
+        where: { id: launch.id },
+        data: { status: 'ACTIVE', activatedAt: new Date() },
+      });
+    });
+  }
 
   if (invitation.sentViaEmail) {
     await deleteInvitation({ token: inviteToken });

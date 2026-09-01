@@ -47,20 +47,37 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       if (invitation.email && invitation.email !== user.email) {
         throw new ApiError(403, 'Use the email address that was invited');
       }
-      await prisma.teamMember.upsert({
-        where: {
-          teamId_userId: { teamId: team.id, userId: principal.userId },
-        },
-        create: {
-          teamId: team.id,
-          userId: principal.userId,
-          role: invitation.role,
-        },
-        update: { role: invitation.role },
+      await prisma.$transaction(async (tx) => {
+        await tx.teamMember.upsert({
+          where: {
+            teamId_userId: { teamId: team.id, userId: principal.userId },
+          },
+          create: {
+            teamId: team.id,
+            userId: principal.userId,
+            role: invitation.role,
+          },
+          update: { role: invitation.role },
+        });
+        const launch = await tx.newHireLaunch.findUnique({
+          where: { invitationId: invitation.id },
+        });
+        if (launch) {
+          if (launch.equipmentRequestId) {
+            await tx.equipmentRequest.update({
+              where: { id: launch.equipmentRequestId },
+              data: { requesterId: principal.userId },
+            });
+          }
+          await tx.newHireLaunch.update({
+            where: { id: launch.id },
+            data: { status: 'ACTIVE', activatedAt: new Date() },
+          });
+        }
+        if (invitation.sentViaEmail) {
+          await tx.invitation.delete({ where: { id: invitation.id } });
+        }
       });
-      if (invitation.sentViaEmail) {
-        await prisma.invitation.delete({ where: { id: invitation.id } });
-      }
       return res.status(200).json({ data: {} });
     }
 
