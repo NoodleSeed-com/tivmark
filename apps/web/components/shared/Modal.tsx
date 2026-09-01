@@ -40,7 +40,7 @@ const Header = ({ children }: { children: React.ReactNode }) => {
 };
 
 const Description = ({ children }: { children: React.ReactNode }) => {
-  return <p className="text-sm text-gray-700 pt-1">{children}</p>;
+  return <p className="pt-1 text-sm text-ui-text">{children}</p>;
 };
 
 const Body = ({ children, className }: BodyProps) => {

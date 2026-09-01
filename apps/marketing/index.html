@@ -87,14 +87,19 @@
         --sand: #ece8df;
         --accent: #b08d57;
         --accent-light: #c9a96e;
+        --accent-text: #795f2b;
         --white: #ffffff;
         --text: #2a2a2a;
-        --text-light: #6b6b6b;
+        --text-light: #646464;
         --text-on-dark: rgba(255, 255, 255, 0.8);
+        --footer-text: #c4c0b8;
+        --success: #2b704e;
+        --warning: #795f2b;
+        --danger: #a83d3d;
         --canvas: #f7f5f0;
         --surface: #ffffff;
         --surface-muted: #ece8df;
-        --border: #d8d0c0;
+        --border: #8b8373;
         --heading: #1a2744;
       }
 
@@ -105,15 +110,19 @@
         --ns-assistant-canvas: var(--canvas);
         --ns-assistant-text: var(--text);
         --ns-assistant-muted-text: var(--text-light);
-        --ns-assistant-link: var(--accent);
-        --ns-assistant-focus: var(--accent);
+        --ns-assistant-link: var(--accent-text);
+        --ns-assistant-focus: var(--accent-text);
+        --ns-assistant-success: var(--success);
+        --ns-assistant-warning: var(--warning);
+        --ns-assistant-danger: var(--danger);
         --ns-assistant-panel: var(--surface);
         --ns-assistant-panel-text: var(--text);
         --ns-assistant-panel-border: var(--border);
         --ns-assistant-header: var(--surface-muted);
         --ns-assistant-header-text: var(--heading);
-        --ns-assistant-launcher: var(--navy);
-        --ns-assistant-launcher-text: var(--cream);
+        --ns-assistant-launcher: var(--surface);
+        --ns-assistant-launcher-text: var(--heading);
+        --ns-assistant-launcher-border: var(--heading);
         --ns-assistant-primary-button: var(--navy);
         --ns-assistant-primary-button-text: var(--cream);
         /* Message bubbles: the assistant bubble's background rides the input token and
@@ -150,8 +159,12 @@
         }
       }
       [data-theme="tivmark-dark"] noodle-assistant {
-        --ns-assistant-launcher: var(--accent);
-        --ns-assistant-launcher-text: var(--navy-deep);
+        /* The current launcher input inherits the global text role rather than the
+           launcher-text role. A dark surface keeps that input and the collapsed label
+           accessible; the gold border retains the branded entry point. */
+        --ns-assistant-launcher: var(--surface-muted);
+        --ns-assistant-launcher-text: var(--text);
+        --ns-assistant-launcher-border: var(--accent);
         --ns-assistant-primary-button: var(--accent);
         --ns-assistant-primary-button-text: var(--navy-deep);
         --ns-assistant-user-message: var(--accent);
@@ -161,11 +174,15 @@
         --canvas: #0b1222;
         --surface: #111c33;
         --surface-muted: #1a2744;
-        --border: #3d4f6b;
+        --border: #6f82a0;
         --text: #f7f5f0;
         --text-light: #c4c0b8;
         --heading: #ffffff;
         --accent: #c9a96e;
+        --accent-text: #c9a96e;
+        --success: #67b58d;
+        --warning: #c9a96e;
+        --danger: #e47777;
       }
 
       * {
@@ -232,7 +249,7 @@
         transition: color 0.2s;
       }
       nav a:hover {
-        color: var(--accent-light);
+        color: var(--accent-text);
       }
 
       /* ── HAMBURGER ── */
@@ -279,7 +296,7 @@
         content: "";
         position: absolute;
         inset: 0;
-        background: rgba(247, 245, 240, 0.72);
+        background: rgba(247, 245, 240, 0.9);
         pointer-events: none;
       }
       .hero-inner {
@@ -295,7 +312,7 @@
       }
       .hero h1 em {
         font-style: italic;
-        color: var(--accent-light);
+        color: var(--accent-text);
       }
       .hero p {
         font-size: 1.1rem;
@@ -307,7 +324,7 @@
       .hero-cta {
         display: inline-block;
         background: var(--accent);
-        color: var(--white);
+        color: var(--navy-deep);
         padding: 0.85rem 2.2rem;
         text-decoration: none;
         font-weight: 500;
@@ -381,7 +398,7 @@
         font-size: 0.75rem;
         text-transform: uppercase;
         letter-spacing: 0.15em;
-        color: var(--accent);
+        color: var(--accent-text);
         font-weight: 600;
         margin-bottom: 0.75rem;
       }
@@ -435,6 +452,10 @@
       .why .section-intro {
         color: var(--text-on-dark);
       }
+      .why .section-label,
+      .why-item .number {
+        color: var(--accent-light);
+      }
       .why-grid {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -444,7 +465,7 @@
       .why-item .number {
         font-family: "Libre Baskerville", serif;
         font-size: 2.2rem;
-        color: var(--accent);
+        color: var(--accent-light);
         margin-bottom: 0.4rem;
       }
       .why-item h3 {
@@ -477,7 +498,7 @@
       }
       .founder-title {
         font-size: 0.85rem;
-        color: var(--accent);
+        color: var(--accent-text);
         font-weight: 500;
       }
 
@@ -503,7 +524,7 @@
         line-height: 1.6;
       }
       .contact-info a {
-        color: var(--accent);
+        color: var(--accent-text);
         text-decoration: none;
       }
       .contact-info a:hover {
@@ -562,7 +583,7 @@
       /* ── FOOTER ── */
       footer {
         background: var(--navy-deep);
-        color: rgba(255, 255, 255, 0.45);
+        color: var(--footer-text);
         text-align: center;
         padding: 2rem 3rem;
         font-size: 0.8rem;
@@ -593,11 +614,14 @@
       [data-theme="tivmark-dark"] nav a {
         color: var(--text-on-dark);
       }
+      [data-theme="tivmark-dark"] nav a:hover {
+        color: var(--accent-text);
+      }
       [data-theme="tivmark-dark"] .nav-toggle span {
         background: var(--white);
       }
       [data-theme="tivmark-dark"] .hero::before {
-        background: rgba(17, 28, 51, 0.68);
+        background: rgba(17, 28, 51, 0.88);
       }
       [data-theme="tivmark-dark"] .hero h1 {
         color: var(--white);
@@ -607,9 +631,19 @@
       }
       [data-theme="tivmark-dark"] .contact-form button {
         background: var(--accent);
+        color: var(--navy-deep);
       }
       [data-theme="tivmark-dark"] .contact-form button:hover {
         background: var(--accent-light);
+      }
+      [data-theme="tivmark-dark"] .hero-demo-cta {
+        border-color: var(--accent);
+        background: var(--surface);
+        color: var(--text);
+      }
+      [data-theme="tivmark-dark"] .hero-demo-cta:hover {
+        background: var(--accent);
+        color: var(--navy-deep);
       }
 
       .nav-controls {
@@ -634,7 +668,7 @@
       .theme-toggle:hover,
       .theme-toggle:focus-visible {
         border-color: var(--accent);
-        color: var(--accent);
+        color: var(--accent-text);
         outline: 2px solid transparent;
       }
       [data-theme="tivmark-dark"] .theme-toggle {
@@ -1011,7 +1045,7 @@
         style="color: var(--accent); text-decoration: none"
         >Privacy</a
       >
-      <br /><span style="opacity: 0.7"
+      <br /><span
         >This is a fictional sample business and website created by
         <a
           href="https://noodleseed.com"
@@ -1151,11 +1185,14 @@
                 return;
               assistant.dataset.onboardingBound = "true";
               // This event is intentionally scoped to the element rather than document.
-              assistant.addEventListener("assistant-view-available", (event) => {
-                if (event.detail?.tool === "design_business_workspace") {
-                  saveOnboardingBlueprint(event.detail.result);
-                }
-              });
+              assistant.addEventListener(
+                "assistant-view-available",
+                (event) => {
+                  if (event.detail?.tool === "design_business_workspace") {
+                    saveOnboardingBlueprint(event.detail.result);
+                  }
+                },
+              );
             };
             bindOnboardingEvents();
           });

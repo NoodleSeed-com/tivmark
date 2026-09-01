@@ -50,7 +50,7 @@ const Header = ({ setSidebarOpen }: HeaderProps) => {
                   {user.name}
                 </button>
                 <ChevronDownIcon
-                  className="ml-2 h-5 w-5 text-tivmark-gold"
+                  className="ml-2 h-5 w-5 text-ui-accent"
                   aria-hidden="true"
                 />
               </span>

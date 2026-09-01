@@ -105,7 +105,7 @@ const TeamDropdown = () => {
                 >
                   <Link href={item.href}>
                     <div className="flex items-center gap-2 rounded-none px-2 py-2 text-sm font-medium hover:bg-ui-surface-muted focus:bg-ui-surface-muted focus:outline-none">
-                      <item.icon className="h-5 w-5 text-tivmark-gold" />{' '}
+                      <item.icon className="h-5 w-5 text-ui-accent" />{' '}
                       {item.name}
                     </div>
                   </Link>

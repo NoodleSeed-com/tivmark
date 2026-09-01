@@ -48,11 +48,12 @@ const NavigationItems = ({ menus }: NavigationItemsProps) => {
 };
 
 const NavigationItem = ({ menu, className }: NavigationItemProps) => {
-  const sharedClassName = `group flex items-center gap-2 rounded-none p-2 px-2 text-sm text-ui-heading hover:bg-ui-surface-muted hover:text-ui-heading ${
-    menu.active
-      ? 'bg-tivmark-navy font-semibold text-white dark:bg-tivmark-gold dark:text-tivmark-deep'
-      : ''
-  }${className}`;
+  const sharedClassName = classNames(
+    'group flex items-center gap-2 rounded-none p-2 px-2 text-sm text-ui-heading hover:bg-ui-surface-muted hover:text-ui-heading',
+    menu.active &&
+      'bg-tivmark-navy font-semibold text-white dark:bg-tivmark-gold dark:text-tivmark-deep',
+    className
+  );
 
   const content = (
     <>

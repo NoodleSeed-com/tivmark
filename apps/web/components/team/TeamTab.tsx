@@ -119,7 +119,7 @@ const TeamTab = ({ activeTab, team, heading, teamFeatures }: TeamTabProps) => {
         {heading ? heading : team.name}
       </h2>
       <nav
-        className=" flex flex-wrap border-b border-gray-300"
+        className="flex flex-wrap border-b border-ui-border"
         aria-label="Tabs"
       >
         {navigations.map((menu) => {

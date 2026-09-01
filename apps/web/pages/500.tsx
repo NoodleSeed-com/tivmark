@@ -24,7 +24,7 @@ const Custom500 = () => {
             e.preventDefault();
             router.back();
           }}
-          className="btn btn-primary dark:border-zinc-600 dark:border-2 dark:text-zinc-200 btn-outline py-3 px-2 sm:px-4 btn-md"
+          className="btn btn-primary btn-outline btn-md px-2 py-3 sm:px-4"
         >
           {t('go-back')}
         </button>

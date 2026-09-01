@@ -52,7 +52,7 @@ export const TableBody = ({
         <tr>
           <td
             colSpan={cols.length}
-            className="px-6 py-3 text-center text-sm text-gray-500"
+            className="px-6 py-3 text-center text-sm text-ui-muted"
           >
             {t('no-more-results')}
           </td>
@@ -103,7 +103,7 @@ export const TableBody = ({
                           >
                             <button
                               key={row.id + '-action-' + index}
-                              className={`py-2 ${action.destructive ? 'text-red-500 hover:text-red-900' : 'hover:text-green-400'}`}
+                              className={`py-2 ${action.destructive ? 'text-error hover:text-error/80' : 'text-ui-heading hover:text-success'}`}
                               onClick={action.onClick}
                             >
                               {action.icon}

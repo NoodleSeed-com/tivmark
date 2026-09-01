@@ -55,13 +55,13 @@ const ProductPricing = ({ plans, subscriptions }: ProductPricingProps) => {
             >
               <div className="p-8">
                 <div className="flex items-center space-x-2">
-                  <h3 className="font-display text-2xl font-bold text-black">
+                  <h3 className="font-display text-2xl font-bold text-ui-heading">
                     {plan.name}
                   </h3>
                 </div>
-                <p className="mt-2 text-gray-500 h-20">{plan.description}</p>
+                <p className="mt-2 h-20 text-ui-muted">{plan.description}</p>
               </div>
-              <div className="flex justify-center flex-col gap-2 border-gray-200 px-8 h-10">
+              <div className="flex h-10 flex-col justify-center gap-2 border-ui-border px-8">
                 {plan.prices.map((price: Price) =>
                   hasActiveSubscription(price) ? (
                     <Button
@@ -88,7 +88,7 @@ const ProductPricing = ({ plans, subscriptions }: ProductPricingProps) => {
                 {plan.features.map((feature: string) => (
                   <li className="flex space-x-4" key={`${plan.id}-${feature}`}>
                     <svg
-                      className="h-6 w-6 flex-none text-black"
+                      className="h-6 w-6 flex-none text-ui-heading"
                       viewBox="0 0 24 24"
                       width={24}
                       height={24}
@@ -104,7 +104,7 @@ const ProductPricing = ({ plans, subscriptions }: ProductPricingProps) => {
                         stroke="white"
                       />
                     </svg>
-                    <p className="text-gray-600">{feature}</p>
+                    <p className="text-ui-text">{feature}</p>
                   </li>
                 ))}
               </ul>

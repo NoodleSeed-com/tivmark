@@ -1,5 +1,5 @@
 const theadClass = 'bg-ui-surface-muted text-xs uppercase text-ui-heading';
-const trHeadClass = 'hover:bg-gray-50';
+const trHeadClass = 'hover:bg-ui-surface';
 const thClass = 'px-6 py-3';
 
 export const TableHeader = ({ cols }: { cols: string[] }) => {
