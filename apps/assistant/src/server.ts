@@ -19,7 +19,6 @@ import {
 
 const contracts = createContracts();
 const tivmark = createTivmarkConnector(contracts);
-const timeOffPlanning = createTimeOffPlanningConnector(contracts);
 const toolConfig = createToolConfig();
 
 // The public half of Mark. Built before server(...) so the website surface can reference
@@ -34,7 +33,7 @@ export default server(
   'tivmark_assistant',
   {
     title: 'Mark',
-    version: '1.1.1',
+    version: '1.2.0',
     interactions: { confirmationFallback: 'host' },
     instructions: createInstructions(),
     agentGuide: createAgentGuide(),
@@ -173,7 +172,7 @@ export default server(
         'Who can approve requests?',
       ],
     }),
-    use: { tiv: tivmark, planning: timeOffPlanning },
+    use: { tiv: tivmark },
   },
   [
     createTeamContextTool(toolConfig),
@@ -308,9 +307,6 @@ function createContracts() {
       balances: z.record(z.record(balance)),
     }),
     timeOffAssessmentSchema,
-    timeOffPlanningOutputSchema: z.object({
-      assessment: timeOffAssessmentSchema.nullable(),
-    }),
     timeOffReceiptSchema,
   };
 }
@@ -324,6 +320,9 @@ function createTivmarkConnector({
   leaveType,
   equipmentCategory,
   decision,
+  timeOffBalanceOutputSchema,
+  timeOffAssessmentSchema,
+  timeOffReceiptSchema,
 }: Contracts) {
   // Every call runs as the signed-in user through delegated token exchange;
   // Tivmark's API remains the authorization boundary.
@@ -359,10 +358,23 @@ function createTivmarkConnector({
           type: 'read',
           method: 'GET',
           path: '/teams/{team}/time-off/balances',
-          query: ['year'],
-          input: z.object({ team: z.string(), year: z.number().optional() }),
-          output: z.object({ balances: z.record(z.record(z.unknown())) }),
-          response: { balances: '${response.data}' },
+          query: ['type', 'startDate', 'endDate', 'year'],
+          input: z.object({
+            team: z.string(),
+            type: leaveType.optional(),
+            startDate: z.string().optional(),
+            endDate: z.string().optional(),
+            year: z.number().optional(),
+          }),
+          output: timeOffBalanceOutputSchema.extend({
+            assessment: timeOffAssessmentSchema.nullable(),
+          }),
+          response: {
+            team: '${response.meta.team}',
+            userId: '${response.meta.userId}',
+            balances: '${response.data}',
+            assessment: '${response.meta.assessment}',
+          },
         },
         list_time_off: {
           type: 'read',
@@ -396,8 +408,14 @@ function createTivmarkConnector({
             duration: 'FULL_DAY',
             reason: '${args.reason}',
           },
-          output: z.object({ request: z.unknown() }),
-          response: { request: '${response.data}' },
+          output: z.object({
+            request: z.unknown(),
+            receipt: timeOffReceiptSchema,
+          }),
+          response: {
+            request: '${response.data}',
+            receipt: '${response.meta.receipt}',
+          },
         },
         cancel_time_off: {
           type: 'action',
@@ -496,223 +514,6 @@ function createTivmarkConnector({
           output: z.object({ request: z.unknown() }),
           response: { request: '${response.data}' },
         },
-      },
-    });
-}
-
-// A pure, sandboxed planning boundary keeps eligibility deterministic without adding an API
-// endpoint or letting the model do balance arithmetic. It receives only already-authorized
-// Tivmark reads, has no network or ambient clock, and returns the small decision the model and
-// widget need. The same connector shapes the post-write receipt from the refreshed balance.
-function createTimeOffPlanningConnector({
-  leaveType,
-  timeOffAssessmentSchema,
-  timeOffPlanningOutputSchema,
-  timeOffReceiptSchema,
-}: Contracts) {
-  return connector('tivmark_time_off_planning')
-    .version('1.0.0')
-    .compute('assess', {
-      type: 'read',
-      input: z.object({
-        team: z.string(),
-        userId: z.string(),
-        type: leaveType,
-        startDate: z.string().optional(),
-        endDate: z.string().optional(),
-        balances: z.unknown(),
-        requests: z.array(z.unknown()),
-      }),
-      output: timeOffPlanningOutputSchema,
-      run: (input) => {
-        if (!input.startDate || !input.endDate) {
-          return { assessment: null };
-        }
-
-        const startDate = String(input.startDate);
-        const endDate = String(input.endDate);
-        const datePattern = /^\d{4}-\d{2}-\d{2}$/;
-        const start = new Date(`${startDate}T00:00:00.000Z`);
-        const end = new Date(`${endDate}T00:00:00.000Z`);
-        const validDates =
-          datePattern.test(startDate) &&
-          datePattern.test(endDate) &&
-          !Number.isNaN(start.getTime()) &&
-          !Number.isNaN(end.getTime()) &&
-          start.toISOString().slice(0, 10) === startDate &&
-          end.toISOString().slice(0, 10) === endDate &&
-          end >= start &&
-          start.getUTCFullYear() === end.getUTCFullYear();
-
-        let weekdays = 0;
-        if (validDates) {
-          const cursor = new Date(start);
-          while (cursor <= end) {
-            const day = cursor.getUTCDay();
-            if (day !== 0 && day !== 6) weekdays += 1;
-            cursor.setUTCDate(cursor.getUTCDate() + 1);
-          }
-        }
-        const requestedHalfDays = weekdays * 2;
-
-        const isRecord = (value: unknown): value is Record<string, unknown> =>
-          value !== null && typeof value === 'object' && !Array.isArray(value);
-        const root = isRecord(input.balances) ? input.balances : {};
-        const userBalances = isRecord(root[input.userId])
-          ? root[input.userId]
-          : {};
-        const rawBalance = isRecord(userBalances[input.type])
-          ? userBalances[input.type]
-          : undefined;
-        const policyAvailable = rawBalance !== undefined;
-        const pendingHalfDays =
-          rawBalance &&
-          typeof rawBalance.pendingHalfDays === 'number' &&
-          Number.isFinite(rawBalance.pendingHalfDays)
-            ? rawBalance.pendingHalfDays
-            : 0;
-        const rawRemaining = rawBalance?.remainingHalfDays;
-        const remainingHalfDays =
-          rawRemaining === null
-            ? null
-            : typeof rawRemaining === 'number' && Number.isFinite(rawRemaining)
-              ? rawRemaining
-              : undefined;
-        const availableBeforeHalfDays =
-          remainingHalfDays === null
-            ? null
-            : remainingHalfDays === undefined
-              ? null
-              : remainingHalfDays - pendingHalfDays;
-        const remainingAfterHalfDays =
-          availableBeforeHalfDays === null
-            ? null
-            : availableBeforeHalfDays - requestedHalfDays;
-
-        const requests = Array.isArray(input.requests) ? input.requests : [];
-        const overlapping = requests.find((candidate: unknown) => {
-          if (!isRecord(candidate)) return false;
-          if (candidate.status !== 'PENDING' && candidate.status !== 'APPROVED') {
-            return false;
-          }
-          return (
-            typeof candidate.startDate === 'string' &&
-            typeof candidate.endDate === 'string' &&
-            candidate.startDate <= endDate &&
-            candidate.endDate >= startDate
-          );
-        });
-        const conflict = isRecord(overlapping)
-          ? {
-              id: String(overlapping.id),
-              startDate: String(overlapping.startDate),
-              endDate: String(overlapping.endDate),
-            }
-          : null;
-        const weekday = validDates && weekdays > 0;
-        const noOverlap = conflict === null;
-        const withinBalance =
-          policyAvailable &&
-          remainingHalfDays !== undefined &&
-          (availableBeforeHalfDays === null ||
-            availableBeforeHalfDays >= requestedHalfDays);
-
-        let decision:
-          | 'ELIGIBLE'
-          | 'INVALID_DATES'
-          | 'OVERLAP'
-          | 'INSUFFICIENT_BALANCE'
-          | 'POLICY_UNAVAILABLE' = 'ELIGIBLE';
-        let reason = 'The dates are weekdays, do not overlap existing time off, and fit the available balance.';
-        if (!weekday) {
-          decision = 'INVALID_DATES';
-          reason = 'Choose a valid date range containing at least one weekday within one calendar year.';
-        } else if (!policyAvailable || remainingHalfDays === undefined) {
-          decision = 'POLICY_UNAVAILABLE';
-          reason = 'No matching time-off policy balance is available for this account.';
-        } else if (!noOverlap) {
-          decision = 'OVERLAP';
-          reason = 'The requested dates overlap an existing pending or approved request.';
-        } else if (!withinBalance) {
-          decision = 'INSUFFICIENT_BALANCE';
-          reason = 'The request exceeds the available balance after existing pending requests.';
-        }
-        const eligible = decision === 'ELIGIBLE';
-
-        return {
-          assessment: {
-            status: eligible ? 'Eligible to submit a pending request.' : `Not eligible: ${reason}`,
-            team: input.team,
-            userId: input.userId,
-            type: input.type,
-            startDate,
-            endDate,
-            eligible,
-            decision,
-            reason,
-            requestedHalfDays,
-            pendingHalfDays,
-            availableBeforeHalfDays,
-            remainingAfterHalfDays,
-            conflict,
-            checks: { weekday, noOverlap, withinBalance },
-            policySource: 'Tivmark annual allowance, weekday, and overlap rules',
-          },
-        };
-      },
-    })
-    .compute('receipt', {
-      type: 'read',
-      input: z.object({
-        team: z.string(),
-        userId: z.string(),
-        type: leaveType,
-        startDate: z.string(),
-        endDate: z.string(),
-        balances: z.unknown(),
-        request: z.unknown(),
-      }),
-      output: timeOffReceiptSchema,
-      run: (input) => {
-        const isRecord = (value: unknown): value is Record<string, unknown> =>
-          value !== null && typeof value === 'object' && !Array.isArray(value);
-        const root = isRecord(input.balances) ? input.balances : {};
-        const userBalances = isRecord(root[input.userId])
-          ? root[input.userId]
-          : {};
-        const rawBalance = isRecord(userBalances[input.type])
-          ? userBalances[input.type]
-          : {};
-        const request = isRecord(input.request) ? input.request : {};
-        const pendingHalfDays =
-          typeof rawBalance.pendingHalfDays === 'number' &&
-          Number.isFinite(rawBalance.pendingHalfDays)
-            ? rawBalance.pendingHalfDays
-            : 0;
-        const rawRemaining = rawBalance.remainingHalfDays;
-        const remainingAfterPendingHalfDays =
-          rawRemaining === null
-            ? null
-            : typeof rawRemaining === 'number' && Number.isFinite(rawRemaining)
-              ? rawRemaining - pendingHalfDays
-              : null;
-
-        return {
-          requestId: String(request.id),
-          status: String(request.status),
-          team: input.team,
-          type: input.type,
-          startDate: input.startDate,
-          endDate: input.endDate,
-          requestedHalfDays:
-            typeof request.requestedHalfDays === 'number' &&
-            Number.isFinite(request.requestedHalfDays)
-              ? request.requestedHalfDays
-              : 0,
-          pendingHalfDays,
-          remainingAfterPendingHalfDays,
-          authenticated: true,
-        };
       },
     });
 }
@@ -1164,30 +965,19 @@ function createTimeOffTools(
       output: timeOffBalanceOutputSchema.extend({
         assessment: timeOffAssessmentSchema.nullable(),
       }),
-      fulfil: ({ input, user, connectors }) => {
+      fulfil: ({ input, connectors }) => {
         const res = connectors.tiv.get_balances({
           team: input.team,
-          year: input.year,
-        });
-        const requests = connectors.tiv.list_time_off({
-          team: input.team,
-          requesterId: user.subject,
-          year: input.year,
-        });
-        const planning = connectors.planning.assess({
-          team: input.team,
-          userId: user.subject,
           type: input.type,
           startDate: input.startDate,
           endDate: input.endDate,
-          balances: res.balances,
-          requests: requests.requests,
+          year: input.year,
         });
         return {
-          team: input.team,
-          userId: user.subject,
+          team: res.team,
+          userId: res.userId,
           balances: res.balances,
-          assessment: planning.assessment,
+          assessment: res.assessment,
         };
       },
       viewTitle: 'Time-off eligibility and balance',
@@ -1212,7 +1002,7 @@ function createTimeOffTools(
       fulfil: ({ input, user, connectors }) => {
         const res = connectors.tiv.list_time_off({
           team: input.team,
-          requesterId: user.id,
+          requesterId: user.subject,
         });
         return { team: input.team, requests: res.requests };
       },
@@ -1247,7 +1037,7 @@ function createTimeOffTools(
         request: timeOffRequestSchema,
         receipt: timeOffReceiptSchema,
       }),
-      fulfil: ({ input, user, connectors }) => {
+      fulfil: ({ input, connectors }) => {
         const res = connectors.tiv.create_time_off({
           team: input.team,
           type: input.type,
@@ -1255,22 +1045,12 @@ function createTimeOffTools(
           endDate: input.endDate,
           reason: input.reason,
         });
-        const balances = connectors.tiv.get_balances({ team: input.team });
-        const receipt = connectors.planning.receipt({
-          team: input.team,
-          userId: user.subject,
-          type: input.type,
-          startDate: input.startDate,
-          endDate: input.endDate,
-          balances: balances.balances,
-          request: res.request,
-        });
         return {
           team: input.team,
           status: `Requested ${input.type} from ${input.startDate} to ${input.endDate}.`,
           request: res.request,
           requests: [res.request],
-          receipt,
+          receipt: res.receipt,
         };
       },
       viewTitle: 'Authenticated time-off receipt',
@@ -1388,7 +1168,7 @@ function createEquipmentTools(
       fulfil: ({ input, user, connectors }) => {
         const res = connectors.tiv.list_equipment({
           team: input.team,
-          requesterId: user.id,
+          requesterId: user.subject,
         });
         return { team: input.team, requests: res.requests };
       },

@@ -26,10 +26,12 @@ describe('public-to-action time-off journey', () => {
 
     const flow = JSON.stringify(planningTool);
     expect(flow).toContain('tiv.get_balances');
-    expect(flow).toContain('tiv.list_time_off');
-    expect(flow).toContain('planning.assess');
-    expect(flow).toContain('"requesterId":"${user.subject}"');
-    expect(flow).not.toContain('${user.id}');
+    expect(flow).toContain('"type":"${input.type}"');
+    expect(flow).toContain('"startDate":"${input.startDate}"');
+    expect(flow).toContain('"endDate":"${input.endDate}"');
+    expect(flow).not.toContain('tiv.list_time_off');
+    expect(flow).not.toContain('planning.assess');
+    expect(manifest.connectors).not.toHaveProperty('planning');
   });
 
   it('returns a dedicated authenticated receipt after the confirmed write', async () => {
@@ -42,7 +44,10 @@ describe('public-to-action time-off journey', () => {
     );
 
     expect(bookingTool?.outputSchema.properties).toHaveProperty('receipt');
-    expect(JSON.stringify(bookingTool)).toContain('planning.receipt');
+    expect(JSON.stringify(bookingTool)).toContain(
+      '"receipt":"${steps.create_time_off.receipt}"',
+    );
+    expect(JSON.stringify(bookingTool)).not.toContain('planning.receipt');
     expect(JSON.stringify(bookingTool)).toContain('"confirm":true');
     expect(bookingWidget?.view.component).toBe('time-off-receipt');
   });
@@ -74,5 +79,10 @@ describe('public-to-action time-off journey', () => {
     expect(manifest.server.assistant?.suggestedPrompts).toContain(
       'Can I take next Friday off? If so, book it.',
     );
+  });
+
+  it('uses only supported verified identity expressions in every tool flow', async () => {
+    const manifest = await app.toManifest();
+    expect(JSON.stringify(manifest.tools)).not.toContain('${user.id}');
   });
 });
