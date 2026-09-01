@@ -131,6 +131,54 @@ const TimeOffBalance = z.object({
   remainingHalfDays: z.number().int().nullable(),
 });
 
+const TimeOffAssessment = z.object({
+  status: z.string(),
+  team: z.string(),
+  userId: uuid,
+  type: leaveType,
+  startDate: z.string().date(),
+  endDate: z.string().date(),
+  eligible: z.boolean(),
+  decision: z.enum([
+    'ELIGIBLE',
+    'INVALID_DATES',
+    'OVERLAP',
+    'INSUFFICIENT_BALANCE',
+    'POLICY_UNAVAILABLE',
+  ]),
+  reason: z.string(),
+  requestedHalfDays: z.number().int().nonnegative(),
+  pendingHalfDays: z.number().nonnegative(),
+  availableBeforeHalfDays: z.number().nullable(),
+  remainingAfterHalfDays: z.number().nullable(),
+  conflict: z
+    .object({
+      id: uuid,
+      startDate: z.string().date(),
+      endDate: z.string().date(),
+    })
+    .nullable(),
+  checks: z.object({
+    weekday: z.boolean(),
+    noOverlap: z.boolean(),
+    withinBalance: z.boolean(),
+  }),
+  policySource: z.string(),
+});
+
+const TimeOffReceipt = z.object({
+  requestId: uuid,
+  status: leaveStatus,
+  team: z.string(),
+  type: leaveType,
+  startDate: z.string().date(),
+  endDate: z.string().date(),
+  requestedHalfDays: z.number().int().nonnegative(),
+  pendingHalfDays: z.number().nonnegative(),
+  remainingAfterPendingHalfDays: z.number().nullable(),
+  authenticated: z.literal(true),
+});
+
 const TimeOffWorkspace = z
   .object({
     year: z.number().int(),
@@ -251,13 +299,38 @@ simpleOperation(
   'Get effective permissions',
   { params: teamParams }
 );
-simpleOperation(
-  'get',
-  '/api/v1/teams/{teamId}/time-off/balances',
-  'Time Off',
-  'Get employee balances',
-  { params: teamParams }
-);
+registry.registerPath({
+  method: 'get',
+  path: '/api/v1/teams/{teamId}/time-off/balances',
+  tags: ['Time Off'],
+  summary: 'Get employee balances and optionally assess eligibility',
+  security,
+  request: {
+    params: teamParams,
+    query: z.object({
+      year: z.coerce.number().int().optional(),
+      type: leaveType.optional(),
+      startDate: z.string().date().optional(),
+      endDate: z.string().date().optional(),
+    }),
+  },
+  responses: {
+    200: {
+      description: 'Balances and optional policy-grounded eligibility result',
+      content: json(
+        z.object({
+          data: z.record(z.record(TimeOffBalance)),
+          meta: z.object({
+            team: z.string(),
+            userId: uuid,
+            assessment: TimeOffAssessment.nullable(),
+          }),
+        })
+      ),
+    },
+    ...problemResponses,
+  },
+});
 simpleOperation(
   'delete',
   '/api/v1/teams/{teamId}/credentials/{credentialId}',
@@ -635,7 +708,12 @@ registry.registerPath({
   responses: {
     201: {
       description: 'Created request',
-      content: json(data(TimeOffRequest)),
+      content: json(
+        z.object({
+          data: TimeOffRequest,
+          meta: z.object({ receipt: TimeOffReceipt }),
+        })
+      ),
     },
     ...problemResponses,
   },

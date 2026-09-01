@@ -1,4 +1,6 @@
 import {
+  assessTimeOffEligibility,
+  buildTimeOffReceipt,
   calculateRequestedHalfDays,
   countWeekdays,
   DEFAULT_TIME_OFF_ALLOWANCES,
@@ -7,6 +9,53 @@ import {
   parseDateOnly,
   serializeTimeOffRequest,
 } from '@/lib/timeOff';
+
+const user = { id: 'user-1', name: 'Ada', email: 'ada@example.com' };
+const balances = {
+  'user-1': {
+    VACATION: {
+      allowanceHalfDays: 30,
+      approvedHalfDays: 0,
+      pendingHalfDays: 0,
+      remainingHalfDays: 30,
+    },
+    SICK: {
+      allowanceHalfDays: 20,
+      approvedHalfDays: 0,
+      pendingHalfDays: 0,
+      remainingHalfDays: 20,
+    },
+    PERSONAL: {
+      allowanceHalfDays: 6,
+      approvedHalfDays: 0,
+      pendingHalfDays: 0,
+      remainingHalfDays: 6,
+    },
+    UNPAID: {
+      allowanceHalfDays: null,
+      approvedHalfDays: 0,
+      pendingHalfDays: 0,
+      remainingHalfDays: null,
+    },
+  },
+};
+
+const request = {
+  id: 'leave-1',
+  type: 'VACATION' as const,
+  status: 'PENDING' as const,
+  startDate: '2026-09-11',
+  endDate: '2026-09-11',
+  duration: 'FULL_DAY' as const,
+  halfDayPeriod: null,
+  requestedHalfDays: 2,
+  reason: null,
+  reviewNote: null,
+  reviewedAt: null,
+  createdAt: '2026-09-01T00:00:00.000Z',
+  requester: user,
+  reviewer: null,
+};
 
 describe('time-off date and allowance rules', () => {
   it('stores the configured defaults in half-day units', () => {
@@ -67,6 +116,95 @@ describe('time-off date and allowance rules', () => {
     expect(formatDateOnly(new Date('2026-07-10T23:30:00.000Z'))).toBe(
       '2026-07-10'
     );
+  });
+
+  it('returns a deterministic eligibility decision from authoritative workspace data', () => {
+    expect(
+      assessTimeOffEligibility({
+        team: 'noodle',
+        userId: user.id,
+        type: 'VACATION',
+        startDate: '2026-09-11',
+        endDate: '2026-09-11',
+        balances,
+        requests: [],
+      })
+    ).toMatchObject({
+      team: 'noodle',
+      userId: user.id,
+      eligible: true,
+      decision: 'ELIGIBLE',
+      requestedHalfDays: 2,
+      availableBeforeHalfDays: 30,
+      remainingAfterHalfDays: 28,
+      conflict: null,
+    });
+  });
+
+  it('rejects an overlap for the signed-in user but ignores another member', () => {
+    const otherRequest = {
+      ...request,
+      id: 'leave-other',
+      requester: { ...user, id: 'user-2' },
+    };
+    const ownRequest = { ...request, id: 'leave-own' };
+
+    expect(
+      assessTimeOffEligibility({
+        team: 'noodle',
+        userId: user.id,
+        type: 'VACATION',
+        startDate: '2026-09-11',
+        endDate: '2026-09-11',
+        balances,
+        requests: [otherRequest],
+      }).decision
+    ).toBe('ELIGIBLE');
+    expect(
+      assessTimeOffEligibility({
+        team: 'noodle',
+        userId: user.id,
+        type: 'VACATION',
+        startDate: '2026-09-11',
+        endDate: '2026-09-11',
+        balances,
+        requests: [ownRequest],
+      })
+    ).toMatchObject({
+      eligible: false,
+      decision: 'OVERLAP',
+      conflict: { id: 'leave-own' },
+    });
+  });
+
+  it('builds the post-write receipt from the refreshed workspace balance', () => {
+    const refreshedBalances = {
+      ...balances,
+      'user-1': {
+        ...balances['user-1'],
+        VACATION: { ...balances['user-1'].VACATION, pendingHalfDays: 2 },
+      },
+    };
+
+    expect(
+      buildTimeOffReceipt({
+        team: 'noodle',
+        userId: user.id,
+        request,
+        balances: refreshedBalances,
+      })
+    ).toEqual({
+      requestId: 'leave-1',
+      status: 'PENDING',
+      team: 'noodle',
+      type: 'VACATION',
+      startDate: '2026-09-11',
+      endDate: '2026-09-11',
+      requestedHalfDays: 2,
+      pendingHalfDays: 2,
+      remainingAfterPendingHalfDays: 28,
+      authenticated: true,
+    });
   });
 
   it('serializes mutation records with the same date-only contract as list records', () => {

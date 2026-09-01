@@ -44,6 +44,53 @@ export interface TimeOffBalanceData {
   remainingHalfDays: number | null;
 }
 
+export type TimeOffEligibilityDecision =
+  | 'ELIGIBLE'
+  | 'INVALID_DATES'
+  | 'OVERLAP'
+  | 'INSUFFICIENT_BALANCE'
+  | 'POLICY_UNAVAILABLE';
+
+export interface TimeOffEligibilityAssessment {
+  status: string;
+  team: string;
+  userId: string;
+  type: TimeOffTypeValue;
+  startDate: string;
+  endDate: string;
+  eligible: boolean;
+  decision: TimeOffEligibilityDecision;
+  reason: string;
+  requestedHalfDays: number;
+  pendingHalfDays: number;
+  availableBeforeHalfDays: number | null;
+  remainingAfterHalfDays: number | null;
+  conflict: {
+    id: string;
+    startDate: string;
+    endDate: string;
+  } | null;
+  checks: {
+    weekday: boolean;
+    noOverlap: boolean;
+    withinBalance: boolean;
+  };
+  policySource: string;
+}
+
+export interface TimeOffReceiptData {
+  requestId: string;
+  status: string;
+  team: string;
+  type: TimeOffTypeValue;
+  startDate: string;
+  endDate: string;
+  requestedHalfDays: number;
+  pendingHalfDays: number;
+  remainingAfterPendingHalfDays: number | null;
+  authenticated: true;
+}
+
 export interface TimeOffWorkspaceData {
   year: number;
   canApprove: boolean;

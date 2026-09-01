@@ -816,7 +816,7 @@
     "/api/v1/teams/{teamId}/time-off/balances": {
       "get": {
         "tags": ["Time Off"],
-        "summary": "Get employee balances",
+        "summary": "Get employee balances and optionally assess eligibility",
         "security": [{ "oauth2": [] }, { "bearerAuth": [] }],
         "parameters": [
           {
@@ -824,24 +824,167 @@
             "required": true,
             "in": "path",
             "name": "teamId"
+          },
+          {
+            "schema": { "type": ["integer", "null"] },
+            "required": false,
+            "name": "year",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": ["VACATION", "SICK", "PERSONAL", "UNPAID"]
+            },
+            "required": false,
+            "name": "type",
+            "in": "query"
+          },
+          {
+            "schema": { "type": "string", "format": "date" },
+            "required": false,
+            "name": "startDate",
+            "in": "query"
+          },
+          {
+            "schema": { "type": "string", "format": "date" },
+            "required": false,
+            "name": "endDate",
+            "in": "query"
           }
         ],
         "responses": {
           "200": {
-            "description": "Successful response",
+            "description": "Balances and optional policy-grounded eligibility result",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "data": { "type": "object", "additionalProperties": {} }
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "type": "object",
+                        "additionalProperties": {
+                          "type": "object",
+                          "properties": {
+                            "allowanceHalfDays": {
+                              "type": ["integer", "null"]
+                            },
+                            "approvedHalfDays": { "type": "integer" },
+                            "pendingHalfDays": { "type": "integer" },
+                            "remainingHalfDays": { "type": ["integer", "null"] }
+                          },
+                          "required": [
+                            "allowanceHalfDays",
+                            "approvedHalfDays",
+                            "pendingHalfDays",
+                            "remainingHalfDays"
+                          ]
+                        }
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "properties": {
+                        "team": { "type": "string" },
+                        "userId": { "type": "string", "format": "uuid" },
+                        "assessment": {
+                          "type": ["object", "null"],
+                          "properties": {
+                            "status": { "type": "string" },
+                            "team": { "type": "string" },
+                            "userId": { "type": "string", "format": "uuid" },
+                            "type": {
+                              "type": "string",
+                              "enum": ["VACATION", "SICK", "PERSONAL", "UNPAID"]
+                            },
+                            "startDate": { "type": "string", "format": "date" },
+                            "endDate": { "type": "string", "format": "date" },
+                            "eligible": { "type": "boolean" },
+                            "decision": {
+                              "type": "string",
+                              "enum": [
+                                "ELIGIBLE",
+                                "INVALID_DATES",
+                                "OVERLAP",
+                                "INSUFFICIENT_BALANCE",
+                                "POLICY_UNAVAILABLE"
+                              ]
+                            },
+                            "reason": { "type": "string" },
+                            "requestedHalfDays": {
+                              "type": "integer",
+                              "minimum": 0
+                            },
+                            "pendingHalfDays": {
+                              "type": "number",
+                              "minimum": 0
+                            },
+                            "availableBeforeHalfDays": {
+                              "type": ["number", "null"]
+                            },
+                            "remainingAfterHalfDays": {
+                              "type": ["number", "null"]
+                            },
+                            "conflict": {
+                              "type": ["object", "null"],
+                              "properties": {
+                                "id": { "type": "string", "format": "uuid" },
+                                "startDate": {
+                                  "type": "string",
+                                  "format": "date"
+                                },
+                                "endDate": {
+                                  "type": "string",
+                                  "format": "date"
+                                }
+                              },
+                              "required": ["id", "startDate", "endDate"]
+                            },
+                            "checks": {
+                              "type": "object",
+                              "properties": {
+                                "weekday": { "type": "boolean" },
+                                "noOverlap": { "type": "boolean" },
+                                "withinBalance": { "type": "boolean" }
+                              },
+                              "required": [
+                                "weekday",
+                                "noOverlap",
+                                "withinBalance"
+                              ]
+                            },
+                            "policySource": { "type": "string" }
+                          },
+                          "required": [
+                            "status",
+                            "team",
+                            "userId",
+                            "type",
+                            "startDate",
+                            "endDate",
+                            "eligible",
+                            "decision",
+                            "reason",
+                            "requestedHalfDays",
+                            "pendingHalfDays",
+                            "availableBeforeHalfDays",
+                            "remainingAfterHalfDays",
+                            "conflict",
+                            "checks",
+                            "policySource"
+                          ]
+                        }
+                      },
+                      "required": ["team", "userId", "assessment"]
+                    }
                   },
-                  "required": ["data"]
+                  "required": ["data", "meta"]
                 }
               }
             }
           },
-          "204": { "description": "Operation completed" },
           "400": {
             "description": "Invalid request",
             "content": {
@@ -4242,9 +4385,64 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "data": { "$ref": "#/components/schemas/TimeOffRequest" }
+                    "data": { "$ref": "#/components/schemas/TimeOffRequest" },
+                    "meta": {
+                      "type": "object",
+                      "properties": {
+                        "receipt": {
+                          "type": "object",
+                          "properties": {
+                            "requestId": { "type": "string", "format": "uuid" },
+                            "status": {
+                              "type": "string",
+                              "enum": [
+                                "PENDING",
+                                "APPROVED",
+                                "DECLINED",
+                                "CANCELED"
+                              ]
+                            },
+                            "team": { "type": "string" },
+                            "type": {
+                              "type": "string",
+                              "enum": ["VACATION", "SICK", "PERSONAL", "UNPAID"]
+                            },
+                            "startDate": { "type": "string", "format": "date" },
+                            "endDate": { "type": "string", "format": "date" },
+                            "requestedHalfDays": {
+                              "type": "integer",
+                              "minimum": 0
+                            },
+                            "pendingHalfDays": {
+                              "type": "number",
+                              "minimum": 0
+                            },
+                            "remainingAfterPendingHalfDays": {
+                              "type": ["number", "null"]
+                            },
+                            "authenticated": {
+                              "type": "boolean",
+                              "enum": [true]
+                            }
+                          },
+                          "required": [
+                            "requestId",
+                            "status",
+                            "team",
+                            "type",
+                            "startDate",
+                            "endDate",
+                            "requestedHalfDays",
+                            "pendingHalfDays",
+                            "remainingAfterPendingHalfDays",
+                            "authenticated"
+                          ]
+                        }
+                      },
+                      "required": ["receipt"]
+                    }
                   },
-                  "required": ["data"]
+                  "required": ["data", "meta"]
                 }
               }
             }

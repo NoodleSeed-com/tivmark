@@ -97,7 +97,7 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    /** Get employee balances */
+    /** Get employee balances and optionally assess eligibility */
     get: operations['get_teams_teamId_time_off_balances'];
     put?: never;
     post?: never;
@@ -1199,7 +1199,12 @@ export interface operations {
   };
   get_teams_teamId_time_off_balances: {
     parameters: {
-      query?: never;
+      query?: {
+        year?: number | null;
+        type?: 'VACATION' | 'SICK' | 'PERSONAL' | 'UNPAID';
+        startDate?: string;
+        endDate?: string;
+      };
       header?: never;
       path: {
         teamId: string;
@@ -1208,7 +1213,7 @@ export interface operations {
     };
     requestBody?: never;
     responses: {
-      /** @description Successful response */
+      /** @description Balances and optional policy-grounded eligibility result */
       200: {
         headers: {
           [name: string]: unknown;
@@ -1216,17 +1221,61 @@ export interface operations {
         content: {
           'application/json': {
             data: {
-              [key: string]: unknown;
+              [key: string]: {
+                [key: string]: {
+                  allowanceHalfDays: number | null;
+                  approvedHalfDays: number;
+                  pendingHalfDays: number;
+                  remainingHalfDays: number | null;
+                };
+              };
+            };
+            meta: {
+              team: string;
+              /** Format: uuid */
+              userId: string;
+              assessment: {
+                status: string;
+                team: string;
+                /** Format: uuid */
+                userId: string;
+                /** @enum {string} */
+                type: 'VACATION' | 'SICK' | 'PERSONAL' | 'UNPAID';
+                /** Format: date */
+                startDate: string;
+                /** Format: date */
+                endDate: string;
+                eligible: boolean;
+                /** @enum {string} */
+                decision:
+                  | 'ELIGIBLE'
+                  | 'INVALID_DATES'
+                  | 'OVERLAP'
+                  | 'INSUFFICIENT_BALANCE'
+                  | 'POLICY_UNAVAILABLE';
+                reason: string;
+                requestedHalfDays: number;
+                pendingHalfDays: number;
+                availableBeforeHalfDays: number | null;
+                remainingAfterHalfDays: number | null;
+                conflict: {
+                  /** Format: uuid */
+                  id: string;
+                  /** Format: date */
+                  startDate: string;
+                  /** Format: date */
+                  endDate: string;
+                } | null;
+                checks: {
+                  weekday: boolean;
+                  noOverlap: boolean;
+                  withinBalance: boolean;
+                };
+                policySource: string;
+              } | null;
             };
           };
         };
-      };
-      /** @description Operation completed */
-      204: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
       };
       /** @description Invalid request */
       400: {
@@ -4620,6 +4669,26 @@ export interface operations {
         content: {
           'application/json': {
             data: components['schemas']['TimeOffRequest'];
+            meta: {
+              receipt: {
+                /** Format: uuid */
+                requestId: string;
+                /** @enum {string} */
+                status: 'PENDING' | 'APPROVED' | 'DECLINED' | 'CANCELED';
+                team: string;
+                /** @enum {string} */
+                type: 'VACATION' | 'SICK' | 'PERSONAL' | 'UNPAID';
+                /** Format: date */
+                startDate: string;
+                /** Format: date */
+                endDate: string;
+                requestedHalfDays: number;
+                pendingHalfDays: number;
+                remainingAfterPendingHalfDays: number | null;
+                /** @enum {boolean} */
+                authenticated: true;
+              };
+            };
           };
         };
       };

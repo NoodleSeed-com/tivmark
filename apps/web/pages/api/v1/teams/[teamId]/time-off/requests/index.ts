@@ -10,6 +10,7 @@ import {
   type TimeOffRequestInput,
 } from 'models/timeOff';
 import { withIdempotency } from '@/lib/api/idempotency';
+import { buildTimeOffReceipt } from '@/lib/timeOff';
 
 const requestSchema = z.object({
   requesterId: z.string().uuid().optional(),
@@ -78,7 +79,17 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         member,
         input as TimeOffRequestInput
       );
-      return res.status(201).json({ data: request });
+      const workspace = await getTimeOffWorkspace(
+        member,
+        Number(input.startDate.slice(0, 4))
+      );
+      const receipt = buildTimeOffReceipt({
+        team: access.team.slug,
+        userId: member.userId,
+        request,
+        balances: workspace.balances,
+      });
+      return res.status(201).json({ data: request, meta: { receipt } });
     }
 
     return methodNotAllowed(req, res, ['GET', 'POST']);

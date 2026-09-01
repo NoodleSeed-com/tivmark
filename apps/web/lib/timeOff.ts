@@ -1,5 +1,8 @@
 import type {
+  TimeOffBalanceData,
   TimeOffDurationValue,
+  TimeOffEligibilityAssessment,
+  TimeOffReceiptData,
   TimeOffRequestData,
   TimeOffTypeValue,
 } from 'types/time-off';
@@ -140,3 +143,145 @@ export const getYearBounds = (year: number) => ({
 });
 
 export const halfDaysToDays = (halfDays: number) => halfDays / 2;
+
+export const assessTimeOffEligibility = ({
+  team,
+  userId,
+  type,
+  startDate,
+  endDate,
+  balances,
+  requests,
+}: {
+  team: string;
+  userId: string;
+  type: TimeOffTypeValue;
+  startDate: string;
+  endDate: string;
+  balances: Record<string, Record<TimeOffTypeValue, TimeOffBalanceData>>;
+  requests: TimeOffRequestData[];
+}): TimeOffEligibilityAssessment => {
+  let requestedHalfDays = 0;
+  let weekday = false;
+  try {
+    requestedHalfDays = calculateRequestedHalfDays({
+      startDate,
+      endDate,
+      duration: 'FULL_DAY',
+    });
+    weekday = requestedHalfDays > 0;
+  } catch {
+    // Invalid dates are a policy result, not a transport failure.
+  }
+
+  const balance = balances[userId]?.[type];
+  const pendingHalfDays = balance?.pendingHalfDays ?? 0;
+  const remainingHalfDays = balance?.remainingHalfDays;
+  const availableBeforeHalfDays =
+    remainingHalfDays === undefined || remainingHalfDays === null
+      ? null
+      : remainingHalfDays - pendingHalfDays;
+  const remainingAfterHalfDays =
+    availableBeforeHalfDays === null
+      ? null
+      : availableBeforeHalfDays - requestedHalfDays;
+
+  const overlapping = weekday
+    ? requests.find(
+        (request) =>
+          request.requester.id === userId &&
+          (request.status === 'PENDING' || request.status === 'APPROVED') &&
+          request.startDate <= endDate &&
+          request.endDate >= startDate
+      )
+    : undefined;
+  const conflict = overlapping
+    ? {
+        id: overlapping.id,
+        startDate: overlapping.startDate,
+        endDate: overlapping.endDate,
+      }
+    : null;
+  const noOverlap = conflict === null;
+  const policyAvailable = balance !== undefined;
+  const withinBalance =
+    policyAvailable &&
+    (availableBeforeHalfDays === null ||
+      availableBeforeHalfDays >= requestedHalfDays);
+
+  let decision: TimeOffEligibilityAssessment['decision'] = 'ELIGIBLE';
+  let reason =
+    'The dates are weekdays, do not overlap existing time off, and fit the available balance.';
+  if (!weekday) {
+    decision = 'INVALID_DATES';
+    reason =
+      'Choose a valid date range containing at least one weekday within one calendar year.';
+  } else if (!policyAvailable) {
+    decision = 'POLICY_UNAVAILABLE';
+    reason =
+      'No matching time-off policy balance is available for this account.';
+  } else if (!noOverlap) {
+    decision = 'OVERLAP';
+    reason =
+      'The requested dates overlap an existing pending or approved request.';
+  } else if (!withinBalance) {
+    decision = 'INSUFFICIENT_BALANCE';
+    reason =
+      'The request exceeds the available balance after existing pending requests.';
+  }
+  const eligible = decision === 'ELIGIBLE';
+
+  return {
+    status: eligible
+      ? 'Eligible to submit a pending request.'
+      : `Not eligible: ${reason}`,
+    team,
+    userId,
+    type,
+    startDate,
+    endDate,
+    eligible,
+    decision,
+    reason,
+    requestedHalfDays,
+    pendingHalfDays,
+    availableBeforeHalfDays,
+    remainingAfterHalfDays,
+    conflict,
+    checks: { weekday, noOverlap, withinBalance },
+    policySource: 'Tivmark annual allowance, weekday, and overlap rules',
+  };
+};
+
+export const buildTimeOffReceipt = ({
+  team,
+  userId,
+  request,
+  balances,
+}: {
+  team: string;
+  userId: string;
+  request: TimeOffRequestData;
+  balances: Record<string, Record<TimeOffTypeValue, TimeOffBalanceData>>;
+}): TimeOffReceiptData => {
+  const balance = balances[userId]?.[request.type];
+  const pendingHalfDays = balance?.pendingHalfDays ?? 0;
+  const remainingAfterPendingHalfDays =
+    balance?.remainingHalfDays === null ||
+    balance?.remainingHalfDays === undefined
+      ? null
+      : balance.remainingHalfDays - pendingHalfDays;
+
+  return {
+    requestId: request.id,
+    status: request.status,
+    team,
+    type: request.type,
+    startDate: request.startDate,
+    endDate: request.endDate,
+    requestedHalfDays: request.requestedHalfDays,
+    pendingHalfDays,
+    remainingAfterPendingHalfDays,
+    authenticated: true,
+  };
+};
