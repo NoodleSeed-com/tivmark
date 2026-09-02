@@ -178,13 +178,13 @@ describe('OAuth 2.1 helpers', () => {
   });
 
   it('covers exactly the versions that name us as their authorization server', () => {
-    // v8-v28 declare customerAuth.oidc against https://app.tivmark.com/oauth; v29 is reserved for
+    // v8-v30 declare customerAuth.oidc against https://app.tivmark.com/oauth; v31 is reserved for
     // this rollout so the web authorization server can deploy before the assistant. v1-v7 predate
     // that switch and route to Noodle's own AS, so listing them would widen the allowlist for no one.
     const url = (v: number) =>
       `https://noodleseed.cloud.noodleseed.dev/tivmark-assistant/v${v}/mcp`;
 
-    for (let v = 8; v <= 29; v += 1) {
+    for (let v = 8; v <= 31; v += 1) {
       expect([v, isAllowedResource(url(v))]).toEqual([v, true]);
     }
     for (let v = 1; v <= 7; v += 1) {
