@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import app from '../src/server.js';
+import app, { TIVMARK_DELEGATED_SCOPES } from '../src/server.js';
 
 // Noodle requires an OIDC (issuer, audience) pair to belong to exactly ONE app environment — a pair
 // reused across environments quarantines all of them. These assertions run against the compiled
@@ -16,6 +16,20 @@ const serverAuth = async () => {
 };
 
 describe('customer OIDC auth', () => {
+  it('requests the complete downstream scope contract', () => {
+    expect(TIVMARK_DELEGATED_SCOPES).toEqual([
+      'teams',
+      'time_off',
+      'time_off.policy',
+      'time_off.approve',
+      'equipment',
+      'equipment.approve',
+      'invitations',
+      'service_requests',
+      'service_requests.manage',
+    ]);
+  });
+
   it('compiles to the production issuer/audience pair', async () => {
     const auth = await serverAuth();
     expect(auth?.issuer).toBe(ISSUER);

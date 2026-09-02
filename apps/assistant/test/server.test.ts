@@ -131,9 +131,61 @@ describe('tivmark_assistant', () => {
     const manifest = await app.toManifest();
     const teamTool = manifest.tools.find(
       (tool: { name: string }) => tool.name === 'my_teams'
-    ) as { contextProvider?: boolean };
+    ) as {
+      contextProvider?: boolean;
+      outputSchema?: {
+        properties?: {
+          teams?: { items?: { properties?: Record<string, unknown> } };
+        };
+      };
+    };
 
     expect(teamTool.contextProvider).toBe(true);
+    expect(
+      teamTool.outputSchema?.properties?.teams?.items?.properties
+    ).toMatchObject({
+      id: { type: 'string' },
+      name: { type: 'string' },
+      slug: {
+        type: 'string',
+        pattern: '^[a-z0-9_]+(?:-[a-z0-9_]+)*$',
+      },
+    });
+  });
+
+  it('requires the exact lowercase slug on every model-visible team-scoped tool', async () => {
+    const manifest = await app.toManifest();
+    const pattern = '^[a-z0-9_]+(?:-[a-z0-9_]+)*$';
+    const teamTools = manifest.tools.filter(
+      (candidate: {
+        visibility?: string[];
+        inputSchema?: { properties?: Record<string, unknown> };
+      }) =>
+        (!candidate.visibility || candidate.visibility.includes('model')) &&
+        Boolean(candidate.inputSchema?.properties?.team)
+    );
+
+    expect(teamTools.length).toBeGreaterThan(15);
+    for (const candidate of teamTools) {
+      const team = candidate.inputSchema?.properties?.team as {
+        description?: string;
+        pattern?: string;
+      };
+      expect(team.pattern, candidate.name).toBe(pattern);
+      expect(team.description, candidate.name).toContain('my_teams');
+      expect(
+        new RegExp(team.pattern ?? '').test('noodle'),
+        candidate.name
+      ).toBe(true);
+      expect(
+        new RegExp(team.pattern ?? '').test('Team Noodle'),
+        candidate.name
+      ).toBe(false);
+      expect(
+        new RegExp(team.pattern ?? '').test('Noodle'),
+        candidate.name
+      ).toBe(false);
+    }
   });
 
   it('wires people-ops tools to the Tivmark connector', async () => {

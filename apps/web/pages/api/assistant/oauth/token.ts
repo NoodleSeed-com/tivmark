@@ -4,6 +4,7 @@ import { createRemoteJWKSet, jwtVerify } from 'jose';
 
 import env from '@/lib/env';
 import { issueAccessToken } from '@/lib/api/oauth';
+import { resolveAssistantDelegatedScopes } from '@/lib/api/assistant-oauth';
 
 // RFC 8693 token-exchange endpoint for the embedded assistant's `delegatedTokenExchange` connector.
 //
@@ -15,19 +16,6 @@ import { issueAccessToken } from '@/lib/api/oauth';
 
 const GRANT = 'urn:ietf:params:oauth:grant-type:token-exchange';
 const TOKEN_URL = `${env.appUrl}/api/assistant/oauth/token`;
-// The scopes the assistant may act with. Queue-management scopes still require OWNER/ADMIN role at
-// the team API boundary; this allowlist expresses intent and cannot grant that role by itself.
-const ALLOWED_SCOPES = new Set([
-  'teams',
-  'time_off',
-  'time_off.approve',
-  'time_off.policy',
-  'equipment',
-  'equipment.approve',
-  'service_requests',
-  'service_requests.manage',
-]);
-
 // Cache the remote JWKS across warm invocations.
 let jwks: ReturnType<typeof createRemoteJWKSet> | null = null;
 function platformJwks() {
@@ -133,17 +121,23 @@ export default async function handler(
     );
   }
 
-  // --- scope intersection with our allowlist ---
-  const requested = String(body.scope ?? '')
-    .split(' ')
-    .filter(Boolean);
-  const scopes = (requested.length ? requested : ['time_off']).filter((s) =>
-    ALLOWED_SCOPES.has(s)
-  );
-  if (scopes.length === 0) scopes.push('time_off');
+  // --- exact scope contract with our allowlist ---
+  const scopeResolution = resolveAssistantDelegatedScopes(body.scope);
+  if (!scopeResolution.ok) {
+    return oauthError(
+      res,
+      400,
+      'invalid_scope',
+      'Requested scope is not allowed'
+    );
+  }
 
   // --- mint a user-scoped Tivmark token (15m; same signer the v1 API verifies) ---
-  const accessToken = await issueAccessToken(userId, delegClientId, scopes);
+  const accessToken = await issueAccessToken(
+    userId,
+    delegClientId,
+    scopeResolution.scopes
+  );
 
   res.setHeader('Cache-Control', 'no-store');
   return res.status(200).json({
