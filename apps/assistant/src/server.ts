@@ -618,16 +618,21 @@ function createContracts() {
     'CANCELED',
   ]);
   const serviceRequestPriority = z.enum(['LOW', 'NORMAL', 'HIGH', 'URGENT']);
-  const actionServiceSchema = z.object({
-    id: z.string(),
-    slug: nonEmptyString,
-    name: nonEmptyString,
-    description: nonEmptyString,
-    audience: serviceAudience,
-    active: z.boolean(),
-    slaHours: z.number().int().positive().nullable(),
-    requiresApproval: z.boolean(),
-  });
+  const actionServiceSchema = z
+    .object({
+      id: z.string(),
+      slug: nonEmptyString,
+      name: nonEmptyString,
+      description: nonEmptyString,
+      audience: serviceAudience,
+      active: z.boolean(),
+      slaHours: z.number().int().positive().nullable(),
+      requiresApproval: z.boolean(),
+    })
+    // Tivmark's API representation also carries teamId and audit timestamps. Keep the
+    // connector boundary forward-compatible with that metadata; widgets still project only
+    // the fields they intentionally display.
+    .passthrough();
   const serviceRequestSchema = z
     .object({
       id: z.string(),
