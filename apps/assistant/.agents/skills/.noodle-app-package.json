@@ -8,13 +8,13 @@
   },
   "packageSchemaVersion": "1",
   "rendererVersion": "0.91.0",
-  "sourceManifestSha256": "09deeaca5560f0002c11fb94a7514b8d2224f2eb99341e130bc291bd1a54b723",
+  "sourceManifestSha256": "b6aefae440b346d52cd21b9efe1ea390b347912c910b7d0b3c68aad2ec84b0f7",
   "mcpSurfaceSha256": "2c9386a8b4b0f195340084b736fc73e3539d2288ea2446031b77883c11709abf",
-  "bundleSha256": "2e0db9357eb4001197e2f5a4ceb74426027ffd07c3d2f8b529196c94ad481fc9",
+  "bundleSha256": "22f1798268ba53071cb6704e886ea2265890270a41ed2e0d1f8e195a9e9f499e",
   "files": [
     {
       "path": ".agents/skills/tivmark-assistant/SKILL.md",
-      "sha256": "436e87fd1e5837a5cf48643c28f1c823ff170ac2f6ec8b972258a5642218e9e6",
+      "sha256": "cb548d3c4a675a6243eef135b83a33a44dcc590e515c4d82cce68793e4a075c2",
       "byteLength": 7280
     },
     {
