@@ -29,8 +29,8 @@ export const API_AUDIENCE = 'tivmark-api-prod';
 //
 // Keep in lockstep with the ACTIVE Noodle deployments (`noodle deployments list --env prod`): every
 // active version whose manifest names us as its authorization server sends clients here for a token,
-// and a version missing from this list would get `invalid_target` instead. v8 through v28 are active;
-// v29 is reserved for this branch's rollout so the web authorization server can deploy first. v1-v7
+// and a version missing from this list would get `invalid_target` instead. v8 through v30 are active;
+// v31 is reserved for this branch's rollout so the web authorization server can deploy first. v1-v7
 // predate the switch to customerAuth.oidc (they used customerAuth.bridge) and route to Noodle's own
 // AS, so they must NOT be listed. Add the new /vN/mcp entry before every version ships; the audience
 // itself never changes.
@@ -58,6 +58,8 @@ const ALLOWED_RESOURCE_LIST = [
   'https://noodleseed.cloud.noodleseed.dev/tivmark-assistant/v27/mcp',
   'https://noodleseed.cloud.noodleseed.dev/tivmark-assistant/v28/mcp',
   'https://noodleseed.cloud.noodleseed.dev/tivmark-assistant/v29/mcp',
+  'https://noodleseed.cloud.noodleseed.dev/tivmark-assistant/v30/mcp',
+  'https://noodleseed.cloud.noodleseed.dev/tivmark-assistant/v31/mcp',
 ] as const;
 
 // A Set, not an object map — a plain object would match inherited keys like `__proto__`.

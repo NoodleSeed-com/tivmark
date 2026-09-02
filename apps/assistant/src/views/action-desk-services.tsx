@@ -5,7 +5,7 @@ import './widget-style.css';
 
 export default function ActionDeskServices() {
   const { theme, supports } = useLayout();
-  const info = useToolInfo();
+  const info = useToolInfo('action_desk_services');
   const followUp = useSendFollowUpMessage();
   const state = normalizeActionServices(info.structuredContent, {
     pending: Object.keys(info).length === 0,
