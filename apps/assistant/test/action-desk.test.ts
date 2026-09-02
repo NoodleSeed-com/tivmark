@@ -99,6 +99,25 @@ describe('Action Desk experience', () => {
     );
   });
 
+  it('accepts API metadata on live service objects', async () => {
+    const manifest = await app.toManifest();
+    const catalog = manifest.tools.find(
+      (tool: { name: string }) => tool.name === 'action_desk_services'
+    ) as
+      | {
+          outputSchema?: {
+            properties?: {
+              services?: { items?: { additionalProperties?: unknown } };
+            };
+          };
+        }
+      | undefined;
+
+    expect(
+      catalog?.outputSchema?.properties?.services?.items?.additionalProperties
+    ).not.toBe(false);
+  });
+
   it('resolves a spoken team name to its slug and never falls back to public examples', async () => {
     const manifest = await app.toManifest();
     const workflow = manifest.server.agentGuide?.workflows?.find(
