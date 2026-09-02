@@ -17,6 +17,38 @@ import {
   z,
 } from '@noodleseed/one';
 
+// Team-scoped API paths accept the immutable slug, not the display name a user says in chat.
+// Make that distinction part of every model-visible contract so an invalid value fails before an
+// HTTP call and gives the model a precise recovery path through my_teams.
+const teamSlug = z
+  .string()
+  .min(1)
+  .max(50)
+  .regex(/^[a-z0-9_]+(?:-[a-z0-9_]+)*$/)
+  .describe(
+    'Exact lowercase Tivmark team slug from my_teams or verified teamSlugs context; never a display name such as "Team Noodle"'
+  );
+const appTeamSlug = teamSlug.or(z.literal('')).default('');
+const teamSummarySchema = z
+  .object({
+    id: z.string(),
+    name: z.string().min(1),
+    slug: teamSlug,
+  })
+  .passthrough();
+
+export const TIVMARK_DELEGATED_SCOPES = [
+  'teams',
+  'time_off',
+  'time_off.policy',
+  'time_off.approve',
+  'equipment',
+  'equipment.approve',
+  'invitations',
+  'service_requests',
+  'service_requests.manage',
+] as const;
+
 const contracts = createContracts();
 const tivmark = createTivmarkConnector(contracts);
 const toolConfig = createToolConfig();
@@ -33,7 +65,7 @@ export default server(
   'tivmark_assistant',
   {
     title: 'Mark',
-    version: '1.5.0',
+    version: '1.5.1',
     interactions: { confirmationFallback: 'host' },
     instructions: createInstructions(),
     agentGuide: createAgentGuide(),
@@ -104,7 +136,7 @@ export default server(
       defaults: { locale: 'en-US', timeZone: 'UTC' },
       ambient: {
         output: z.object({
-          teams: z.array(z.unknown()),
+          teams: z.array(teamSummarySchema),
           asOf: z.string(),
         }),
         fulfil: ({ context, connectors }) => {
@@ -386,7 +418,7 @@ function createContracts() {
     .passthrough();
   const timeOffAssessmentSchema = z.object({
     status: z.string(),
-    team: z.string(),
+    team: teamSlug,
     userId: z.string(),
     type: leaveType,
     startDate: dateOnly,
@@ -415,7 +447,7 @@ function createContracts() {
   const timeOffReceiptSchema = z.object({
     requestId: z.string(),
     status: z.string(),
-    team: z.string(),
+    team: teamSlug,
     type: leaveType,
     startDate: dateOnly,
     endDate: dateOnly,
@@ -493,7 +525,7 @@ function createContracts() {
     'NONE',
   ]);
   const newHireLaunchInputSchema = z.object({
-    team: z.string().min(1).describe('Trusted Tivmark team slug'),
+    team: teamSlug,
     employeeName: z.string().min(2).max(120).describe('New hire full name'),
     employeeEmail: z.string().email().max(320).describe('New hire work email'),
     jobTitle: z.string().min(2).max(120).describe('Job title'),
@@ -626,15 +658,15 @@ function createContracts() {
     timeOffRequestSchema,
     equipmentRequestSchema,
     timeOffRequestsOutputSchema: z.object({
-      team: z.string(),
+      team: teamSlug,
       requests: z.array(timeOffRequestSchema),
     }),
     equipmentRequestsOutputSchema: z.object({
-      team: z.string(),
+      team: teamSlug,
       requests: z.array(equipmentRequestSchema),
     }),
     timeOffBalanceOutputSchema: z.object({
-      team: z.string(),
+      team: teamSlug,
       userId: z.string(),
       balances: z.record(z.record(balance)),
     }),
@@ -653,11 +685,11 @@ function createContracts() {
     actionServiceSchema,
     serviceRequestSchema,
     actionServicesOutputSchema: z.object({
-      team: z.string(),
+      team: teamSlug,
       services: z.array(actionServiceSchema).max(50),
     }),
     serviceRequestsOutputSchema: z.object({
-      team: z.string(),
+      team: teamSlug,
       requests: z.array(serviceRequestSchema).max(100),
     }),
   };
@@ -697,17 +729,7 @@ function createTivmarkConnector({
         tokenUrl: 'https://app.tivmark.com/api/assistant/oauth/token',
         clientId: variable('TIVMARK_DELEG_CLIENT_ID'),
         clientSecret: secret('TIVMARK_DELEG_CLIENT_SECRET'),
-        scopes: [
-          'teams',
-          'time_off',
-          'time_off.policy',
-          'time_off.approve',
-          'equipment',
-          'equipment.approve',
-          'invitations',
-          'service_requests',
-          'service_requests.manage',
-        ],
+        scopes: [...TIVMARK_DELEGATED_SCOPES],
         authMethod: 'client_secret_basic',
       },
       operations: {
@@ -716,7 +738,7 @@ function createTivmarkConnector({
           method: 'GET',
           path: '/teams',
           input: z.object({}),
-          output: z.object({ teams: z.array(z.unknown()) }),
+          output: z.object({ teams: z.array(teamSummarySchema) }),
           response: { teams: '${response.data}' },
         },
         complete_onboarding: {
@@ -778,7 +800,7 @@ function createTivmarkConnector({
           path: '/teams/{team}/new-hire-launches/status',
           query: ['email'],
           input: z.object({
-            team: z.string(),
+            team: teamSlug,
             email: z.string().email(),
           }),
           output: z.object({ receipt: newHireReceiptSchema }),
@@ -790,7 +812,7 @@ function createTivmarkConnector({
           path: '/teams/{team}/time-off/balances',
           query: ['type', 'startDate', 'endDate', 'year'],
           input: z.object({
-            team: z.string(),
+            team: teamSlug,
             type: leaveType.optional(),
             startDate: z.string().optional(),
             endDate: z.string().optional(),
@@ -812,7 +834,7 @@ function createTivmarkConnector({
           path: '/teams/{team}/time-off/requests',
           query: ['requesterId', 'status', 'year'],
           input: z.object({
-            team: z.string(),
+            team: teamSlug,
             requesterId: z.string().optional(),
             status: z.string().optional(),
             year: z.number().optional(),
@@ -825,7 +847,7 @@ function createTivmarkConnector({
           method: 'POST',
           path: '/teams/{team}/time-off/requests',
           input: z.object({
-            team: z.string(),
+            team: teamSlug,
             type: leaveType,
             startDate: z.string(),
             endDate: z.string(),
@@ -851,7 +873,7 @@ function createTivmarkConnector({
           type: 'action',
           method: 'PATCH',
           path: '/teams/{team}/time-off/requests/{id}',
-          input: z.object({ team: z.string(), id: z.string() }),
+          input: z.object({ team: teamSlug, id: z.string() }),
           request: { action: 'cancel' },
           output: z.object({ request: z.unknown() }),
           response: { request: '${response.data}' },
@@ -861,7 +883,7 @@ function createTivmarkConnector({
           method: 'PATCH',
           path: '/teams/{team}/time-off/requests/{id}',
           input: z.object({
-            team: z.string(),
+            team: teamSlug,
             id: z.string(),
             decision,
             reviewNote: z.string(),
@@ -880,7 +902,7 @@ function createTivmarkConnector({
           path: '/teams/{team}/equipment/requests',
           query: ['requesterId', 'status', 'category'],
           input: z.object({
-            team: z.string(),
+            team: teamSlug,
             requesterId: z.string().optional(),
             status: z.string().optional(),
             category: z.string().optional(),
@@ -893,7 +915,7 @@ function createTivmarkConnector({
           method: 'POST',
           path: '/teams/{team}/equipment/requests',
           input: z.object({
-            team: z.string(),
+            team: teamSlug,
             category: equipmentCategory,
             item: z.string(),
             quantity: z.number(),
@@ -912,7 +934,7 @@ function createTivmarkConnector({
           type: 'action',
           method: 'PATCH',
           path: '/teams/{team}/equipment/requests/{id}',
-          input: z.object({ team: z.string(), id: z.string() }),
+          input: z.object({ team: teamSlug, id: z.string() }),
           request: { action: 'cancel' },
           output: z.object({ request: z.unknown() }),
           response: { request: '${response.data}' },
@@ -922,7 +944,7 @@ function createTivmarkConnector({
           method: 'PATCH',
           path: '/teams/{team}/equipment/requests/{id}',
           input: z.object({
-            team: z.string(),
+            team: teamSlug,
             id: z.string(),
             decision,
             reviewNote: z.string(),
@@ -939,7 +961,7 @@ function createTivmarkConnector({
           type: 'action',
           method: 'PATCH',
           path: '/teams/{team}/equipment/requests/{id}',
-          input: z.object({ team: z.string(), id: z.string() }),
+          input: z.object({ team: teamSlug, id: z.string() }),
           request: { action: 'fulfill' },
           output: z.object({ request: z.unknown() }),
           response: { request: '${response.data}' },
@@ -948,7 +970,7 @@ function createTivmarkConnector({
           type: 'read',
           method: 'GET',
           path: '/teams/{team}/action-desk/services',
-          input: z.object({ team: z.string() }),
+          input: z.object({ team: teamSlug }),
           output: z.object({ services: z.array(actionServiceSchema) }),
           response: { services: '${response.data}' },
         },
@@ -958,7 +980,7 @@ function createTivmarkConnector({
           path: '/teams/{team}/action-desk/requests',
           query: ['requesterId', 'status'],
           input: z.object({
-            team: z.string(),
+            team: teamSlug,
             requesterId: z.string().optional(),
             status: serviceRequestStatus.optional(),
           }),
@@ -970,7 +992,7 @@ function createTivmarkConnector({
           method: 'POST',
           path: '/teams/{team}/action-desk/requests',
           input: z.object({
-            team: z.string(),
+            team: teamSlug,
             serviceId: z.string(),
             subject: z.string(),
             description: z.string(),
@@ -991,7 +1013,7 @@ function createTivmarkConnector({
           method: 'PATCH',
           path: '/teams/{team}/action-desk/requests/{id}',
           input: z.object({
-            team: z.string(),
+            team: teamSlug,
             id: z.string(),
             status: serviceRequestStatus,
             note: z.string(),
@@ -1311,7 +1333,7 @@ function createNewHireTools(
         'Use to verify the launch after creation or to answer whether the invitation was accepted.',
       annotations: readOnly,
       input: z.object({
-        team: z.string().min(1).describe('Trusted Tivmark team slug'),
+        team: teamSlug,
         email: z.string().email().describe('Invited work email'),
       }),
       output: z.object({ receipt: newHireReceiptSchema }),
@@ -1722,12 +1744,13 @@ function createTeamContextTool({ readOnly }: ToolConfig) {
   return tool('my_teams', {
     title: 'List my teams',
     description:
-      'List the teams the signed-in user belongs to, with their role on each. Use this when ambient ' +
-      'team context is unavailable.',
+      'List the teams the signed-in user can access, including each exact slug. Call this before any ' +
+      'team-scoped tool when a user gives a display name or trusted team context is unavailable; copy ' +
+      'the returned slug exactly.',
     contextProvider: true,
     annotations: readOnly,
     input: z.object({}),
-    output: z.object({ teams: z.array(z.unknown()) }),
+    output: z.object({ teams: z.array(teamSummarySchema) }),
     fulfil: ({ connectors }) => {
       const res = connectors.tiv.list_teams({});
       return { teams: res.teams };
@@ -1763,7 +1786,7 @@ function createTimeOffTools(
         '“if I can,” “if eligible,” or otherwise makes booking conditional.',
       annotations: readOnly,
       input: z.object({
-        team: z.string(),
+        team: teamSlug,
         type: leaveType.default('VACATION'),
         startDate: dateOnly.optional(),
         endDate: dateOnly.optional(),
@@ -1804,7 +1827,7 @@ function createTimeOffTools(
       description:
         "List the signed-in user's own time-off requests and their status for a team.",
       annotations: readOnly,
-      input: z.object({ team: z.string() }),
+      input: z.object({ team: teamSlug }),
       output: timeOffRequestsOutputSchema,
       fulfil: ({ input, user, connectors }) => {
         const res = connectors.tiv.list_time_off({
@@ -1833,7 +1856,7 @@ function createTimeOffTools(
         'the exact type, dates, and team before this authenticated write.',
       annotations: confirmed,
       input: z.object({
-        team: z.string(),
+        team: teamSlug,
         type: leaveType.default('VACATION'),
         startDate: dateOnly,
         endDate: dateOnly,
@@ -1878,7 +1901,7 @@ function createTimeOffTools(
         'Book time off when the leave type or dates are missing. Opens a short form, then asks the ' +
         'user to confirm. Use book_time_off when every detail is known.',
       annotations: confirmed,
-      input: z.object({ team: z.string() }),
+      input: z.object({ team: teamSlug }),
       output: z.object({ status: z.string(), request: z.unknown() }),
       fulfil: ({ input, elicit, connectors }) => {
         const details = elicit({
@@ -1911,7 +1934,7 @@ function createTimeOffTools(
       description:
         "Cancel one of the signed-in user's time-off requests by id. The user confirms first.",
       annotations: confirmedDestructive,
-      input: z.object({ team: z.string(), id: z.string() }),
+      input: z.object({ team: teamSlug, id: z.string() }),
       output: z.object({ status: z.string(), request: z.unknown() }),
       fulfil: ({ input, connectors }) => {
         const res = connectors.tiv.cancel_time_off({
@@ -1935,7 +1958,7 @@ function createTimeOffTools(
         "Cancel one of the signed-in user's time-off requests by id.",
       annotations: annotations.action(),
       input: z.object({
-        team: z.string().default(''),
+        team: appTeamSlug,
         id: z.string().default(''),
       }),
       output: z.object({ status: z.string(), request: z.unknown() }),
@@ -1973,7 +1996,7 @@ function createEquipmentTools(
       description:
         "List the signed-in user's own equipment requests and their status for a team.",
       annotations: readOnly,
-      input: z.object({ team: z.string() }),
+      input: z.object({ team: teamSlug }),
       output: equipmentRequestsOutputSchema,
       fulfil: ({ input, user, connectors }) => {
         const res = connectors.tiv.list_equipment({
@@ -2000,7 +2023,7 @@ function createEquipmentTools(
         'the exact request.',
       annotations: confirmed,
       input: z.object({
-        team: z.string(),
+        team: teamSlug,
         category: equipmentCategory,
         item: z.string(),
         quantity: z.number().int().min(1).max(20).default(1),
@@ -2043,7 +2066,7 @@ function createEquipmentTools(
         'Request equipment when the category, item, or quantity is missing. Opens a short form, then ' +
         'asks the user to confirm. Use order_equipment when every detail is known.',
       annotations: confirmed,
-      input: z.object({ team: z.string() }),
+      input: z.object({ team: teamSlug }),
       output: z.object({ status: z.string(), request: z.unknown() }),
       fulfil: ({ input, elicit, connectors }) => {
         const details = elicit({
@@ -2077,7 +2100,7 @@ function createEquipmentTools(
       description:
         "Cancel one of the signed-in user's equipment requests by id. The user confirms first.",
       annotations: confirmedDestructive,
-      input: z.object({ team: z.string(), id: z.string() }),
+      input: z.object({ team: teamSlug, id: z.string() }),
       output: z.object({ status: z.string(), request: z.unknown() }),
       fulfil: ({ input, connectors }) => {
         const res = connectors.tiv.cancel_equipment({
@@ -2098,7 +2121,7 @@ function createEquipmentTools(
         "Cancel one of the signed-in user's equipment requests by id.",
       annotations: annotations.action(),
       input: z.object({
-        team: z.string().default(''),
+        team: appTeamSlug,
         id: z.string().default(''),
       }),
       output: z.object({ status: z.string(), request: z.unknown() }),
@@ -2131,9 +2154,10 @@ function createActionDeskTools(
       title: 'Find an Action Desk service',
       description:
         'List the signed-in team’s live service catalog. Use this to match a natural-language ' +
-        'need to a service id before creating a request; never invent a service id.',
+        'need to a service id before creating a request. The team value must be the exact slug from ' +
+        'my_teams or verified teamSlugs context; never use a display name and never invent a service id.',
       annotations: readOnly,
-      input: z.object({ team: z.string() }),
+      input: z.object({ team: teamSlug }),
       output: actionServicesOutputSchema,
       fulfil: ({ input, connectors }) => {
         const res = connectors.tiv.list_action_services({ team: input.team });
@@ -2155,7 +2179,7 @@ function createActionDeskTools(
       description:
         "List the signed-in user's service requests, current status, and activity for a team.",
       annotations: readOnly,
-      input: z.object({ team: z.string() }),
+      input: z.object({ team: teamSlug }),
       output: serviceRequestsOutputSchema,
       fulfil: ({ input, user, connectors }) => {
         const res = connectors.tiv.list_service_requests({
@@ -2183,7 +2207,7 @@ function createActionDeskTools(
         'fields for confirmation.',
       annotations: confirmed,
       input: z.object({
-        team: z.string(),
+        team: teamSlug,
         serviceId: z.string().describe('Exact id from action_desk_services'),
         subject: z.string().min(1).max(160),
         description: z.string().min(1).max(2000),
@@ -2225,7 +2249,7 @@ function createActionDeskTools(
       description:
         'List the team service-request queue. Only useful to an OWNER or ADMIN of that team.',
       annotations: readOnly,
-      input: z.object({ team: z.string() }),
+      input: z.object({ team: teamSlug }),
       output: serviceRequestsOutputSchema,
       fulfil: ({ input, connectors }) => {
         const res = connectors.tiv.list_service_requests({ team: input.team });
@@ -2250,7 +2274,7 @@ function createActionDeskTools(
         'or reopen it. OWNER/ADMIN only. The operator confirms the exact status and note.',
       annotations: confirmed,
       input: z.object({
-        team: z.string(),
+        team: teamSlug,
         id: z.string(),
         status: serviceRequestStatus,
         note: z.string().max(1000).default(''),
@@ -2276,7 +2300,7 @@ function createActionDeskTools(
         'Move a team service request to its next status (OWNER/ADMIN only).',
       annotations: annotations.action(),
       input: z.object({
-        team: z.string().default(''),
+        team: appTeamSlug,
         id: z.string().default(''),
         status: serviceRequestStatus.default('IN_PROGRESS'),
         note: z.string().default(''),
@@ -2312,7 +2336,7 @@ function createReviewTools(
       description:
         'List pending time-off requests awaiting review for a team. Only useful to an OWNER or ADMIN.',
       annotations: readOnly,
-      input: z.object({ team: z.string() }),
+      input: z.object({ team: teamSlug }),
       output: timeOffRequestsOutputSchema,
       fulfil: ({ input, connectors }) => {
         const res = connectors.tiv.list_time_off({
@@ -2337,7 +2361,7 @@ function createReviewTools(
       description:
         'List pending equipment requests awaiting review for a team. Only useful to an OWNER or ADMIN.',
       annotations: readOnly,
-      input: z.object({ team: z.string() }),
+      input: z.object({ team: teamSlug }),
       // Was `z.array(z.unknown())`, which told the model and the widget nothing about the
       // rows it was about to render. It now declares the same shape every other equipment
       // tool does.
@@ -2367,7 +2391,7 @@ function createReviewTools(
         'Approve or decline a pending equipment request by id (OWNER/ADMIN only).',
       annotations: annotations.action(),
       input: z.object({
-        team: z.string().default(''),
+        team: appTeamSlug,
         id: z.string().default(''),
         decision: decision.default('APPROVED'),
       }),
@@ -2392,7 +2416,7 @@ function createReviewTools(
         'Approve or decline a pending time-off request by id (OWNER/ADMIN only).',
       annotations: annotations.action(),
       input: z.object({
-        team: z.string().default(''),
+        team: appTeamSlug,
         id: z.string().default(''),
         decision: decision.default('APPROVED'),
       }),
@@ -2416,7 +2440,7 @@ function createReviewTools(
         'Approve or decline a pending time-off request by id (OWNER/ADMIN only). The user confirms first.',
       annotations: confirmed,
       input: z.object({
-        team: z.string(),
+        team: teamSlug,
         id: z.string(),
         decision,
         reviewNote: z.string().default(''),
@@ -2441,7 +2465,7 @@ function createReviewTools(
         'Approve or decline a pending equipment request by id (OWNER/ADMIN only). The user confirms first.',
       annotations: confirmed,
       input: z.object({
-        team: z.string(),
+        team: teamSlug,
         id: z.string(),
         decision,
         reviewNote: z.string().default(''),
@@ -2465,7 +2489,7 @@ function createReviewTools(
       description:
         'Mark an approved equipment request as fulfilled by id (OWNER/ADMIN only). The user confirms first.',
       annotations: confirmed,
-      input: z.object({ team: z.string(), id: z.string() }),
+      input: z.object({ team: teamSlug, id: z.string() }),
       output: z.object({ status: z.string(), request: z.unknown() }),
       fulfil: ({ input, connectors }) => {
         const res = connectors.tiv.fulfill_equipment({
@@ -2503,12 +2527,17 @@ function createAgentGuide(): AgentGuideSource {
           {
             capability: { kind: 'tool', name: 'action_desk_guide' },
             guidance:
-              'For a public visitor, show the reusable kinds of service the Action Desk supports. Do not imply these static examples are a signed-in team’s live catalog.',
+              'Only for an anonymous public visitor, show the reusable kinds of service the Action Desk supports. Never use this static guide as fallback for a failed signed-in catalog lookup.',
+          },
+          {
+            capability: { kind: 'tool', name: 'my_teams' },
+            guidance:
+              'For a signed-in user, resolve a spoken display name against the returned teams and copy the exact lowercase slug. Select silently only when there is exactly one match; otherwise ask which team.',
           },
           {
             capability: { kind: 'tool', name: 'action_desk_services' },
             guidance:
-              'Once identity and team are available, load the live catalog and match the need to one exact active service id. Ask one short clarifying question if more than one service fits.',
+              'Once identity and an exact team slug are available, load the live catalog and match the need to one exact active service id. Ask one short clarifying question if more than one service fits. If this live lookup fails after slug resolution, report that failure; do not substitute the public guide.',
           },
           {
             capability: { kind: 'tool', name: 'start_service_request' },
@@ -2597,6 +2626,8 @@ function createAgentGuide(): AgentGuideSource {
       'READY means the invitation and readiness work exist; the person becomes an active member only when status is ACTIVE.',
       'A prepared equipment request is pending, not approved or fulfilled.',
       'Never invent a service id or submit against a static public example; call action_desk_services for the signed-in team first.',
+      'Never pass a spoken team display name to a team-scoped tool. Copy the exact lowercase slug from verified teamSlugs context or my_teams.',
+      'Never replace a failed signed-in lookup with action_desk_guide, time_off_guide, equipment_guide, or another public example. Retry once after resolving the exact slug, then report the live-data failure.',
       'Never say a request exists until start_service_request returns its durable request id.',
       'Only offer team_service_request_queue or review_service_request to an OWNER or ADMIN of the relevant team.',
       'A workspace blueprint is planning data only; never say the business exists until complete_business_onboarding returns status READY.',
@@ -2633,7 +2664,8 @@ function createInstructions() {
     "You are Mark, Tivmark's Action Desk and people-ops assistant. " +
     'ACTION DESK: help customers, employees, and visitors explain a need, reach the right ' +
     'business service, create a durable request, and retrieve grounded status. Public visitors ' +
-    'get action_desk_guide examples. For a signed-in user, resolve the team and call ' +
+    'get action_desk_guide examples. Never use the public guide as fallback for a signed-in lookup. ' +
+    'For a signed-in user, resolve the exact team slug and call ' +
     'action_desk_services before start_service_request; never invent a service id. Collect a ' +
     'short subject, actionable context, and LOW, NORMAL, HIGH, or URGENT priority. Ask one ' +
     'clarifying question when the match is ambiguous. A submitted request is OPEN, not resolved. ' +
@@ -2654,7 +2686,11 @@ function createInstructions() {
     'vacation, sick, and personal allowances. Ask at most two questions per turn. Use ' +
     'design_business_workspace once explicit. Call complete_business_onboarding only after the ' +
     'user asks to create it, with unchanged values; claim success only from its READY receipt. ' +
-    'CONTEXT: use a trusted team slug, choose the only team, ask if several, and never guess. ' +
+    'CONTEXT: team arguments are exact lowercase slugs, never spoken display names. Copy the slug ' +
+    'from verified teamSlugs context or call my_teams and match the user’s name to its result. Choose ' +
+    'the only matching team, ask if several, and never guess. If a team-scoped tool rejects an ' +
+    'identifier, call my_teams and retry once with the returned slug. If the live call still fails, ' +
+    'say it failed; never replace it with a public guide or static sample. ' +
     'reviewerTeamSlugs guides what to offer but Tivmark API authorization is authoritative. ' +
     'Address the user by name when known. Prefer tools over prose; let the matching card carry ' +
     'the data, add at most two short sentences, and never restate what the card already shows. ' +

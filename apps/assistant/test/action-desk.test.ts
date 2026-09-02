@@ -98,4 +98,33 @@ describe('Action Desk experience', () => {
       'tiv.create_service_request'
     );
   });
+
+  it('resolves a spoken team name to its slug and never falls back to public examples', async () => {
+    const manifest = await app.toManifest();
+    const workflow = manifest.server.agentGuide?.workflows?.find(
+      (candidate: { id?: string }) => candidate.id === 'resolve_business_need'
+    );
+    const names = workflow?.steps?.map(
+      (step: { capability?: { name?: string } }) => step.capability?.name
+    );
+
+    expect(names).toEqual([
+      'action_desk_guide',
+      'my_teams',
+      'action_desk_services',
+      'start_service_request',
+      'my_service_requests',
+    ]);
+    expect(manifest.server.instructions).toContain(
+      'team arguments are exact lowercase slugs'
+    );
+    expect(manifest.server.instructions).toContain(
+      'never replace it with a public guide or static sample'
+    );
+    expect(
+      manifest.server.agentGuide?.boundaries?.some((boundary: string) =>
+        boundary.includes('Never replace a failed signed-in lookup')
+      )
+    ).toBe(true);
+  });
 });
