@@ -301,3 +301,9 @@ a {
     z-index: 60 !important;
   }
 }
+
+@media (prefers-reduced-motion: reduce) {
+  .app-frame {
+    transition: none;
+  }
+}

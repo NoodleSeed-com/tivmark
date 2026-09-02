@@ -33,7 +33,7 @@ export default server(
   'tivmark_assistant',
   {
     title: 'Mark',
-    version: '1.5.0',
+    version: '1.5.1',
     interactions: { confirmationFallback: 'host' },
     instructions: createInstructions(),
     agentGuide: createAgentGuide(),
@@ -198,15 +198,15 @@ export default server(
       ],
       privacyUrl: 'https://tivmark.com/privacy',
       theme: 'auto',
-      // This is deliberately the most expressive managed configuration, not a replacement
-      // renderer. The public embed uses this floating baseline; the signed-in Tivmark app
-      // overrides only the host placement so the same Noodle panel becomes a push drawer.
+      // This is deliberately a polished managed configuration, not a replacement renderer.
+      // The public embed uses this floating baseline; the signed-in Tivmark app overrides
+      // only the host placement so the same Noodle panel becomes a push drawer.
       layout: {
         mode: 'floating',
         position: 'bottom-right',
-        panelWidth: 420,
-        panelMinHeight: 560,
-        panelMaxHeight: 680,
+        panelWidth: 440,
+        panelMinHeight: 580,
+        panelMaxHeight: 700,
         edgeOffset: 24,
         zIndex: 150,
         density: 'comfortable',
@@ -218,9 +218,12 @@ export default server(
         closeOnOutsideClick: false,
         showLauncher: true,
         showHeader: true,
-        showAvatars: true,
-        showTimestamps: true,
-        showPoweredBy: true,
+        // Keep one clear Tivmark identity in the header. Repeating the same mark beside
+        // every response, in the composer, and in the attribution row makes a compact
+        // assistant feel busier without helping the person using it.
+        showAvatars: false,
+        showTimestamps: false,
+        showPoweredBy: false,
         // Keep business confirmations polished while Noodle still holds and enforces the
         // proposed action server-side. The technical disclosure is presentation-only.
         showConfirmationDetails: false,
@@ -230,40 +233,43 @@ export default server(
       // CSS, SVG, class names, or callbacks.
       presentation: {
         panel: {
-          surface: 'glass',
-          elevation: 'dramatic',
-          border: 'strong',
+          surface: 'solid',
+          elevation: 'soft',
+          border: 'subtle',
           radius: 24,
         },
         launcher: {
           style: 'pill',
-          icon: 'brand-mark',
+          // A labeled chat affordance is easier to understand than a small animated logo.
+          // Both session decoration and motion are disabled intentionally.
+          icon: 'chat',
           size: 'lg',
-          status: 'session',
-          effect: 'pulse',
+          status: 'none',
+          effect: 'none',
         },
         header: {
-          mark: 'brand-mark',
-          badge: { text: 'Ready to help', tone: 'success', indicator: true },
+          // The renderer already presents the portable Tivmark logo and Mark's name.
+          // Do not prepend a second mark or append a competing status badge.
+          mark: 'none',
         },
         composer: {
-          leadingIcon: 'brand-mark',
+          leadingIcon: 'none',
           sendIcon: 'paper-plane',
           shape: 'pill',
         },
-        messages: { userStyle: 'accent', assistantStyle: 'bubble' },
+        messages: { userStyle: 'accent', assistantStyle: 'plain' },
       },
       // Labels and prompts belong to the assistant, not to a surface, so this copy greets
       // an anonymous visitor on tivmark.com and a signed-in user on app.tivmark.com alike.
       // It has to work for both: "How much vacation do I have?" offered to a stranger is a
       // prompt whose only possible answer is "please sign in".
       labels: {
-        welcomeHeading: 'How can Mark help?',
+        welcomeHeading: "Hi, I'm Mark",
         welcomeMessage:
-          'Tell Mark what you need. Launch a new hire, complete an action, or track the outcome.',
-        launcherPlaceholder: 'Ask Mark anything…',
-        composerPlaceholder: 'Message Mark…',
-        thinking: 'Mark is thinking…',
+          "Ask a question or tell me what you'd like to get done. I'll guide you and confirm before anything changes.",
+        launcherPlaceholder: 'Ask Mark…',
+        composerPlaceholder: 'Ask Mark or start a request…',
+        thinking: 'Working on that…',
         send: 'Send',
         stop: 'Stop',
         open: 'Open Mark',
@@ -284,8 +290,8 @@ export default server(
         unavailable: 'Mark is temporarily unavailable',
         sessionExpired: 'Your Mark session expired',
         sessionIdle: 'Mark is paused',
-        sessionLoading: 'Starting Mark…',
-        sessionReady: 'Mark is ready',
+        sessionLoading: 'Getting Mark ready…',
+        sessionReady: 'Ready',
         sessionError: "Mark couldn't connect",
         signInHeading: 'Save your Tivmark workspace',
         signInBody:
@@ -297,12 +303,11 @@ export default server(
         'I need help — find the right service and start a request.',
         // The flagship demo begins anonymously and becomes an authenticated confirmed write.
         'Help me set up Tivmark for my business.',
-        'Onboard Maya Chen as a product designer starting October 5 in London. Give her the design equipment package.',
+        'Onboard a new team member.',
         // The flagship public-to-action demo. It begins anonymously, raises sign-in at the
         // planning read, then resumes the same request as an authenticated confirmed write.
         'Can I take next Friday off? If so, book it.',
         // Answerable by anyone, from the knowledge component.
-        'How does booking time off work?',
         'What can the Action Desk handle?',
       ],
       locale: 'en-US',

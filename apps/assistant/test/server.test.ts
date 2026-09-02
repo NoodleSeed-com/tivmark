@@ -195,25 +195,24 @@ describe('tivmark_assistant', () => {
       "You are Mark, Tivmark's Action Desk and people-ops assistant."
     );
     expect(manifest.server.assistant?.labels).toMatchObject({
-      welcomeHeading: 'How can Mark help?',
+      welcomeHeading: "Hi, I'm Mark",
       welcomeMessage:
-        'Tell Mark what you need. Launch a new hire, complete an action, or track the outcome.',
-      launcherPlaceholder: 'Ask Mark anything…',
-      composerPlaceholder: 'Message Mark…',
+        "Ask a question or tell me what you'd like to get done. I'll guide you and confirm before anything changes.",
+      launcherPlaceholder: 'Ask Mark…',
+      composerPlaceholder: 'Ask Mark or start a request…',
       open: 'Open Mark',
       close: 'Close Mark',
       confirmationHeading: 'Review with Mark',
-      sessionLoading: 'Starting Mark…',
-      sessionReady: 'Mark is ready',
+      sessionLoading: 'Getting Mark ready…',
+      sessionReady: 'Ready',
       signInAction: 'Sign in',
       signUpAction: 'Create account',
     });
     expect(manifest.server.assistant?.suggestedPrompts).toEqual([
       'I need help — find the right service and start a request.',
       'Help me set up Tivmark for my business.',
-      'Onboard Maya Chen as a product designer starting October 5 in London. Give her the design equipment package.',
+      'Onboard a new team member.',
       'Can I take next Friday off? If so, book it.',
-      'How does booking time off work?',
       'What can the Action Desk handle?',
     ]);
   });
@@ -309,7 +308,7 @@ describe('tivmark_assistant', () => {
     }
   });
 
-  it('uses the richest platform-managed presentation without custom markup', async () => {
+  it('uses a calm, single-brand managed presentation without custom markup', async () => {
     const manifest = await app.toManifest();
     const assistant = manifest.server.assistant;
 
@@ -317,9 +316,9 @@ describe('tivmark_assistant', () => {
     expect(assistant?.layout).toEqual({
       mode: 'floating',
       position: 'bottom-right',
-      panelWidth: 420,
-      panelMinHeight: 560,
-      panelMaxHeight: 680,
+      panelWidth: 440,
+      panelMinHeight: 580,
+      panelMaxHeight: 700,
       edgeOffset: 24,
       zIndex: 150,
       density: 'comfortable',
@@ -331,36 +330,47 @@ describe('tivmark_assistant', () => {
       closeOnOutsideClick: false,
       showLauncher: true,
       showHeader: true,
-      showAvatars: true,
-      showTimestamps: true,
-      showPoweredBy: true,
+      showAvatars: false,
+      showTimestamps: false,
+      showPoweredBy: false,
       showConfirmationDetails: false,
     });
     expect(assistant?.presentation).toEqual({
       panel: {
-        surface: 'glass',
-        elevation: 'dramatic',
-        border: 'strong',
+        surface: 'solid',
+        elevation: 'soft',
+        border: 'subtle',
         radius: 24,
       },
       launcher: {
         style: 'pill',
-        icon: 'brand-mark',
+        icon: 'chat',
         size: 'lg',
-        status: 'session',
-        effect: 'pulse',
+        status: 'none',
+        effect: 'none',
       },
       header: {
-        mark: 'brand-mark',
-        badge: { text: 'Ready to help', tone: 'success', indicator: true },
+        mark: 'none',
       },
       composer: {
-        leadingIcon: 'brand-mark',
+        leadingIcon: 'none',
         sendIcon: 'paper-plane',
         shape: 'pill',
       },
-      messages: { userStyle: 'accent', assistantStyle: 'bubble' },
+      messages: { userStyle: 'accent', assistantStyle: 'plain' },
     });
+  });
+
+  it('keeps repeated Tivmark marks out of the expanded assistant chrome', async () => {
+    const manifest = await app.toManifest();
+    const assistant = manifest.server.assistant;
+
+    expect(assistant?.presentation?.launcher?.effect).toBe('none');
+    expect(assistant?.presentation?.header?.mark).toBe('none');
+    expect(assistant?.presentation?.composer?.leadingIcon).toBe('none');
+    expect(assistant?.behavior?.showAvatars).toBe(false);
+    expect(assistant?.behavior?.showTimestamps).toBe(false);
+    expect(assistant?.behavior?.showPoweredBy).toBe(false);
   });
 
   it('tells Mark to lead with cards, not prose', async () => {
