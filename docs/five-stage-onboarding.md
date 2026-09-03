@@ -36,8 +36,9 @@ completed steps.
 The existing three Noodle tools and connector contracts are retained. Their product
 guide remains necessary to explain read-before-write, optional research, and human
 confirmation; its wording now reflects five steps. No additional tool or widget was
-introduced. Product-skill regeneration and hosted Noodle deployment are not part of
-this rollout while the Noodle preflight incident remains unresolved.
+introduced. The initial five-stage rollout left the assistant release pending.
+The subsequent [September 3 client update](noodle-preflight-recovery-2026-09-03.md)
+published assistant v32 successfully after engineering's preflight repair.
 
 Direct Mark entry points on this page are off by default. Enable
 `NEXT_PUBLIC_ENTERPRISE_ASSISTANT_ENABLED=true` at web build time only after the matching
@@ -56,5 +57,5 @@ remain usable while this flag is off.
 - Browser checks exercise the manual five-step path, skipping research, final summary,
   saved completion, and narrow-screen layout.
 
-The web release does not fix or bypass the separate Noodle Seed deployment preflight
-failure. The incident evidence remains in the September 3 report.
+The five-stage web implementation does not bypass Noodle's preflight. The original
+incident evidence and the separate recovery ledger remain available for reference.

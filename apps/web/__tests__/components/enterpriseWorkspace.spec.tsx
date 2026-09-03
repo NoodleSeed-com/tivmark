@@ -1,6 +1,7 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import EnterpriseWorkspace from '../../components/onboarding/EnterpriseWorkspace';
+import { openAssistant } from '../../components/shared/shell/assistantSurface';
 import {
   enterpriseSteps,
   initialJourney,
@@ -74,6 +75,7 @@ describe('five-step onboarding UI', () => {
     });
   });
   afterEach(async () => {
+    delete process.env.NEXT_PUBLIC_ENTERPRISE_ASSISTANT_ENABLED;
     await act(async () => root.unmount());
     container.remove();
   });
@@ -85,6 +87,29 @@ describe('five-step onboarding UI', () => {
     expect(
       container.querySelector('label[for="field-industry"]')?.textContent
     ).toContain('optional');
+  });
+  it('opens Mark with the current team and stage without changing the plan', async () => {
+    process.env.NEXT_PUBLIC_ENTERPRISE_ASSISTANT_ENABLED = 'true';
+    (openAssistant as jest.Mock).mockReturnValue(true);
+    const assistant = document.createElement('noodle-assistant');
+    const sendMessage = jest.fn().mockResolvedValue(undefined);
+    Object.assign(assistant, { sendMessage });
+    document.body.appendChild(assistant);
+    try {
+      await act(async () => root.render(<EnterpriseWorkspace />));
+      expect(container.textContent).not.toContain('awaiting their Noodle Seed');
+      await act(async () => button('Work through this with Mark').click());
+      expect(openAssistant).toHaveBeenCalledTimes(1);
+      expect(sendMessage).toHaveBeenCalledWith(
+        expect.stringContaining('team example, especially stage organization')
+      );
+      expect(sendMessage).toHaveBeenCalledWith(
+        expect.stringContaining('Read the current enterprise onboarding first')
+      );
+      expect(mockChange).not.toHaveBeenCalled();
+    } finally {
+      assistant.remove();
+    }
   });
   it('skips research without requesting consent or starting a provider call', async () => {
     await act(async () => button('4Optional research').click());
