@@ -37,8 +37,10 @@ stable, preview, or experimental release. No version-specific thinking configura
 the live alias rejected `thinkingLevel`. Local ADC is not provisioned; workload-authenticated
 end-to-end research must still be checked after deployment.
 The complete two-call adapter also succeeded using the existing local gcloud identity (14 validated
-proposals). A preceding invalid draft was rejected without application; provider-side array limits
-now mirror application validation. Usage includes URL-tool input and reasoning output tokens.
+proposals). A preceding invalid draft was rejected without application. Provider-side output is
+limited to 16 proposals and 10 caveats, inside the application's safety limits; nested maximum array
+constraints were removed after Google's schema compiler rejected their complexity. Usage includes
+URL-tool input and reasoning output tokens.
 
 The default is **URL context, not Google Search grounding**. The latter's evidence-reuse terms need
 separate approval for a durable shared onboarding database. Competitors not named by the supplied

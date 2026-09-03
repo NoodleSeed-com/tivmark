@@ -216,7 +216,7 @@ export async function researchCompany(
         properties: {
           suggestions: {
             type: 'ARRAY',
-            maxItems: 40,
+            maxItems: 16,
             description:
               'Prioritize useful draft fields; at most one suggestion per stage and field pair.',
             items: {
@@ -233,7 +233,6 @@ export async function researchCompany(
                 kind: { type: 'STRING', enum: ['sourced', 'recommendation'] },
                 sourceIds: {
                   type: 'ARRAY',
-                  maxItems: 40,
                   items: { type: 'STRING' },
                 },
               },
@@ -241,7 +240,7 @@ export async function researchCompany(
           },
           unknowns: {
             type: 'ARRAY',
-            maxItems: 15,
+            maxItems: 10,
             items: {
               type: 'STRING',
               description: 'A concise caveat, at most 500 characters.',

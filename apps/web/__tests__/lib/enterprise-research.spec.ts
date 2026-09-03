@@ -172,8 +172,8 @@ describe('keyless Google organization research', () => {
     expect(
       request.mock.calls[1][0].data.generationConfig.responseSchema.properties
     ).toMatchObject({
-      suggestions: { maxItems: 40 },
-      unknowns: { maxItems: 15 },
+      suggestions: { maxItems: 16 },
+      unknowns: { maxItems: 10 },
     });
     expect(
       request.mock.calls[0][0].data.generationConfig.thinkingConfig
