@@ -833,6 +833,403 @@
           "lastUsedAt",
           "createdAt"
         ]
+      },
+      "EnterpriseWorkspace": {
+        "type": "object",
+        "properties": {
+          "id": { "type": ["string", "null"] },
+          "team": { "type": "string" },
+          "teamName": { "type": "string" },
+          "version": { "type": "number" },
+          "status": { "type": "string" },
+          "canManage": { "type": "boolean" },
+          "currentUserId": { "type": "string" },
+          "createdAt": { "type": ["string", "null"] },
+          "updatedAt": { "type": ["string", "null"] },
+          "url": { "type": "string" },
+          "steps": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "enum": [
+                    "organization",
+                    "outcomes",
+                    "stakeholders",
+                    "research",
+                    "security",
+                    "privacy",
+                    "access",
+                    "integrations",
+                    "migration",
+                    "policy",
+                    "pilot",
+                    "enablement",
+                    "approval",
+                    "launch"
+                  ]
+                },
+                "title": { "type": "string" },
+                "owner": { "type": "string" },
+                "description": { "type": "string" },
+                "dependsOn": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "enum": [
+                      "organization",
+                      "outcomes",
+                      "stakeholders",
+                      "research",
+                      "security",
+                      "privacy",
+                      "access",
+                      "integrations",
+                      "migration",
+                      "policy",
+                      "pilot",
+                      "enablement",
+                      "approval",
+                      "launch"
+                    ]
+                  }
+                },
+                "adminOnly": { "type": "boolean" },
+                "fields": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": { "type": "string" },
+                      "label": { "type": "string" },
+                      "hint": { "type": "string" },
+                      "choices": {
+                        "type": "array",
+                        "items": { "type": "string" }
+                      }
+                    },
+                    "required": ["id", "label", "hint"]
+                  }
+                },
+                "values": {
+                  "type": "object",
+                  "additionalProperties": { "type": "string" }
+                },
+                "origins": {
+                  "type": "object",
+                  "additionalProperties": { "type": "string" }
+                },
+                "evidenceRefs": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "object",
+                    "properties": {
+                      "runId": { "type": "string" },
+                      "suggestionId": { "type": "string" },
+                      "sourceUrls": {
+                        "type": "array",
+                        "items": { "type": "string", "format": "uri" },
+                        "maxItems": 40
+                      },
+                      "retrievedAt": { "type": "string" }
+                    },
+                    "required": [
+                      "runId",
+                      "suggestionId",
+                      "sourceUrls",
+                      "retrievedAt"
+                    ]
+                  }
+                },
+                "completedAt": { "type": ["string", "null"] },
+                "ownerId": { "type": ["string", "null"] },
+                "state": {
+                  "type": "string",
+                  "enum": ["blocked", "ready", "complete"]
+                },
+                "missing": { "type": "array", "items": { "type": "string" } }
+              },
+              "required": [
+                "id",
+                "title",
+                "owner",
+                "description",
+                "dependsOn",
+                "adminOnly",
+                "fields",
+                "values",
+                "origins",
+                "evidenceRefs",
+                "completedAt",
+                "ownerId",
+                "state",
+                "missing"
+              ]
+            }
+          },
+          "members": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": { "type": "string" },
+                "name": { "type": "string" },
+                "role": { "type": "string" }
+              },
+              "required": ["id", "name", "role"]
+            }
+          },
+          "research": {
+            "type": ["object", "null"],
+            "properties": {
+              "id": { "type": "string" },
+              "status": { "type": "string" },
+              "attempts": { "type": "number" },
+              "model": { "type": "string" },
+              "error": { "type": ["string", "null"] },
+              "createdAt": { "type": "string" },
+              "evidence": {
+                "type": ["object", "null"],
+                "properties": {
+                  "report": { "type": "string" },
+                  "sources": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": { "type": "string" },
+                        "title": { "type": "string" },
+                        "url": { "type": "string", "format": "uri" }
+                      },
+                      "required": ["id", "title", "url"]
+                    }
+                  },
+                  "claims": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": { "type": "string" },
+                        "text": { "type": "string" },
+                        "sourceIds": {
+                          "type": "array",
+                          "items": { "type": "string" }
+                        }
+                      },
+                      "required": ["id", "text", "sourceIds"]
+                    }
+                  },
+                  "suggestions": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": { "type": "string" },
+                        "stepId": {
+                          "type": "string",
+                          "enum": [
+                            "organization",
+                            "outcomes",
+                            "stakeholders",
+                            "research",
+                            "security",
+                            "privacy",
+                            "access",
+                            "integrations",
+                            "migration",
+                            "policy",
+                            "pilot",
+                            "enablement",
+                            "approval",
+                            "launch"
+                          ]
+                        },
+                        "fieldId": { "type": "string" },
+                        "value": { "type": "string", "maxLength": 2000 },
+                        "kind": {
+                          "type": "string",
+                          "enum": ["sourced", "recommendation"]
+                        },
+                        "sourceIds": {
+                          "type": "array",
+                          "items": { "type": "string" }
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "stepId",
+                        "fieldId",
+                        "value",
+                        "kind",
+                        "sourceIds"
+                      ]
+                    }
+                  },
+                  "unknowns": {
+                    "type": "array",
+                    "items": { "type": "string" }
+                  },
+                  "model": { "type": "string" },
+                  "retrievedAt": { "type": "string" },
+                  "inputTokens": { "type": "number" },
+                  "outputTokens": { "type": "number" }
+                },
+                "required": [
+                  "report",
+                  "sources",
+                  "claims",
+                  "suggestions",
+                  "unknowns",
+                  "model",
+                  "retrievedAt",
+                  "inputTokens",
+                  "outputTokens"
+                ]
+              },
+              "acceptedIds": { "type": "array", "items": { "type": "string" } },
+              "stale": { "type": "boolean" }
+            },
+            "required": [
+              "id",
+              "status",
+              "attempts",
+              "model",
+              "error",
+              "createdAt",
+              "evidence",
+              "acceptedIds",
+              "stale"
+            ]
+          },
+          "metrics": {
+            "type": "object",
+            "properties": {
+              "complete": { "type": "number" },
+              "total": { "type": "number" },
+              "manualFields": { "type": "number" },
+              "assistedFields": { "type": "number" },
+              "blockers": { "type": "number" }
+            },
+            "required": [
+              "complete",
+              "total",
+              "manualFields",
+              "assistedFields",
+              "blockers"
+            ]
+          },
+          "events": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": { "type": "string" },
+                "actor": { "type": "string" },
+                "message": { "type": "string" },
+                "createdAt": { "type": "string" }
+              },
+              "required": ["id", "actor", "message", "createdAt"]
+            }
+          },
+          "researchAvailable": { "type": "boolean" },
+          "nextAction": { "type": "string" },
+          "boundary": { "type": "string" }
+        },
+        "required": [
+          "id",
+          "team",
+          "teamName",
+          "version",
+          "status",
+          "canManage",
+          "currentUserId",
+          "createdAt",
+          "updatedAt",
+          "url",
+          "steps",
+          "members",
+          "research",
+          "metrics",
+          "events",
+          "researchAvailable",
+          "nextAction",
+          "boundary"
+        ]
+      },
+      "EnterpriseCommand": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "create",
+              "save-step",
+              "complete-step",
+              "reopen-step",
+              "assign",
+              "start-research",
+              "cancel-research",
+              "accept-suggestions"
+            ]
+          },
+          "version": { "type": "integer", "minimum": 0 },
+          "stepId": {
+            "type": "string",
+            "enum": [
+              "organization",
+              "outcomes",
+              "stakeholders",
+              "research",
+              "security",
+              "privacy",
+              "access",
+              "integrations",
+              "migration",
+              "policy",
+              "pilot",
+              "enablement",
+              "approval",
+              "launch"
+            ]
+          },
+          "values": {
+            "type": "object",
+            "additionalProperties": { "type": "string", "maxLength": 2000 }
+          },
+          "ownerId": { "type": ["string", "null"], "format": "uuid" },
+          "source": {
+            "type": "string",
+            "enum": ["manual", "assistant"],
+            "default": "manual"
+          },
+          "suggestionIds": {
+            "type": "array",
+            "items": { "type": "string", "maxLength": 100 },
+            "maxItems": 60
+          },
+          "researchConsent": { "type": "boolean", "enum": [true] },
+          "researchIdentity": {
+            "type": "object",
+            "properties": {
+              "companyName": {
+                "type": "string",
+                "minLength": 2,
+                "maxLength": 100
+              },
+              "companyDomain": {
+                "type": "string",
+                "minLength": 4,
+                "maxLength": 253
+              }
+            },
+            "required": ["companyName", "companyDomain"],
+            "additionalProperties": false
+          }
+        },
+        "required": ["action", "version"],
+        "additionalProperties": false
       }
     },
     "parameters": {}
@@ -6896,6 +7293,220 @@
           }
         },
         "operationId": "post_teams_teamId_credentials"
+      }
+    },
+    "/api/v1/teams/{teamId}/enterprise-onboarding": {
+      "get": {
+        "tags": ["Onboarding"],
+        "summary": "Read durable enterprise onboarding progress and evidence",
+        "security": [{ "oauth2": [] }, { "bearerAuth": [] }],
+        "parameters": [
+          {
+            "schema": { "type": "string", "format": "uuid" },
+            "required": true,
+            "in": "path",
+            "name": "teamId"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": ["assistant"],
+              "description": "Omit raw report text from model context; complete evidence remains on the website."
+            },
+            "required": false,
+            "description": "Omit raw report text from model context; complete evidence remains on the website.",
+            "name": "view",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authoritative enterprise-readiness workspace",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/EnterpriseWorkspace"
+                    }
+                  },
+                  "required": ["data"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Problem" }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Problem" }
+              }
+            }
+          },
+          "403": {
+            "description": "Insufficient permissions",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Problem" }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Problem" }
+              }
+            }
+          },
+          "409": {
+            "description": "Resource conflict",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Problem" }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Problem" }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Problem" }
+              }
+            }
+          }
+        },
+        "operationId": "get_teams_teamId_enterprise_onboarding"
+      },
+      "post": {
+        "tags": ["Onboarding"],
+        "summary": "Update enterprise onboarding with revision and role checks",
+        "security": [{ "oauth2": [] }, { "bearerAuth": [] }],
+        "parameters": [
+          {
+            "schema": { "type": "string", "format": "uuid" },
+            "required": true,
+            "in": "path",
+            "name": "teamId"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": ["assistant"],
+              "description": "Omit raw report text from model context; complete evidence remains on the website."
+            },
+            "required": false,
+            "description": "Omit raw report text from model context; complete evidence remains on the website.",
+            "name": "view",
+            "in": "query"
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "description": "Unique retry key. Reusing it with the same body returns the original response for 24 hours.",
+            "schema": { "type": "string", "minLength": 8, "maxLength": 200 }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/EnterpriseCommand" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Authoritative enterprise-readiness workspace",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/EnterpriseWorkspace"
+                    }
+                  },
+                  "required": ["data"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Problem" }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Problem" }
+              }
+            }
+          },
+          "403": {
+            "description": "Insufficient permissions",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Problem" }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Problem" }
+              }
+            }
+          },
+          "409": {
+            "description": "Resource conflict",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Problem" }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Problem" }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Problem" }
+              }
+            }
+          }
+        },
+        "operationId": "post_teams_teamId_enterprise_onboarding"
       }
     }
   },

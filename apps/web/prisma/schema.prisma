@@ -166,19 +166,19 @@ model User {
 }
 
 model Team {
-  id                    String             @id @default(uuid())
+  id                    String                @id @default(uuid())
   name                  String
-  slug                  String             @unique
-  domain                String?            @unique
-  defaultRole           Role               @default(MEMBER)
+  slug                  String                @unique
+  domain                String?               @unique
+  defaultRole           Role                  @default(MEMBER)
   businessSizeBand      String?
   timeZone              String?
   onboardingGoal        String?
   onboardingCompletedAt DateTime?
   billingId             String?
   billingProvider       String?
-  createdAt             DateTime           @default(now())
-  updatedAt             DateTime           @default(now())
+  createdAt             DateTime              @default(now())
+  updatedAt             DateTime              @default(now())
   members               TeamMember[]
   invitations           Invitation[]
   apiKeys               ApiKey[]
@@ -189,8 +189,52 @@ model Team {
   actionServices        ActionService[]
   serviceRequests       ServiceRequest[]
   oauthClients          OAuthClient[]
+  enterpriseOnboarding  EnterpriseOnboarding?
 
   @@index([billingId])
+}
+
+model EnterpriseOnboarding {
+  id        String                      @id @default(uuid())
+  teamId    String                      @unique
+  version   Int                         @default(1)
+  state     Json
+  createdAt DateTime                    @default(now())
+  updatedAt DateTime                    @updatedAt
+  team      Team                        @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  research  EnterpriseResearch[]
+  events    EnterpriseOnboardingEvent[]
+}
+
+model EnterpriseResearch {
+  id          String               @id @default(uuid())
+  journeyId   String
+  status      String               @default("QUEUED")
+  attempts    Int                  @default(0)
+  input       Json
+  result      Json?
+  acceptedIds String[]             @default([])
+  model       String
+  error       String?
+  createdAt   DateTime             @default(now())
+  startedAt   DateTime?
+  finishedAt  DateTime?
+  journey     EnterpriseOnboarding @relation(fields: [journeyId], references: [id], onDelete: Cascade)
+
+  @@index([journeyId, createdAt])
+  @@index([status, createdAt])
+}
+
+model EnterpriseOnboardingEvent {
+  id        String               @id @default(uuid())
+  journeyId String
+  actor     String
+  actorId   String?
+  message   String
+  createdAt DateTime             @default(now())
+  journey   EnterpriseOnboarding @relation(fields: [journeyId], references: [id], onDelete: Cascade)
+
+  @@index([journeyId, createdAt])
 }
 
 model TimeOffPolicy {

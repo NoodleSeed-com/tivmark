@@ -152,7 +152,12 @@ export default async function middleware(req: NextRequest) {
 
   const redirectUrl = new URL('/auth/login', env.appUrl);
   const callbackUrl = new URL(`${pathname}${req.nextUrl.search}`, env.appUrl);
-  redirectUrl.searchParams.set('callbackUrl', callbackUrl.toString());
+  // AuthPortal accepts relative same-origin callbacks only. Preserve the requested
+  // onboarding route instead of falling back to the dashboard after sign-in.
+  redirectUrl.searchParams.set(
+    'callbackUrl',
+    `${callbackUrl.pathname}${callbackUrl.search}`
+  );
 
   // JWT strategy
   if (env.nextAuth.sessionStrategy === 'jwt') {

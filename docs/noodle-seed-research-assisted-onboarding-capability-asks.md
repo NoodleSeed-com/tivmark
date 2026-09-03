@@ -57,6 +57,31 @@ application.
 
 ## Capability asks
 
+### Cross-cutting addition: honor the customer's funding and evidence-reuse constraints
+
+**Why we need it:** A SaaS builder may have substantial credits and governance already attached to
+an existing cloud account. Requiring a separate model-provider key or billing relationship can make
+an otherwise compelling workflow impractical. Equally, a provider's ability to return citations does
+not imply permission to store, share, transform, or reuse those findings in an onboarding database.
+
+**Scenario to enable:** Our onboarding analysis uses Gemini Flash through the customer's existing
+Google Cloud billing project with workload identity, while the conversation and workflow remain
+portable. We want to save reviewed company context for a team without accidentally applying a
+search provider's chat-display license to a durable shared business record. A deployment can choose
+public-site analysis today and a separately approved broad-search source later.
+
+**We would consider this successful when:** Funding account, execution identity, provider/model,
+data destination, allowed source scope, retention, and reuse rights can be understood before work
+begins. Unsupported combinations fail clearly; no silent provider fallback or fabricated coverage
+occurs. We do not require Noodle Seed to create cloud-specific business logic or offer legal advice.
+We need a horizontal way to honor these deployment policies and preserve their context with the job.
+
+This concern arose during implementation: [Google Search grounding's service-specific terms](https://cloud.google.com/terms/service-terms)
+contain restrictions relevant to persistent reuse. We chose explicit public-site analysis via
+[Gemini URL context](https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/url-context)
+for the initial implementation, not broad Google Search. Google Cloud credits remain subject to
+the customer's grant eligibility; we are not treating credits as a guarantee of zero cost.
+
 ### 1. Let a customer journey survive beyond one conversation or tool call
 
 **Why we need it:** Real B2B onboarding rarely completes in one sitting. A customer may start before

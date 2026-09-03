@@ -9,6 +9,7 @@ const labels = {
   timeOff: 'Time Off',
   equipment: 'Equipment',
   actionDesk: 'Action Desk',
+  enterprise: 'Enterprise Launch',
   settings: 'Settings',
 };
 
@@ -42,6 +43,7 @@ describe('Mark navigation', () => {
     );
 
     expect(menus.map(({ name, href }) => ({ name, href }))).toEqual([
+      { name: 'Enterprise Launch', href: '/teams/acme/enterprise-onboarding' },
       { name: 'Action Desk', href: '/teams/acme/action-desk' },
       { name: 'Time Off', href: '/teams/acme/time-off' },
       { name: 'Equipment', href: '/teams/acme/equipment' },

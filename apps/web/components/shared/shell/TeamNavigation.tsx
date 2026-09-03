@@ -4,6 +4,7 @@ import {
   Cog6ToothIcon,
   ComputerDesktopIcon,
   SparklesIcon,
+  ClipboardDocumentCheckIcon,
 } from '@heroicons/react/24/outline';
 import { useTranslation } from 'next-i18next';
 import NavigationItems from './NavigationItems';
@@ -19,6 +20,7 @@ interface TeamNavigationLabels {
   timeOff: string;
   equipment: string;
   actionDesk: string;
+  enterprise: string;
   settings: string;
 }
 
@@ -29,6 +31,12 @@ export function buildTeamNavigation(
   openMark: () => void = () => openAssistant()
 ): MenuItem[] {
   return [
+    {
+      name: labels.enterprise,
+      href: `/teams/${slug}/enterprise-onboarding`,
+      icon: ClipboardDocumentCheckIcon,
+      active: activePathname === `/teams/${slug}/enterprise-onboarding`,
+    },
     {
       name: labels.actionDesk,
       href: `/teams/${slug}/action-desk`,
@@ -63,6 +71,7 @@ export function buildTeamNavigation(
         !activePathname.includes('time-off') &&
         !activePathname.includes('equipment') &&
         !activePathname.includes('action-desk') &&
+        !activePathname.includes('enterprise-onboarding') &&
         !activePathname.includes('products'),
     },
   ];
@@ -76,6 +85,7 @@ const TeamNavigation = ({ slug, activePathname }: NavigationItemsProps) => {
     timeOff: t('time-off'),
     equipment: t('equipment'),
     actionDesk: t('action-desk'),
+    enterprise: t('enterprise-launch'),
     settings: t('settings'),
   });
 

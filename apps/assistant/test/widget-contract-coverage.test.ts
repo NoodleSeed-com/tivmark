@@ -16,6 +16,18 @@ type WidgetContract = {
 };
 
 const widgetContracts = {
+  enterprise_onboarding: {
+    component: 'enterprise-progress',
+    teamScoped: false,
+  },
+  manage_enterprise_onboarding: {
+    component: 'enterprise-progress',
+    teamScoped: false,
+  },
+  research_onboarding_company: {
+    component: 'enterprise-progress',
+    teamScoped: false,
+  },
   action_desk_guide: {
     component: 'action-desk-guide',
     collection: 'services',
