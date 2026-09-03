@@ -10,7 +10,7 @@ import {
 } from '@/lib/enterprise-onboarding';
 
 export const researchModel = () =>
-  process.env.ONBOARDING_RESEARCH_MODEL || 'gemini-3.8-flash';
+  process.env.ONBOARDING_RESEARCH_MODEL || 'gemini-flash-latest';
 export const researchConfigured = () =>
   Boolean(
     process.env.ONBOARDING_RESEARCH_PROJECT &&
@@ -37,6 +37,7 @@ type GeminiResponse = {
   }[];
   usageMetadata?: {
     promptTokenCount?: number;
+    toolUsePromptTokenCount?: number;
     candidatesTokenCount?: number;
     thoughtsTokenCount?: number;
   };
@@ -162,7 +163,6 @@ export async function researchCompany(
     tools: [{ urlContext: {} }],
     generationConfig: {
       maxOutputTokens: 5000,
-      thinkingConfig: { thinkingLevel: 'LOW' },
     },
   });
   const grounded = normalizeWebsiteContext(first, identity.companyDomain);
@@ -209,7 +209,6 @@ export async function researchCompany(
     ],
     generationConfig: {
       maxOutputTokens: 5000,
-      thinkingConfig: { thinkingLevel: 'LOW' },
       responseMimeType: 'application/json',
       responseSchema: {
         type: 'OBJECT',
@@ -217,19 +216,37 @@ export async function researchCompany(
         properties: {
           suggestions: {
             type: 'ARRAY',
+            maxItems: 40,
+            description:
+              'Prioritize useful draft fields; at most one suggestion per stage and field pair.',
             items: {
               type: 'OBJECT',
               required: ['stepId', 'fieldId', 'value', 'kind', 'sourceIds'],
               properties: {
                 stepId: { type: 'STRING', enum: [...stepIds] },
                 fieldId: { type: 'STRING' },
-                value: { type: 'STRING' },
+                value: {
+                  type: 'STRING',
+                  description:
+                    'A concise draft value, at most 2000 characters.',
+                },
                 kind: { type: 'STRING', enum: ['sourced', 'recommendation'] },
-                sourceIds: { type: 'ARRAY', items: { type: 'STRING' } },
+                sourceIds: {
+                  type: 'ARRAY',
+                  maxItems: 40,
+                  items: { type: 'STRING' },
+                },
               },
             },
           },
-          unknowns: { type: 'ARRAY', items: { type: 'STRING' } },
+          unknowns: {
+            type: 'ARRAY',
+            maxItems: 15,
+            items: {
+              type: 'STRING',
+              description: 'A concise caveat, at most 500 characters.',
+            },
+          },
         },
       },
     },
@@ -304,7 +321,9 @@ export async function researchCompany(
     retrievedAt: new Date().toISOString(),
     inputTokens:
       (first.usageMetadata?.promptTokenCount ?? 0) +
-      (second.usageMetadata?.promptTokenCount ?? 0),
+      (second.usageMetadata?.promptTokenCount ?? 0) +
+      (first.usageMetadata?.toolUsePromptTokenCount ?? 0) +
+      (second.usageMetadata?.toolUsePromptTokenCount ?? 0),
     outputTokens:
       (first.usageMetadata?.candidatesTokenCount ?? 0) +
       (second.usageMetadata?.candidatesTokenCount ?? 0) +

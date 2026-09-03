@@ -17,7 +17,7 @@ env:
   CLOUD_SQL_CONNECTION_NAME: tivmark-app:us-central1:tivmark-app-db
   ONBOARDING_RESEARCH_QUEUE: onboarding-research
   ONBOARDING_RESEARCH_SERVICE_ACCOUNT: onboarding-research@tivmark-app.iam.gserviceaccount.com
-  ONBOARDING_RESEARCH_MODEL: gemini-3.8-flash
+  ONBOARDING_RESEARCH_MODEL: gemini-flash-latest
 
 jobs:
   deploy:

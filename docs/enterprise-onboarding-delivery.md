@@ -2,10 +2,11 @@
 
 ## Release status
 
-Implemented in the isolated `codex/enterprise-onboarding` task branch. **Not deployed or ready for
-production testing yet.** Production target/configuration confirmation and live checks remain required.
-Do not merge this release before provisioning the approved Google queue and IAM: the deploy workflow
-intentionally fails before schema changes if the research queue is unavailable.
+Pre-release snapshot: implemented in the isolated `codex/enterprise-onboarding` task branch and
+PR #129. **Production rollout and signed-in checks remain required before declaring ready.**
+The user has approved the Google Cloud and Noodle Seed targets below. The Google APIs, dedicated
+research identity, queue, and narrowly scoped IAM are provisioned. The deploy workflow intentionally
+fails before schema changes if the research queue is unavailable.
 
 The implementation does not depend on new Noodle Seed capabilities. It composes today's typed,
 confirmed, delegated tools with application-owned state and a Google Cloud research adapter.
@@ -26,10 +27,18 @@ The [design and audit](superpowers/specs/2026-09-02-enterprise-onboarding-design
 - Public-homepage analysis, structured proposals, unknowns, model/usage data, source links, human
   acceptance, and source context retained with accepted fields after later research runs.
 
-Research uses `gemini-3.8-flash` through the Google Cloud project, not an OpenAI or AI Studio key.
+Research uses the user-selected `gemini-flash-latest` alias through the Google Cloud project, not an OpenAI or AI Studio key.
 The existing Mark conversation model is unchanged. Cloud credits apply only if the customer's grant
 covers the selected service/SKU. Billing enabled is not proof of credit eligibility or model access.
-No live Google generation was executed during local validation.
+Live Vertex probes in `tivmark-app` succeeded with the alias, including successful URL-context
+retrieval of `https://tivmark.com/`. Google returned `gemini-flash-latest` as the model version, not a
+concrete release; the app preserves the provider's exact reported value. The alias can move to a
+stable, preview, or experimental release. No version-specific thinking configuration is sent because
+the live alias rejected `thinkingLevel`. Local ADC is not provisioned; workload-authenticated
+end-to-end research must still be checked after deployment.
+The complete two-call adapter also succeeded using the existing local gcloud identity (14 validated
+proposals). A preceding invalid draft was rejected without application; provider-side array limits
+now mirror application validation. Usage includes URL-tool input and reasoning output tokens.
 
 The default is **URL context, not Google Search grounding**. The latter's evidence-reuse terms need
 separate approval for a durable shared onboarding database. Competitors not named by the supplied
@@ -39,7 +48,7 @@ site stay unknown; research does not discover private customer lists or investig
 
 Validated on 2026-09-02:
 
-- Web: 153 unit tests; lint, formatting, locale, TypeScript, OpenAPI freshness/lint and API-first checks.
+- Web: 154 unit tests; lint, formatting, locale, TypeScript, OpenAPI freshness/lint and API-first checks.
 - Web production build passed. Existing SDK/Sentry build warnings remain.
 - Both web lockfiles validated using `scripts/sync-web-lockfile.sh --check` and `npm ci --dry-run`.
 - Noodle: schema/compile validation, app-readiness check, and 112 unit/render tests passed.
@@ -66,12 +75,19 @@ The initial Devtools discovery timeout was separately checked: the live RFC 8414
 returned valid JSON. A subsequent preview attempt reached the missing-local-credentials boundary.
 Offline validation and render tests are not a substitute for the signed-in embedded host test.
 
-Google queue/IAM, live model access, production schema/revision, domain entry, and Mark's complete
-authenticated research journey have not been verified. No live deployment success is claimed.
+Production schema/revision, domain entry, Cloud Run workload-authenticated research, and Mark's
+complete authenticated research journey remain to be verified. No live application deployment
+success is claimed in this pre-release snapshot.
+
+Provisioned resources: queue `onboarding-research` in `us-central1`; OIDC identity
+`onboarding-research@tivmark-app.iam.gserviceaccount.com`; prediction role containing only
+`aiplatform.endpoints.predict` and `serviceusage.services.use` on the existing Cloud Run runtime
+identity. Enqueue and deployment preflight read access are queue-scoped; act-as permission is scoped
+to the dedicated OIDC identity. No downloadable keys were created or existing credentials rotated.
 
 ## Approved-target rollout checklist
 
-Proposed targets requiring confirmation: Google Cloud project `tivmark-app`, Cloud Run `tivmark-web`
+User-approved targets: Google Cloud project `tivmark-app`, Cloud Run `tivmark-web`
 in `us-central1` serving `app.tivmark.com`; Noodle Seed `noodleseed/tivmark-assistant/prod`.
 
 1. Enable Vertex AI and Cloud Tasks APIs in the approved project. Do not change global gcloud defaults.
@@ -81,7 +97,7 @@ in `us-central1` serving `app.tivmark.com`; Noodle Seed `noodleseed/tivmark-assi
 3. Give the Cloud Run workload only prediction permission, enqueue permission on this queue, and
    permission to act as this dedicated task identity. Verify the Cloud Tasks service agent can issue
    its OIDC token. Do not create downloadable service-account keys or broaden existing roles.
-4. Verify a bounded live `gemini-3.8-flash` URL-context request on public non-sensitive test data.
+4. Verify a bounded live `gemini-flash-latest` URL-context request on public non-sensitive test data.
    Confirm the model's successful retrieval metadata shape and Google project billing attribution.
 5. Pass every applicable PR check, update through the PR if main has advanced, and enable merge-commit
    auto-merge. Verify the PR is merged and its merge commit is reachable from `origin/main`.

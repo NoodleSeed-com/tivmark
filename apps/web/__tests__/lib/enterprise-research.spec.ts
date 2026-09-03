@@ -13,6 +13,7 @@ import {
   enqueueResearch,
   normalizeWebsiteContext,
   researchCompany,
+  researchModel,
   verifyResearchWorker,
 } from '@/lib/enterprise-research';
 
@@ -52,6 +53,7 @@ const grounded = {
   ],
   usageMetadata: {
     promptTokenCount: 20,
+    toolUsePromptTokenCount: 15,
     candidatesTokenCount: 30,
     thoughtsTokenCount: 10,
   },
@@ -77,6 +79,16 @@ const structured = (suggestions: unknown[]) => ({
 });
 
 describe('keyless Google organization research', () => {
+  it('defaults to the user-selected rolling Flash alias', () => {
+    const previous = process.env.ONBOARDING_RESEARCH_MODEL;
+    delete process.env.ONBOARDING_RESEARCH_MODEL;
+    try {
+      expect(researchModel()).toBe('gemini-flash-latest');
+    } finally {
+      if (previous === undefined) delete process.env.ONBOARDING_RESEARCH_MODEL;
+      else process.env.ONBOARDING_RESEARCH_MODEL = previous;
+    }
+  });
   beforeEach(() => {
     jest.clearAllMocks();
     process.env.ONBOARDING_RESEARCH_PROJECT = 'tivmark-test';
@@ -137,17 +149,18 @@ describe('keyless Google organization research', () => {
         },
       ]),
     });
-    const result = await researchCompany(identity, 'gemini-3.8-flash');
+    const result = await researchCompany(identity, 'gemini-flash-latest');
+    expect(result.model).toBe('gemini-3.8-flash');
     expect(result.suggestions.map((s) => s.fieldId)).toEqual([
       'industry',
       'successMetric',
     ]);
     expect(result.suggestions[1].sourceIds).toEqual([]);
-    expect(result.inputTokens).toBe(70);
+    expect(result.inputTokens).toBe(85);
     expect(result.outputTokens).toBe(70);
     expect(request).toHaveBeenCalledTimes(2);
     expect(request.mock.calls[0][0]).toMatchObject({
-      url: 'https://aiplatform.googleapis.com/v1/projects/tivmark-test/locations/global/publishers/google/models/gemini-3.8-flash:generateContent',
+      url: 'https://aiplatform.googleapis.com/v1/projects/tivmark-test/locations/global/publishers/google/models/gemini-flash-latest:generateContent',
       timeout: 70000,
       retry: false,
       data: {
@@ -156,6 +169,18 @@ describe('keyless Google organization research', () => {
       },
     });
     expect(request.mock.calls[1][0].data.tools).toBeUndefined();
+    expect(
+      request.mock.calls[1][0].data.generationConfig.responseSchema.properties
+    ).toMatchObject({
+      suggestions: { maxItems: 40 },
+      unknowns: { maxItems: 15 },
+    });
+    expect(
+      request.mock.calls[0][0].data.generationConfig.thinkingConfig
+    ).toBeUndefined();
+    expect(
+      request.mock.calls[1][0].data.generationConfig.thinkingConfig
+    ).toBeUndefined();
   });
   it('does not extract a draft without cited grounding', async () => {
     request.mockResolvedValue({

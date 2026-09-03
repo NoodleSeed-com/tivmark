@@ -62,9 +62,13 @@ incomplete evidence, and completed readiness states are explicit.
 
 ## Research
 
-Use Google Cloud Vertex AI with the latest verified available Flash model, default
-`gemini-3.8-flash`, on project `tivmark-app`. Use Google workload credentials, not OpenAI or
-AI Studio keys. Retain a configurable explicit model ID; do not silently change providers/models.
+Use Google Cloud Vertex AI with the user-requested rolling alias `gemini-flash-latest`, on project
+`tivmark-app`. Use Google workload credentials, not OpenAI or AI Studio keys. Retain a configurable
+model ID and the provider-reported model version. Google controls alias updates, which can include
+preview or experimental releases and change behavior or pricing; do not silently change providers.
+Do not send version-specific thinking parameters to the rolling alias. The live Vertex endpoint
+accepted this alias but rejected `thinkingLevel`; it may return the alias rather than a concrete
+version in its metadata. Record exactly what Google reports, without inventing a resolved version.
 
 Cloud Tasks runs a durable, bounded organization-only job independently of a browser session.
 First analyze the supplied public company homepage using Gemini URL context; then extract
