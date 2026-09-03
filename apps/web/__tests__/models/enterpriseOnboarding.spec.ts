@@ -176,6 +176,9 @@ describe('enterprise persistence and background boundaries', () => {
       .mocked(researchCompany)
       .mockResolvedValue({ model: run.model, suggestions: [] } as any);
     await processEnterpriseResearch(run.id);
+    expect(
+      db.enterpriseResearch.updateMany.mock.calls[0][0].where.attempts
+    ).toBe(0);
     expect(db.enterpriseOnboardingEvent.create).not.toHaveBeenCalled();
     expect(db.enterpriseOnboarding.update).not.toHaveBeenCalled();
   });

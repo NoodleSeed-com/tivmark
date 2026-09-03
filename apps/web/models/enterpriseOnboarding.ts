@@ -394,7 +394,9 @@ export async function processEnterpriseResearch(runId: string) {
   const acquired = await prisma.enterpriseResearch.updateMany({
     where: {
       id: run.id,
-      attempts: { lt: 3 },
+      // The lease must belong to the revision read above. A delayed duplicate
+      // cannot claim a newer retry and then discard its result under an old attempt.
+      attempts: run.attempts,
       OR: [
         { status: { in: ['QUEUED', 'FAILED'] } },
         { status: 'RUNNING', startedAt: { lt: stale } },
