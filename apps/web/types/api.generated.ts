@@ -1199,6 +1199,145 @@ export interface components {
       nextAction: string;
       boundary: string;
     };
+    EnterpriseAssistantWorkspace: {
+      id: string | null;
+      team: string;
+      teamName: string;
+      version: number;
+      status: string;
+      canManage: boolean;
+      currentUserId: string;
+      url: string;
+      nextAction: string;
+      boundary: string;
+      researchAvailable: boolean;
+      metrics: {
+        complete: number;
+        total: number;
+        manualFields: number;
+        assistedFields: number;
+        blockers: number;
+      };
+      members: {
+        id: string;
+        name: string;
+        role: string;
+      }[];
+      steps: {
+        /** @enum {string} */
+        id:
+          | 'organization'
+          | 'outcomes'
+          | 'stakeholders'
+          | 'research'
+          | 'security'
+          | 'privacy'
+          | 'access'
+          | 'integrations'
+          | 'migration'
+          | 'policy'
+          | 'pilot'
+          | 'enablement'
+          | 'approval'
+          | 'launch';
+        title: string;
+        owner: string;
+        description: string;
+        dependsOn: (
+          | 'organization'
+          | 'outcomes'
+          | 'stakeholders'
+          | 'research'
+          | 'security'
+          | 'privacy'
+          | 'access'
+          | 'integrations'
+          | 'migration'
+          | 'policy'
+          | 'pilot'
+          | 'enablement'
+          | 'approval'
+          | 'launch'
+        )[];
+        adminOnly: boolean;
+        values: {
+          [key: string]: string;
+        };
+        origins: {
+          [key: string]: string;
+        };
+        evidenceRefs: {
+          [key: string]: {
+            runId: string;
+            suggestionId: string;
+            sourceUrls: string[];
+            retrievedAt: string;
+          };
+        };
+        completedAt: string | null;
+        ownerId: string | null;
+        /** @enum {string} */
+        state: 'blocked' | 'ready' | 'complete';
+        missing: string[];
+        fields: {
+          id: string;
+          label: string;
+          hint: string;
+          choices?: string[];
+        }[];
+      }[];
+      research: {
+        id: string;
+        status: string;
+        attempts: number;
+        model: string;
+        error: string | null;
+        stale: boolean;
+        acceptedIds: string[];
+        evidence: {
+          sources: {
+            id: string;
+            title: string;
+            /** Format: uri */
+            url: string;
+          }[];
+          claims: {
+            id: string;
+            text: string;
+            sourceIds: string[];
+          }[];
+          suggestions: {
+            id: string;
+            /** @enum {string} */
+            stepId:
+              | 'organization'
+              | 'outcomes'
+              | 'stakeholders'
+              | 'research'
+              | 'security'
+              | 'privacy'
+              | 'access'
+              | 'integrations'
+              | 'migration'
+              | 'policy'
+              | 'pilot'
+              | 'enablement'
+              | 'approval'
+              | 'launch';
+            fieldId: string;
+            value: string;
+            /** @enum {string} */
+            kind: 'sourced' | 'recommendation';
+            sourceIds: string[];
+          }[];
+          unknowns: string[];
+          model: string;
+          retrievedAt: string;
+          inputTokens: number;
+          outputTokens: number;
+        } | null;
+      } | null;
+    };
     EnterpriseCommand: {
       /** @enum {string} */
       action:
@@ -7006,7 +7145,7 @@ export interface operations {
   get_teams_teamId_enterprise_onboarding: {
     parameters: {
       query?: {
-        /** @description Omit raw report text from model context; complete evidence remains on the website. */
+        /** @description Return the strict MCP workspace projection without raw reports or web-only metadata; complete evidence remains on the website. */
         view?: 'assistant';
       };
       header?: never;
@@ -7024,7 +7163,9 @@ export interface operations {
         };
         content: {
           'application/json': {
-            data: components['schemas']['EnterpriseWorkspace'];
+            data:
+              | components['schemas']['EnterpriseWorkspace']
+              | components['schemas']['EnterpriseAssistantWorkspace'];
           };
         };
       };
@@ -7096,7 +7237,7 @@ export interface operations {
   post_teams_teamId_enterprise_onboarding: {
     parameters: {
       query?: {
-        /** @description Omit raw report text from model context; complete evidence remains on the website. */
+        /** @description Return the strict MCP workspace projection without raw reports or web-only metadata; complete evidence remains on the website. */
         view?: 'assistant';
       };
       header?: {
@@ -7121,7 +7262,9 @@ export interface operations {
         };
         content: {
           'application/json': {
-            data: components['schemas']['EnterpriseWorkspace'];
+            data:
+              | components['schemas']['EnterpriseWorkspace']
+              | components['schemas']['EnterpriseAssistantWorkspace'];
           };
         };
       };

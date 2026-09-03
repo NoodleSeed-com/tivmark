@@ -85,3 +85,39 @@ then repeat the authenticated read and confirmation-gated draft write. Keep
 `NEXT_PUBLIC_ENTERPRISE_ASSISTANT_ENABLED` off until those pass. The Docker build
 now accepts that flag for the subsequent promotion; this release does not set
 it. The five-stage forms and optional Google Cloud research remain available.
+
+## Follow-up: strict response projection
+
+PR #131 merged as `9252502e3d9c3d19d2a788c76bda737ef66641ba`. Its web
+deployment succeeded in [run 33775310002](https://github.com/NoodleSeed-com/tivmark/actions/runs/33775310002),
+with 100% of traffic on healthy revision `tivmark-web-00097-huq`.
+
+The current browser client completed a fresh conversation, revealing the actual
+tool failure: `enterprise_onboarding` returned `output_invalid` (calls
+`call_59793` and `call_51425`). The delegated-token exchange and both underlying
+API reads returned HTTP 200. This is separate from the repaired deployment
+preflight.
+
+The API's `view=assistant` response still included undeclared properties:
+workspace timestamps and events, field `optional` flags, research timestamps,
+and `research.evidence.report`. Emptying the report string did not remove its
+property. The compiled MCP JSON Schema rejects additional properties. A normal
+Zod parse appeared to pass because it silently stripped those properties; the
+unparsed object sent by the connector did not satisfy the published contract.
+
+The follow-up fix projects assistant responses to the declared shape before
+serialization, for both GET and POST. Full website responses retain their
+timestamps, activity, optional-field flags, and raw report. Required answers
+remain available to Mark through `steps[].missing`; source provenance, reviewed
+suggestions, revisions, assignments, and permissions are retained.
+
+Regression tests cover populated research, no research, pending evidence,
+unexpected fields, and non-mutation of the website response. The actual loaded
+demo response was also projected locally and validated against v32's SDK output
+contract, including deep equality with the parsed result to prove there were no
+undeclared properties. It retained all five stages and revision 5. No customer
+data was written by these checks.
+
+OpenAPI and generated client types now describe both the full website response
+and the compact assistant response. No database migration, new Noodle release,
+provider change, or authentication change is needed for this API-side repair.

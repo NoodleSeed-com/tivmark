@@ -1159,6 +1159,308 @@
           "boundary"
         ]
       },
+      "EnterpriseAssistantWorkspace": {
+        "type": "object",
+        "properties": {
+          "id": { "type": ["string", "null"] },
+          "team": { "type": "string" },
+          "teamName": { "type": "string" },
+          "version": { "type": "number" },
+          "status": { "type": "string" },
+          "canManage": { "type": "boolean" },
+          "currentUserId": { "type": "string" },
+          "url": { "type": "string" },
+          "nextAction": { "type": "string" },
+          "boundary": { "type": "string" },
+          "researchAvailable": { "type": "boolean" },
+          "metrics": {
+            "type": "object",
+            "properties": {
+              "complete": { "type": "number" },
+              "total": { "type": "number" },
+              "manualFields": { "type": "number" },
+              "assistedFields": { "type": "number" },
+              "blockers": { "type": "number" }
+            },
+            "required": [
+              "complete",
+              "total",
+              "manualFields",
+              "assistedFields",
+              "blockers"
+            ]
+          },
+          "members": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": { "type": "string" },
+                "name": { "type": "string" },
+                "role": { "type": "string" }
+              },
+              "required": ["id", "name", "role"]
+            }
+          },
+          "steps": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "enum": [
+                    "organization",
+                    "outcomes",
+                    "stakeholders",
+                    "research",
+                    "security",
+                    "privacy",
+                    "access",
+                    "integrations",
+                    "migration",
+                    "policy",
+                    "pilot",
+                    "enablement",
+                    "approval",
+                    "launch"
+                  ]
+                },
+                "title": { "type": "string" },
+                "owner": { "type": "string" },
+                "description": { "type": "string" },
+                "dependsOn": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "enum": [
+                      "organization",
+                      "outcomes",
+                      "stakeholders",
+                      "research",
+                      "security",
+                      "privacy",
+                      "access",
+                      "integrations",
+                      "migration",
+                      "policy",
+                      "pilot",
+                      "enablement",
+                      "approval",
+                      "launch"
+                    ]
+                  }
+                },
+                "adminOnly": { "type": "boolean" },
+                "values": {
+                  "type": "object",
+                  "additionalProperties": { "type": "string" }
+                },
+                "origins": {
+                  "type": "object",
+                  "additionalProperties": { "type": "string" }
+                },
+                "evidenceRefs": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "object",
+                    "properties": {
+                      "runId": { "type": "string" },
+                      "suggestionId": { "type": "string" },
+                      "sourceUrls": {
+                        "type": "array",
+                        "items": { "type": "string", "format": "uri" },
+                        "maxItems": 40
+                      },
+                      "retrievedAt": { "type": "string" }
+                    },
+                    "required": [
+                      "runId",
+                      "suggestionId",
+                      "sourceUrls",
+                      "retrievedAt"
+                    ]
+                  }
+                },
+                "completedAt": { "type": ["string", "null"] },
+                "ownerId": { "type": ["string", "null"] },
+                "state": {
+                  "type": "string",
+                  "enum": ["blocked", "ready", "complete"]
+                },
+                "missing": { "type": "array", "items": { "type": "string" } },
+                "fields": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": { "type": "string" },
+                      "label": { "type": "string" },
+                      "hint": { "type": "string" },
+                      "choices": {
+                        "type": "array",
+                        "items": { "type": "string" }
+                      }
+                    },
+                    "required": ["id", "label", "hint"]
+                  }
+                }
+              },
+              "required": [
+                "id",
+                "title",
+                "owner",
+                "description",
+                "dependsOn",
+                "adminOnly",
+                "values",
+                "origins",
+                "evidenceRefs",
+                "completedAt",
+                "ownerId",
+                "state",
+                "missing",
+                "fields"
+              ]
+            }
+          },
+          "research": {
+            "type": ["object", "null"],
+            "properties": {
+              "id": { "type": "string" },
+              "status": { "type": "string" },
+              "attempts": { "type": "number" },
+              "model": { "type": "string" },
+              "error": { "type": ["string", "null"] },
+              "stale": { "type": "boolean" },
+              "acceptedIds": { "type": "array", "items": { "type": "string" } },
+              "evidence": {
+                "type": ["object", "null"],
+                "properties": {
+                  "sources": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": { "type": "string" },
+                        "title": { "type": "string" },
+                        "url": { "type": "string", "format": "uri" }
+                      },
+                      "required": ["id", "title", "url"]
+                    }
+                  },
+                  "claims": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": { "type": "string" },
+                        "text": { "type": "string" },
+                        "sourceIds": {
+                          "type": "array",
+                          "items": { "type": "string" }
+                        }
+                      },
+                      "required": ["id", "text", "sourceIds"]
+                    }
+                  },
+                  "suggestions": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": { "type": "string" },
+                        "stepId": {
+                          "type": "string",
+                          "enum": [
+                            "organization",
+                            "outcomes",
+                            "stakeholders",
+                            "research",
+                            "security",
+                            "privacy",
+                            "access",
+                            "integrations",
+                            "migration",
+                            "policy",
+                            "pilot",
+                            "enablement",
+                            "approval",
+                            "launch"
+                          ]
+                        },
+                        "fieldId": { "type": "string" },
+                        "value": { "type": "string", "maxLength": 2000 },
+                        "kind": {
+                          "type": "string",
+                          "enum": ["sourced", "recommendation"]
+                        },
+                        "sourceIds": {
+                          "type": "array",
+                          "items": { "type": "string" }
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "stepId",
+                        "fieldId",
+                        "value",
+                        "kind",
+                        "sourceIds"
+                      ]
+                    }
+                  },
+                  "unknowns": {
+                    "type": "array",
+                    "items": { "type": "string" }
+                  },
+                  "model": { "type": "string" },
+                  "retrievedAt": { "type": "string" },
+                  "inputTokens": { "type": "number" },
+                  "outputTokens": { "type": "number" }
+                },
+                "required": [
+                  "sources",
+                  "claims",
+                  "suggestions",
+                  "unknowns",
+                  "model",
+                  "retrievedAt",
+                  "inputTokens",
+                  "outputTokens"
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "status",
+              "attempts",
+              "model",
+              "error",
+              "stale",
+              "acceptedIds",
+              "evidence"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "team",
+          "teamName",
+          "version",
+          "status",
+          "canManage",
+          "currentUserId",
+          "url",
+          "nextAction",
+          "boundary",
+          "researchAvailable",
+          "metrics",
+          "members",
+          "steps",
+          "research"
+        ]
+      },
       "EnterpriseCommand": {
         "type": "object",
         "properties": {
@@ -7312,10 +7614,10 @@
             "schema": {
               "type": "string",
               "enum": ["assistant"],
-              "description": "Omit raw report text from model context; complete evidence remains on the website."
+              "description": "Return the strict MCP workspace projection without raw reports or web-only metadata; complete evidence remains on the website."
             },
             "required": false,
-            "description": "Omit raw report text from model context; complete evidence remains on the website.",
+            "description": "Return the strict MCP workspace projection without raw reports or web-only metadata; complete evidence remains on the website.",
             "name": "view",
             "in": "query"
           }
@@ -7329,7 +7631,12 @@
                   "type": "object",
                   "properties": {
                     "data": {
-                      "$ref": "#/components/schemas/EnterpriseWorkspace"
+                      "anyOf": [
+                        { "$ref": "#/components/schemas/EnterpriseWorkspace" },
+                        {
+                          "$ref": "#/components/schemas/EnterpriseAssistantWorkspace"
+                        }
+                      ]
                     }
                   },
                   "required": ["data"]
@@ -7411,10 +7718,10 @@
             "schema": {
               "type": "string",
               "enum": ["assistant"],
-              "description": "Omit raw report text from model context; complete evidence remains on the website."
+              "description": "Return the strict MCP workspace projection without raw reports or web-only metadata; complete evidence remains on the website."
             },
             "required": false,
-            "description": "Omit raw report text from model context; complete evidence remains on the website.",
+            "description": "Return the strict MCP workspace projection without raw reports or web-only metadata; complete evidence remains on the website.",
             "name": "view",
             "in": "query"
           },
@@ -7442,7 +7749,12 @@
                   "type": "object",
                   "properties": {
                     "data": {
-                      "$ref": "#/components/schemas/EnterpriseWorkspace"
+                      "anyOf": [
+                        { "$ref": "#/components/schemas/EnterpriseWorkspace" },
+                        {
+                          "$ref": "#/components/schemas/EnterpriseAssistantWorkspace"
+                        }
+                      ]
                     }
                   },
                   "required": ["data"]

@@ -4,6 +4,7 @@ import { requireTeamPrincipal } from '@/lib/api/team';
 import { methodNotAllowed, sendProblem } from '@/lib/api/http';
 import { withIdempotency } from '@/lib/api/idempotency';
 import { enterpriseCommandSchema } from '@/lib/enterprise-onboarding';
+import { enterpriseAssistantWorkspace } from '@/lib/enterprise-assistant';
 import { ApiError } from '@/lib/errors';
 import {
   changeEnterpriseWorkspace,
@@ -30,11 +31,12 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
             access.member,
             enterpriseCommandSchema.parse(req.body)
           );
-    // Keep the large raw report on the website, not in model context.
-    if (req.query.view === 'assistant' && data.research?.evidence) {
-      data.research.evidence.report = '';
-    }
-    return res.status(200).json({ data });
+    return res.status(200).json({
+      data:
+        req.query.view === 'assistant'
+          ? enterpriseAssistantWorkspace(data)
+          : data,
+    });
   } catch (error) {
     return sendProblem(res, error);
   }
