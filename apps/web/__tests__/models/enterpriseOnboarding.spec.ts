@@ -37,6 +37,7 @@ import { ApiError } from '@/lib/errors';
 import { researchCompany } from '@/lib/enterprise-research';
 import {
   changeEnterpriseWorkspace,
+  getEnterpriseWorkspace,
   processEnterpriseResearch,
 } from 'models/enterpriseOnboarding';
 
@@ -121,7 +122,7 @@ describe('enterprise persistence and background boundaries', () => {
       changeEnterpriseWorkspace(member, {
         action: 'assign',
         version: 4,
-        stepId: 'security',
+        stepId: 'access',
         ownerId: 'outsider',
         source: 'manual',
       })
@@ -218,5 +219,77 @@ describe('enterprise persistence and background boundaries', () => {
         data: expect.objectContaining({ status: 'FAILED' }),
       })
     );
+  });
+  it('projects legacy data into five stages without writing or counting retired fields', async () => {
+    const state = initialJourney('Example');
+    state.steps.access.values.provisioning = 'Historical note';
+    state.steps.security.values.assuranceEvidence = 'Historical review';
+    state.steps.launch.completedAt = new Date().toISOString();
+    db.enterpriseOnboarding.findUnique.mockResolvedValue({
+      id: 'journey-1',
+      version: 4,
+      state: { steps: state.steps },
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      research: [],
+      events: [],
+    });
+    db.teamMember.findMany.mockResolvedValue([]);
+    const workspace = await getEnterpriseWorkspace(member);
+    expect(workspace.steps).toHaveLength(5);
+    expect(workspace.status).toBe('ACTIVE');
+    expect(workspace.steps.find((s) => s.id === 'access')?.values).toEqual({});
+    expect(workspace.metrics.manualFields).toBe(1);
+    expect(workspace.steps[0].missing).toEqual([
+      'Public company domain',
+      'Team size',
+    ]);
+    expect(workspace.boundary).toContain('retained');
+    expect(db.enterpriseOnboarding.update).not.toHaveBeenCalled();
+    expect(state.steps.launch.completedAt).not.toBeNull();
+  });
+  it('rejects old research proposals for fields retired from the simplified plan', async () => {
+    const state = initialJourney('Example');
+    state.steps.organization.values.companyDomain = 'example.com';
+    db.enterpriseOnboarding.findUnique.mockResolvedValue({
+      id: 'journey-1',
+      version: 4,
+      state,
+    });
+    db.enterpriseResearch.findFirst.mockResolvedValue({
+      ...run,
+      status: 'SUCCEEDED',
+      createdAt: new Date(),
+      acceptedIds: [],
+      result: {
+        report: 'Synthetic test evidence',
+        sources: [],
+        claims: [],
+        unknowns: [],
+        model: run.model,
+        retrievedAt: new Date().toISOString(),
+        inputTokens: 0,
+        outputTokens: 0,
+        suggestions: [
+          {
+            id: 'old-suggestion',
+            stepId: 'stakeholders',
+            fieldId: 'sponsor',
+            value: 'Example',
+            kind: 'recommendation',
+            sourceIds: [],
+          },
+        ],
+      },
+    });
+    await expect(
+      changeEnterpriseWorkspace(member, {
+        action: 'accept-suggestions',
+        version: 4,
+        source: 'manual',
+        suggestionIds: ['old-suggestion'],
+      })
+    ).rejects.toMatchObject({ status: 422 });
+    expect(db.enterpriseOnboarding.update).not.toHaveBeenCalled();
   });
 });

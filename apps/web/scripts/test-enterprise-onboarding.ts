@@ -7,9 +7,9 @@ import { enterpriseSteps } from '../lib/enterprise-onboarding';
 const database = new URL(process.env.DATABASE_URL || 'http://invalid');
 assert(
   ['localhost', '127.0.0.1'].includes(database.hostname) &&
-    database.port === '55432' &&
+    database.port === '55433' &&
     database.pathname === '/enterprise_onboarding',
-  'Use the isolated enterprise_onboarding database on localhost:55432 only.'
+  'Use the isolated enterprise_onboarding database on localhost:55433 only.'
 );
 const prisma = new PrismaClient();
 const origin = 'http://localhost:4002';
@@ -125,7 +125,7 @@ async function main() {
   const created = await api(ownerCookie, { action: 'create', version: 0 });
   assert.equal(created.status, 200);
   let workspace = created.data.data;
-  assert.equal(workspace.steps.length, 14);
+  assert.equal(workspace.steps.length, 5);
   assert.equal(
     (
       await api(memberCookie, {
@@ -208,12 +208,12 @@ async function main() {
     );
   }
   assert.equal(workspace.status, 'READY');
-  assert.equal(workspace.metrics.complete, 14);
+  assert.equal(workspace.metrics.complete, 5);
   const reopened = await api(ownerCookie, {
     action: 'save-step',
     version: workspace.version,
-    stepId: 'security',
-    values: { incidentContact: 'Revised synthetic incident team' },
+    stepId: 'access',
+    values: { roleModel: 'Revised synthetic pilot roles' },
   });
   assert.equal(reopened.status, 200);
   workspace = reopened.data.data;
@@ -354,7 +354,7 @@ async function main() {
     'Verbose reports stay out of assistant context'
   );
   console.log(
-    'PASS: authenticated API, team isolation, role/owner checks, transaction rollback, 14-stage completion, idempotent replay, stale conflicts, dependency invalidation, persistence, explicit research acceptance, durable source context, preserved attribution.'
+    'PASS: authenticated API, team isolation, role/owner checks, transaction rollback, five-stage completion, idempotent replay, stale conflicts, dependency invalidation, persistence, explicit research acceptance, durable source context, preserved attribution.'
   );
   console.log(
     'Local UI fixture: enterprise-owner@example.test / local-enterprise-test-only at http://localhost:4002/teams/enterprise-demo/enterprise-onboarding'
