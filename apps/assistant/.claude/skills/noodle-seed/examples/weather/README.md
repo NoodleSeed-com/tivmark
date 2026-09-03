@@ -7,6 +7,10 @@ Capability slots: HTTP connector authoring, ordered fulfilment flows, query/resp
 **list-returning connector output** (a connector that returns a live, variable-length array), and
 sandboxed compute, including an explicit least-privilege per-operation response-size bound.
 
+For a different API with an OpenAPI document, start with `noodle import openapi <file>` in a separate
+directory. Its shared schemas and offline test establish the contract, not live behavior; follow the
+[connector guide](https://docs.noodleseed.dev/docs/guides/connectors) before replacing this curated flow.
+
 1. **`geo.search`** → geocode the city to coordinates (Open-Meteo Geocoding API)
 2. **`forecast.current`** → fetch current weather for those coordinates (Open-Meteo Forecast API)
 3. **`brief.summarize`** → derive a human-readable briefing in a **WASM/QuickJS compute sandbox**

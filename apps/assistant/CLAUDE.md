@@ -1,5 +1,5 @@
 <!-- BEGIN NOODLE AGENT CONTEXT -->
-<!-- noodle-agent-kit:0.91.0 hash:d2f9344f119b231c -->
+<!-- noodle-agent-kit:0.95.0 hash:d2f9344f119b231c -->
 # Noodle Seed Project Context
 
 Agent target: Claude Code.
