@@ -121,3 +121,33 @@ data was written by these checks.
 OpenAPI and generated client types now describe both the full website response
 and the compact assistant response. No database migration, new Noodle release,
 provider change, or authentication change is needed for this API-side repair.
+
+## Verified production journey and activation
+
+PR #132 merged as `7bd20858fde16b5b3441f8bbc46da62e5ee3715d`; all required CI,
+including browser end-to-end tests, passed. [Deployment 33778499909](https://github.com/NoodleSeed-com/tivmark/actions/runs/33778499909)
+succeeded and moved 100% of traffic to healthy revision `tivmark-web-00099-geh`.
+
+Live verification on the signed-in demo team established:
+
+- Mark read the saved company name, all five stages, and revision 5 successfully.
+- The embedded progress widget rendered the team, stage count, saved revision,
+  research status, and the link to the full plan.
+- A draft save paused at Noodle's runtime confirmation UI. The reviewed command
+  contained only `values: {companyName: "Tivmark"}`, `save-step`, revision 5,
+  the organization stage, and the exact demo team.
+- After confirmation, the backend advanced to revision 6 and the page recorded
+  the assistant draft-save event. It still showed zero of five stages reviewed.
+- An independent before/after comparison confirmed that every stage's values,
+  origins, source references, assignments, and completion state, plus the entire
+  saved research record, were unchanged. No new research call or final sign-off
+  was performed.
+- A fresh operator status check still reported Noodle v32 active, healthy,
+  customer-only, with all required configuration present.
+
+These checks satisfy the gate for enabling the existing per-stage Mark entry
+points. The follow-up production build sets
+`NEXT_PUBLIC_ENTERPRISE_ASSISTANT_ENABLED=true`; no assistant redeployment is
+required. The entry-point unit test already verifies that opening Mark passes
+the current team/stage and read-first instruction without directly changing a
+plan. Verify the visible button once this activation build is live.
