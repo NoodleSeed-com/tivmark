@@ -655,6 +655,24 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/v1/teams/{teamId}/enterprise-onboarding': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Read durable enterprise onboarding progress and evidence */
+    get: operations['get_teams_teamId_enterprise_onboarding'];
+    put?: never;
+    /** Update enterprise onboarding with revision and role checks */
+    post: operations['post_teams_teamId_enterprise_onboarding'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1030,6 +1048,201 @@ export interface components {
       lastUsedAt: string | null;
       /** Format: date-time */
       createdAt: string;
+    };
+    EnterpriseWorkspace: {
+      id: string | null;
+      team: string;
+      teamName: string;
+      version: number;
+      status: string;
+      canManage: boolean;
+      currentUserId: string;
+      createdAt: string | null;
+      updatedAt: string | null;
+      url: string;
+      steps: {
+        /** @enum {string} */
+        id:
+          | 'organization'
+          | 'outcomes'
+          | 'stakeholders'
+          | 'research'
+          | 'security'
+          | 'privacy'
+          | 'access'
+          | 'integrations'
+          | 'migration'
+          | 'policy'
+          | 'pilot'
+          | 'enablement'
+          | 'approval'
+          | 'launch';
+        title: string;
+        owner: string;
+        description: string;
+        dependsOn: (
+          | 'organization'
+          | 'outcomes'
+          | 'stakeholders'
+          | 'research'
+          | 'security'
+          | 'privacy'
+          | 'access'
+          | 'integrations'
+          | 'migration'
+          | 'policy'
+          | 'pilot'
+          | 'enablement'
+          | 'approval'
+          | 'launch'
+        )[];
+        adminOnly: boolean;
+        fields: {
+          id: string;
+          label: string;
+          hint: string;
+          choices?: string[];
+        }[];
+        values: {
+          [key: string]: string;
+        };
+        origins: {
+          [key: string]: string;
+        };
+        evidenceRefs: {
+          [key: string]: {
+            runId: string;
+            suggestionId: string;
+            sourceUrls: string[];
+            retrievedAt: string;
+          };
+        };
+        completedAt: string | null;
+        ownerId: string | null;
+        /** @enum {string} */
+        state: 'blocked' | 'ready' | 'complete';
+        missing: string[];
+      }[];
+      members: {
+        id: string;
+        name: string;
+        role: string;
+      }[];
+      research: {
+        id: string;
+        status: string;
+        attempts: number;
+        model: string;
+        error: string | null;
+        createdAt: string;
+        evidence: {
+          report: string;
+          sources: {
+            id: string;
+            title: string;
+            /** Format: uri */
+            url: string;
+          }[];
+          claims: {
+            id: string;
+            text: string;
+            sourceIds: string[];
+          }[];
+          suggestions: {
+            id: string;
+            /** @enum {string} */
+            stepId:
+              | 'organization'
+              | 'outcomes'
+              | 'stakeholders'
+              | 'research'
+              | 'security'
+              | 'privacy'
+              | 'access'
+              | 'integrations'
+              | 'migration'
+              | 'policy'
+              | 'pilot'
+              | 'enablement'
+              | 'approval'
+              | 'launch';
+            fieldId: string;
+            value: string;
+            /** @enum {string} */
+            kind: 'sourced' | 'recommendation';
+            sourceIds: string[];
+          }[];
+          unknowns: string[];
+          model: string;
+          retrievedAt: string;
+          inputTokens: number;
+          outputTokens: number;
+        } | null;
+        acceptedIds: string[];
+        stale: boolean;
+      } | null;
+      metrics: {
+        complete: number;
+        total: number;
+        manualFields: number;
+        assistedFields: number;
+        blockers: number;
+      };
+      events: {
+        id: string;
+        actor: string;
+        message: string;
+        createdAt: string;
+      }[];
+      researchAvailable: boolean;
+      nextAction: string;
+      boundary: string;
+    };
+    EnterpriseCommand: {
+      /** @enum {string} */
+      action:
+        | 'create'
+        | 'save-step'
+        | 'complete-step'
+        | 'reopen-step'
+        | 'assign'
+        | 'start-research'
+        | 'cancel-research'
+        | 'accept-suggestions';
+      version: number;
+      /** @enum {string} */
+      stepId?:
+        | 'organization'
+        | 'outcomes'
+        | 'stakeholders'
+        | 'research'
+        | 'security'
+        | 'privacy'
+        | 'access'
+        | 'integrations'
+        | 'migration'
+        | 'policy'
+        | 'pilot'
+        | 'enablement'
+        | 'approval'
+        | 'launch';
+      values?: {
+        [key: string]: string;
+      };
+      /** Format: uuid */
+      ownerId?: string | null;
+      /**
+       * @default manual
+       * @enum {string}
+       */
+      source: 'manual' | 'assistant';
+      suggestionIds?: string[];
+      /** @enum {boolean} */
+      researchConsent?: true;
+      researchIdentity?: {
+        companyName: string;
+        companyDomain: string;
+      };
     };
   };
   responses: never;
@@ -6721,6 +6934,193 @@ export interface operations {
             data: components['schemas']['Credential'] & {
               apiKey: string;
             };
+          };
+        };
+      };
+      /** @description Invalid request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+      /** @description Insufficient permissions */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+      /** @description Resource not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+      /** @description Resource conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+      /** @description Validation failed */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+      /** @description Rate limit exceeded */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
+  get_teams_teamId_enterprise_onboarding: {
+    parameters: {
+      query?: {
+        /** @description Omit raw report text from model context; complete evidence remains on the website. */
+        view?: 'assistant';
+      };
+      header?: never;
+      path: {
+        teamId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Authoritative enterprise-readiness workspace */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            data: components['schemas']['EnterpriseWorkspace'];
+          };
+        };
+      };
+      /** @description Invalid request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+      /** @description Insufficient permissions */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+      /** @description Resource not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+      /** @description Resource conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+      /** @description Validation failed */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+      /** @description Rate limit exceeded */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
+  post_teams_teamId_enterprise_onboarding: {
+    parameters: {
+      query?: {
+        /** @description Omit raw report text from model context; complete evidence remains on the website. */
+        view?: 'assistant';
+      };
+      header?: {
+        /** @description Unique retry key. Reusing it with the same body returns the original response for 24 hours. */
+        'Idempotency-Key'?: string;
+      };
+      path: {
+        teamId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        'application/json': components['schemas']['EnterpriseCommand'];
+      };
+    };
+    responses: {
+      /** @description Authoritative enterprise-readiness workspace */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            data: components['schemas']['EnterpriseWorkspace'];
           };
         };
       };

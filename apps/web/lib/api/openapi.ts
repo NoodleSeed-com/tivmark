@@ -4,6 +4,10 @@ import {
   extendZodWithOpenApi,
 } from '@asteasolutions/zod-to-openapi';
 import { z } from 'zod';
+import {
+  enterpriseCommandSchema,
+  enterpriseWorkspaceSchema,
+} from '../enterprise-onboarding';
 
 extendZodWithOpenApi(z);
 
@@ -1270,7 +1274,50 @@ const operationIdFor = (method: string, path: string) =>
     .replace(/[^a-zA-Z0-9]+/g, '_')
     .replace(/^_|_$/g, '')}`;
 
+for (const method of ['get', 'post'] as const) {
+  registry.registerPath({
+    method,
+    path: '/api/v1/teams/{teamId}/enterprise-onboarding',
+    tags: ['Onboarding'],
+    summary:
+      method === 'get'
+        ? 'Read durable enterprise onboarding progress and evidence'
+        : 'Update enterprise onboarding with revision and role checks',
+    security,
+    request: {
+      params: teamParams,
+      query: z.object({
+        view: z
+          .literal('assistant')
+          .optional()
+          .describe(
+            'Omit raw report text from model context; complete evidence remains on the website.'
+          ),
+      }),
+      ...(method === 'post'
+        ? {
+            body: {
+              content: json(
+                enterpriseCommandSchema.openapi('EnterpriseCommand')
+              ),
+            },
+          }
+        : {}),
+    },
+    responses: {
+      200: {
+        description: 'Authoritative enterprise-readiness workspace',
+        content: json(
+          data(enterpriseWorkspaceSchema.openapi('EnterpriseWorkspace'))
+        ),
+      },
+      ...problemResponses,
+    },
+  });
+}
+
 const idempotentPaths = new Set([
+  '/api/v1/teams/{teamId}/enterprise-onboarding',
   '/api/v1/onboarding/complete',
   '/api/v1/teams/{teamId}/new-hire-launches',
   '/api/v1/teams',

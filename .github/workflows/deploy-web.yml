@@ -15,6 +15,9 @@ env:
   SERVICE_NAME: tivmark-web
   IMAGE_NAME: web
   CLOUD_SQL_CONNECTION_NAME: tivmark-app:us-central1:tivmark-app-db
+  ONBOARDING_RESEARCH_QUEUE: onboarding-research
+  ONBOARDING_RESEARCH_SERVICE_ACCOUNT: onboarding-research@tivmark-app.iam.gserviceaccount.com
+  ONBOARDING_RESEARCH_MODEL: gemini-3.8-flash
 
 jobs:
   deploy:
@@ -62,6 +65,14 @@ jobs:
       - name: Configure Docker auth
         run: gcloud auth configure-docker "${GCP_REGION}-docker.pkg.dev" --quiet
 
+      # Provision this bounded queue and workload IAM separately before enabling the release.
+      # Refuse to deploy a UI advertising research when its durable delivery queue is missing.
+      - name: Verify onboarding research queue
+        run: |
+          QUEUE_STATE="$(gcloud tasks queues describe "${ONBOARDING_RESEARCH_QUEUE}" \
+            --project "${GCP_PROJECT_ID}" --location "${GCP_REGION}" --format='value(state)')"
+          test "${QUEUE_STATE}" = RUNNING
+
       # Apply schema.prisma to the prod Cloud SQL DB. This repo manages schema via `db push`
       # (prisma/migrations/ is frozen at 2024), and nothing else in the deploy path syncs the DB —
       # so without this a new model 500s in prod with "table does not exist". Runs before the Cloud
@@ -97,7 +108,7 @@ jobs:
             --tag candidate \
             --port 4002 \
             --add-cloudsql-instances "${CLOUD_SQL_CONNECTION_NAME}" \
-            --set-env-vars "NEXTAUTH_URL=https://app.tivmark.com,APP_URL=https://app.tivmark.com,NEXTAUTH_SESSION_STRATEGY=jwt,AUTH_PROVIDERS=credentials,HIDE_LANDING_PAGE=false,FEATURE_TEAM_WEBHOOK=false,FEATURE_TEAM_PAYMENTS=false,NOODLE_ASSISTANT_SERVICE_URL=https://cloud.noodleseed.dev,NOODLE_ASSISTANT_CLIENT_ID=embed_0b8a5f33-1bf3-4d65-99bb-2853142e664e,ASSISTANT_DELEG_CLIENT_ID=tivmark-assistant-deleg,NOODLE_PLATFORM_ISSUER=https://cloud.noodleseed.dev" \
+            --set-env-vars "NEXTAUTH_URL=https://app.tivmark.com,APP_URL=https://app.tivmark.com,NEXTAUTH_SESSION_STRATEGY=jwt,AUTH_PROVIDERS=credentials,HIDE_LANDING_PAGE=false,FEATURE_TEAM_WEBHOOK=false,FEATURE_TEAM_PAYMENTS=false,NOODLE_ASSISTANT_SERVICE_URL=https://cloud.noodleseed.dev,NOODLE_ASSISTANT_CLIENT_ID=embed_0b8a5f33-1bf3-4d65-99bb-2853142e664e,ASSISTANT_DELEG_CLIENT_ID=tivmark-assistant-deleg,NOODLE_PLATFORM_ISSUER=https://cloud.noodleseed.dev,ONBOARDING_RESEARCH_PROJECT=${GCP_PROJECT_ID},ONBOARDING_RESEARCH_QUEUE=${ONBOARDING_RESEARCH_QUEUE},ONBOARDING_RESEARCH_SERVICE_ACCOUNT=${ONBOARDING_RESEARCH_SERVICE_ACCOUNT},ONBOARDING_RESEARCH_MODEL=${ONBOARDING_RESEARCH_MODEL}" \
             --set-secrets "DATABASE_URL=database-url:latest,NEXTAUTH_SECRET=nextauth-secret:latest,OAUTH_PRIVATE_JWK=oauth-private-jwk:latest,NOODLE_ASSISTANT_CLIENT_SECRET=noodle-assistant-client-secret:latest,ASSISTANT_DELEG_CLIENT_SECRET=assistant-deleg-client-secret:latest"
 
       # A green build does not mean a working app. `npm run build-ci` compiles, and Cloud Run's health

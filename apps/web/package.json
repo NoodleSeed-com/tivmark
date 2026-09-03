@@ -52,6 +52,7 @@
     "cookies-next": "6.1.1",
     "currency-symbol-map": "5.1.0",
     "formik": "2.4.9",
+    "google-auth-library": "^11.0.2",
     "i18next": "25.10.10",
     "jose": "^6.2.9",
     "micromatch": "4.0.8",

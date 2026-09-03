@@ -145,6 +145,14 @@ export default function OnboardingPage({
           </ol>
 
           <div className="mt-6 flex flex-wrap gap-3">
+            {team ? (
+              <Link
+                className="btn btn-outline"
+                href={`/teams/${team.slug}/enterprise-onboarding`}
+              >
+                {t('enterprise-launch')}
+              </Link>
+            ) : null}
             {!complete ? (
               <button
                 type="button"

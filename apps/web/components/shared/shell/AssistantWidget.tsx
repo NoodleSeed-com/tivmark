@@ -53,16 +53,21 @@ export default function AssistantWidget() {
       theme={resolvedTheme}
       appearance={ASSISTANT_APPEARANCE}
       pageContext={
-        router.pathname === '/onboarding'
+        router.pathname.includes('enterprise-onboarding')
           ? {
               route: router.asPath.split('?')[0],
-              surface: 'business_onboarding',
-              onboardingStage: 'review_and_confirm',
+              surface: 'enterprise_onboarding',
             }
-          : {
-              route: router.asPath.split('?')[0],
-              surface: 'application',
-            }
+          : router.pathname === '/onboarding'
+            ? {
+                route: router.asPath.split('?')[0],
+                surface: 'business_onboarding',
+                onboardingStage: 'review_and_confirm',
+              }
+            : {
+                route: router.asPath.split('?')[0],
+                surface: 'application',
+              }
       }
       onEvent={(event) => {
         // The service resumes the question that triggered sign-in as the session's first turn
