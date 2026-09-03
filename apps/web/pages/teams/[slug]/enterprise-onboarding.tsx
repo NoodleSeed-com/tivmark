@@ -7,7 +7,7 @@ export default function EnterpriseOnboardingPage() {
   return (
     <>
       <Head>
-        <title>Enterprise launch | Tivmark</title>
+        <title>Five-stage onboarding | Tivmark</title>
       </Head>
       <EnterpriseWorkspace />
     </>

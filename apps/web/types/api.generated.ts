@@ -1102,6 +1102,7 @@ export interface components {
           label: string;
           hint: string;
           choices?: string[];
+          optional?: boolean;
         }[];
         values: {
           [key: string]: string;

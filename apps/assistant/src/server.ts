@@ -2534,7 +2534,7 @@ function createAgentGuide(): AgentGuideSource {
         id: 'enterprise_readiness',
         title: 'Complete an enterprise-readiness journey',
         intent:
-          'Help a team complete a durable fourteen-stage B2B onboarding plan, using optional cited research and human approvals.',
+          'Help a team complete a five-stage B2B onboarding plan: Company, Goals, Basic setup, Optional research, and Review & finish. Research can be skipped by completing its review step without running a query. Read the returned fields and requirements; never infer that external setup has been performed.',
         steps: [
           {
             capability: { kind: 'tool', name: 'my_teams' },

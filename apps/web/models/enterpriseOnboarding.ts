@@ -8,7 +8,8 @@ import {
   enterpriseWorkspaceSchema,
   evidenceSchema,
   initialJourney,
-  journeyStateSchema,
+  currentJourney,
+  isCurrentField,
   type EnterpriseCommand,
 } from '@/lib/enterprise-onboarding';
 import {
@@ -23,7 +24,7 @@ type Member = TeamMember & { team: Team; user: User };
 const admin = (member: Member) => ['ADMIN', 'OWNER'].includes(member.role);
 const json = (value: unknown) => value as Prisma.InputJsonValue;
 const boundary =
-  'This is an evidence-backed readiness plan. External SSO, legal approval, integration setup, migration, and production cutover are not performed by completing these stages.';
+  'This saves an onboarding plan. It does not configure SSO, grant legal approval, connect systems, migrate data, or perform production cutover.';
 
 export async function getEnterpriseWorkspace(member: Member) {
   const [journey, members] = await Promise.all([
@@ -42,19 +43,34 @@ export async function getEnterpriseWorkspace(member: Member) {
     }),
   ]);
   const state = journey
-    ? journeyStateSchema.parse(journey.state)
+    ? currentJourney(journey.state)
     : initialJourney(member.team.name);
   const steps = enterpriseSteps.map((step) => ({
     ...step,
     adminOnly: step.adminOnly ?? false,
     ...state.steps[step.id],
+    values: Object.fromEntries(
+      Object.entries(state.steps[step.id].values).filter(([id]) =>
+        isCurrentField(step.id, id)
+      )
+    ),
+    origins: Object.fromEntries(
+      Object.entries(state.steps[step.id].origins).filter(([id]) =>
+        isCurrentField(step.id, id)
+      )
+    ),
+    evidenceRefs: Object.fromEntries(
+      Object.entries(state.steps[step.id].evidenceRefs).filter(([id]) =>
+        isCurrentField(step.id, id)
+      )
+    ),
     state: state.steps[step.id].completedAt
       ? ('complete' as const)
       : step.dependsOn.some((id) => !state.steps[id].completedAt)
         ? ('blocked' as const)
         : ('ready' as const),
     missing: step.fields
-      .filter((f) => !state.steps[step.id].values[f.id]?.trim())
+      .filter((f) => !f.optional && !state.steps[step.id].values[f.id]?.trim())
       .map((f) => f.label),
   }));
   const run = journey?.research[0];
@@ -68,7 +84,7 @@ export async function getEnterpriseWorkspace(member: Member) {
       Date.now() - run.createdAt.getTime() > 7 * 86400000)
   );
   const result = evidenceSchema.safeParse(run?.result);
-  const origins = Object.values(state.steps).flatMap((s) =>
+  const origins = steps.flatMap((s) =>
     Object.entries(s.values)
       .filter(([, value]) => value.trim())
       .map(([key]) => s.origins[key] ?? 'manual')
@@ -102,7 +118,14 @@ export async function getEnterpriseWorkspace(member: Member) {
           model: run.model,
           error: run.error,
           createdAt: run.createdAt.toISOString(),
-          evidence: result.success ? result.data : null,
+          evidence: result.success
+            ? {
+                ...result.data,
+                suggestions: result.data.suggestions.filter((s) =>
+                  isCurrentField(s.stepId, s.fieldId)
+                ),
+              }
+            : null,
           acceptedIds: run.acceptedIds,
           stale,
         }
@@ -124,7 +147,11 @@ export async function getEnterpriseWorkspace(member: Member) {
     nextAction:
       steps.find((s) => s.state === 'ready')?.title ??
       'Readiness plan approved. Coordinate the actual production cutover with your launch owner.',
-    boundary,
+    boundary:
+      boundary +
+      (state.previousSteps
+        ? ' Earlier detailed-plan notes and approvals are retained in storage; the five-stage plan requires fresh review.'
+        : ''),
   });
 }
 
@@ -151,7 +178,7 @@ export async function changeEnterpriseWorkspace(
           create: {
             actor: member.user.name,
             actorId: member.userId,
-            message: 'Started the enterprise-readiness journey.',
+            message: 'Started the five-stage onboarding plan.',
           },
         },
       },
@@ -178,7 +205,7 @@ export async function changeEnterpriseWorkspace(
         409,
         'This plan changed. Refresh and review the latest version before saving.'
       );
-    let state = journeyStateSchema.parse(journey.state);
+    let state = currentJourney(journey.state);
     let message = '';
     if (
       ['save-step', 'complete-step', 'reopen-step', 'assign'].includes(
@@ -309,6 +336,11 @@ export async function changeEnterpriseWorkspace(
           const suggestion = evidence.suggestions.find((s) => s.id === id);
           if (!suggestion)
             throw new ApiError(422, 'Unknown research suggestion');
+          if (!isCurrentField(suggestion.stepId, suggestion.fieldId))
+            throw new ApiError(
+              422,
+              'This suggestion belongs to the earlier detailed plan. Refresh to review current suggestions.'
+            );
           if (run.acceptedIds.includes(id)) continue;
           applied += 1;
           state.steps[suggestion.stepId].values[suggestion.fieldId] =

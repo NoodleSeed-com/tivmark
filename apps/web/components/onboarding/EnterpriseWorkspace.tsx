@@ -41,6 +41,7 @@ function StageEditor({
   assisted,
   reportError,
   onDirtyChange,
+  onContinue,
 }: {
   stage: Stage;
   workspace: EnterpriseWorkspaceData;
@@ -48,6 +49,7 @@ function StageEditor({
   assisted: boolean;
   reportError: (s: string) => void;
   onDirtyChange: (dirty: boolean) => void;
+  onContinue: () => void;
 }) {
   const [values, setValues] = useState(stage.values);
   const [version, setVersion] = useState(workspace.version);
@@ -86,6 +88,8 @@ function StageEditor({
         source: 'manual',
       });
       setDirty(false);
+      onDirtyChange(false);
+      if (action === 'complete-step') onContinue();
     } catch (error) {
       reportError(error instanceof Error ? error.message : 'Could not save');
     } finally {
@@ -128,42 +132,47 @@ function StageEditor({
           .
         </p>
       )}
-      <div className="mt-4 flex flex-wrap items-center gap-2 text-sm">
-        <label htmlFor={`owner-${stage.id}`} className="text-ui-muted">
-          Assigned to
-        </label>
-        <select
-          id={`owner-${stage.id}`}
-          className="select select-bordered select-sm max-w-full"
-          value={stage.ownerId ?? ''}
-          disabled={!workspace.canManage || busy || dirty}
-          onChange={async (e) => {
-            setBusy(true);
-            try {
-              await change({
-                action: 'assign',
-                version: workspace.version,
-                stepId: stage.id,
-                ownerId: e.target.value || null,
-                source: 'manual',
-              });
-            } catch (error) {
-              reportError(
-                error instanceof Error ? error.message : 'Assignment failed'
-              );
-            } finally {
-              setBusy(false);
-            }
-          }}
-        >
-          <option value="">Unassigned</option>
-          {workspace.members.map((m) => (
-            <option key={m.id} value={m.id}>
-              {m.name} · {m.role.toLowerCase()}
-            </option>
-          ))}
-        </select>
-      </div>
+      <details className="mt-4 text-sm">
+        <summary className="cursor-pointer text-ui-muted">
+          Assign this step to a teammate
+        </summary>
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <label htmlFor={`owner-${stage.id}`} className="text-ui-muted">
+            Assigned to
+          </label>
+          <select
+            id={`owner-${stage.id}`}
+            className="select select-bordered select-sm max-w-full"
+            value={stage.ownerId ?? ''}
+            disabled={!workspace.canManage || busy || dirty}
+            onChange={async (e) => {
+              setBusy(true);
+              try {
+                await change({
+                  action: 'assign',
+                  version: workspace.version,
+                  stepId: stage.id,
+                  ownerId: e.target.value || null,
+                  source: 'manual',
+                });
+              } catch (error) {
+                reportError(
+                  error instanceof Error ? error.message : 'Assignment failed'
+                );
+              } finally {
+                setBusy(false);
+              }
+            }}
+          >
+            <option value="">Unassigned</option>
+            {workspace.members.map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.name} · {m.role.toLowerCase()}
+              </option>
+            ))}
+          </select>
+        </div>
+      </details>
       {assisted && (
         <button
           type="button"
@@ -192,7 +201,9 @@ function StageEditor({
               htmlFor={`field-${f.id}`}
             >
               {f.label}{' '}
-              <span className="font-normal text-ui-muted">· required</span>
+              <span className="font-normal text-ui-muted">
+                · {f.optional ? 'optional' : 'required'}
+              </span>
             </label>
             {f.choices ? (
               <select
@@ -213,7 +224,8 @@ function StageEditor({
             ) : (
               <textarea
                 id={`field-${f.id}`}
-                className="textarea textarea-bordered min-h-[80px] w-full text-sm"
+                className="textarea textarea-bordered min-h-[60px] w-full text-sm"
+                rows={2}
                 value={values[f.id] ?? ''}
                 maxLength={2000}
                 disabled={!canEdit || busy}
@@ -298,9 +310,21 @@ function StageEditor({
                 : stage.completedAt
                   ? 'Reopen for review'
                   : stage.id === 'launch'
-                    ? 'Approve readiness plan'
-                    : 'Reviewed — complete stage'}
+                    ? 'Finish onboarding plan'
+                    : stage.id === 'research' && !workspace.research?.evidence
+                      ? 'Continue without research'
+                      : 'Save & continue'}
             </button>
+            {stage.completedAt && stage.id !== 'launch' && (
+              <button
+                className="btn btn-primary"
+                type="button"
+                disabled={busy || dirty}
+                onClick={onContinue}
+              >
+                Next step
+              </button>
+            )}
             {dirty && (
               <button
                 className="btn btn-ghost"
@@ -313,9 +337,8 @@ function StageEditor({
           </div>
         )}
         <p className="text-xs leading-5 text-ui-muted">
-          Saving changed evidence requires fresh review of dependent sign-offs.
-          Completing a stage records your attestation; it does not execute work
-          in another system.
+          Changes are saved for your team. Editing a reviewed step reopens the
+          final review. Finishing this plan does not change external systems.
         </p>
       </form>
     </section>
@@ -386,17 +409,16 @@ function ResearchPanel({
         id="research-title"
         className="mt-2 font-serif text-2xl text-ui-heading"
       >
-        Research once. Review the evidence.
+        Let Google draft the company context
       </h2>
       <p className="mt-3 text-sm font-semibold text-ui-heading">
         Research target: {organization.companyName || 'Company name not saved'}{' '}
         · {organization.companyDomain || 'Public domain not saved'}
       </p>
       <p className="mt-3 text-sm leading-6 text-ui-muted">
-        Analyze the supplied public company homepage, then review suggested
-        fields. This is website analysis, not broad web search. Competitors and
-        customer claims may remain unknown. Internal onboarding data is not sent
-        to Google. Nothing is accepted or marked complete automatically.
+        Optional: analyze the public company homepage and choose which
+        suggestions to keep. Nothing is accepted automatically. You can also
+        skip this and continue below.
       </p>
       {!running && workspace.canManage && (
         <div className="mt-5 space-y-3">
@@ -408,15 +430,25 @@ function ResearchPanel({
               onChange={(e) => setConsent(e.target.checked)}
             />
             <span>
-              I authorize sending the saved public company name and domain to
-              Google to analyze its public homepage. The URL and public page
-              content are handled by Google as Service Data; do not provide
-              confidential or internal domains. Up to two model calls per
-              attempt, three attempts per run, and three runs per team per 24
-              hours. Cloud billing charges may apply; credit eligibility depends
-              on the billing grant.
+              I agree to send the saved public company name and domain to Google
+              for homepage analysis. Do not provide confidential or internal
+              domains. Cloud charges may apply.
             </span>
           </label>
+          <details className="text-xs leading-5 text-ui-muted">
+            <summary className="cursor-pointer">
+              Data handling and usage limits
+            </summary>
+            <p className="mt-2">
+              Only the company name and domain are sent, not your internal
+              onboarding answers. Google handles the URL and public page content
+              as Service Data. This is homepage analysis, not broad web search;
+              competitors and customers may remain unknown. Up to two model
+              calls per attempt, three attempts per run, and three runs per team
+              per 24 hours. Credit eligibility depends on your Google Cloud
+              billing grant.
+            </p>
+          </details>
           <button
             className="btn btn-primary"
             type="button"
@@ -522,7 +554,11 @@ function ResearchPanel({
                   />
                   <span className="min-w-0 flex-1">
                     <span className="block text-xs font-semibold uppercase tracking-wide text-ui-accent">
-                      {s.stepId} · {s.fieldId} ·{' '}
+                      {workspace.steps
+                        .find((step) => step.id === s.stepId)
+                        ?.fields.find((f) => f.id === s.fieldId)?.label ??
+                        s.fieldId}{' '}
+                      ·{' '}
                       {research?.acceptedIds.includes(s.id)
                         ? 'accepted into draft'
                         : s.kind === 'sourced'
@@ -623,6 +659,58 @@ function ResearchPanel({
   );
 }
 
+function ReviewSummary({ workspace }: { workspace: EnterpriseWorkspaceData }) {
+  return (
+    <section
+      className="border border-ui-border bg-ui-surface p-5 sm:p-7"
+      aria-labelledby="review-summary-title"
+    >
+      <h2
+        id="review-summary-title"
+        className="font-serif text-2xl text-ui-heading"
+      >
+        Your plan at a glance
+      </h2>
+      <p className="mt-2 text-sm text-ui-muted">
+        Check these saved choices before finishing. Use the steps above to
+        change anything.
+      </p>
+      <div className="mt-5 grid gap-5 sm:grid-cols-2">
+        {workspace.steps
+          .filter((s) => s.id !== 'launch')
+          .map((s) => (
+            <div key={s.id}>
+              <h3 className="font-semibold text-ui-heading">{s.title}</h3>
+              {s.id === 'research' &&
+                !Object.values(s.values).some((value) => value.trim()) && (
+                  <p className="mt-2 text-sm text-ui-muted">
+                    No context notes added. Research is optional.
+                  </p>
+                )}
+              <dl className="mt-2 space-y-2">
+                {s.fields
+                  .filter((f) => s.values[f.id]?.trim())
+                  .map((f) => (
+                    <div key={f.id}>
+                      <dt className="text-xs text-ui-muted">
+                        {f.label}
+                        {s.origins[f.id] === 'research'
+                          ? ' · reviewed research'
+                          : ''}
+                      </dt>
+                      <dd className="whitespace-pre-wrap break-words text-sm text-ui-text">
+                        {s.values[f.id]}
+                      </dd>
+                    </div>
+                  ))}
+              </dl>
+            </div>
+          ))}
+      </div>
+    </section>
+  );
+}
+
 export default function EnterpriseWorkspace() {
   const router = useRouter();
   const slug =
@@ -630,14 +718,16 @@ export default function EnterpriseWorkspace() {
   const { workspace, error, isLoading, change, refresh } =
     useEnterpriseOnboarding(slug);
   const [selected, setSelected] = useState('organization');
-  const [assisted, setAssisted] = useState(true);
+  // Enable only after the matching Noodle tools are published and live-tested.
+  const assisted =
+    process.env.NEXT_PUBLIC_ENTERPRISE_ASSISTANT_ENABLED === 'true';
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
   const [draftDirty, setDraftDirty] = useState(false);
   if (isLoading)
     return (
       <p role="status" className="p-8 text-ui-muted">
-        Loading enterprise onboarding…
+        Loading onboarding…
       </p>
     );
   if (error || !workspace)
@@ -656,95 +746,70 @@ export default function EnterpriseWorkspace() {
     );
   const stage =
     workspace.steps.find((s) => s.id === selected) ?? workspace.steps[0];
+  const nextStage =
+    workspace.steps[workspace.steps.findIndex((s) => s.id === stage.id) + 1];
+  function navigate(id: string) {
+    if (draftDirty && id !== selected) {
+      setMessage('Save or discard your current draft before switching steps.');
+      return;
+    }
+    setSelected(id);
+    setMessage('');
+  }
   return (
-    <div className="mx-auto max-w-7xl space-y-6 pb-8">
+    <div className="mx-auto max-w-5xl space-y-5 pb-8">
       <header className="border border-ui-border bg-ui-surface p-6 sm:p-8">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ui-accent">
-              Enterprise launch · {workspace.teamName}
-            </p>
-            <h1 className="mt-2 font-serif text-3xl text-ui-heading sm:text-4xl">
-              Complex setup. One clear path.
-            </h1>
-            <p className="mt-3 max-w-2xl text-sm leading-6 text-ui-muted">
-              Fourteen readiness stages, multiple owners, and one shared plan.
-              Complete the same requirements yourself or let Mark help with
-              context, drafts, and the next action.
-            </p>
-          </div>
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ui-accent">
+          Onboarding · {workspace.teamName}
+        </p>
+        <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
+          <h1 className="font-serif text-3xl text-ui-heading sm:text-4xl">
+            Five steps. One shared plan.
+          </h1>
           <span className="border border-ui-border px-3 py-1.5 text-xs font-semibold text-ui-heading">
             {workspace.status === 'READY'
-              ? 'Readiness approved'
+              ? 'Plan complete'
               : workspace.id
                 ? 'In progress'
                 : 'Ready to begin'}
           </span>
         </div>
-        <div className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
-          {[
-            [
-              `${workspace.metrics.complete}/${workspace.metrics.total}`,
-              'Stages reviewed',
-            ],
-            [String(workspace.metrics.manualFields), 'Fields entered manually'],
-            [
-              String(workspace.metrics.assistedFields),
-              'Fields entered with assistance',
-            ],
-            [
-              String(workspace.metrics.blockers),
-              'Stages awaiting prerequisites',
-            ],
-          ].map(([value, label]) => (
-            <div
-              key={label}
-              className="border border-ui-border bg-ui-canvas p-4"
-            >
-              <p className="text-2xl font-semibold text-ui-heading">{value}</p>
-              <p className="mt-1 text-xs text-ui-muted">{label}</p>
-            </div>
-          ))}
-        </div>
-        <p className="mt-3 text-xs text-ui-muted">
-          Observed counts from this plan—not a claimed time-saving benchmark.{' '}
-          {workspace.createdAt
-            ? `Started ${new Date(workspace.createdAt).toLocaleString()}.`
-            : ''}
+        <p className="mt-3 max-w-2xl text-sm leading-6 text-ui-muted">
+          Your company, goals, setup choices, optional research, and a final
+          review. Save as you go; there is no security, migration, or rollout
+          checklist to work through here.
         </p>
         {workspace.id && (
-          <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
-            <div
-              className="inline-flex border border-ui-border p-1"
-              role="group"
-              aria-label="Onboarding mode"
-            >
+          <>
+            <div className="mt-5 flex flex-wrap items-center justify-between gap-3 text-sm">
+              <p className="font-semibold text-ui-heading">
+                {workspace.metrics.complete} of {workspace.metrics.total} steps
+                reviewed
+              </p>
               <button
                 type="button"
-                aria-pressed={!assisted}
-                className={`btn btn-sm ${!assisted ? 'btn-primary' : 'btn-ghost'}`}
-                onClick={() => setAssisted(false)}
+                className="btn btn-ghost btn-sm"
+                onClick={() => void refresh()}
               >
-                Manual
-              </button>
-              <button
-                type="button"
-                aria-pressed={assisted}
-                className={`btn btn-sm ${assisted ? 'btn-primary' : 'btn-ghost'}`}
-                onClick={() => setAssisted(true)}
-              >
-                With Mark
+                <ArrowPathIcon className="h-4 w-4" /> Refresh saved plan
               </button>
             </div>
-            <button
-              type="button"
-              className="btn btn-ghost btn-sm"
-              onClick={() => void refresh()}
+            <div
+              className="mt-2 h-1.5 bg-ui-canvas"
+              role="progressbar"
+              aria-label="Onboarding progress"
+              aria-valuenow={workspace.metrics.complete}
+              aria-valuemin={0}
+              aria-valuemax={workspace.metrics.total}
             >
-              <ArrowPathIcon className="h-4 w-4" />
-              Refresh saved plan
-            </button>
-          </div>
+              <div
+                className="h-full bg-ui-accent transition-all"
+                style={{
+                  width: `${(workspace.metrics.complete / workspace.metrics.total) * 100}%`,
+                }}
+              />
+            </div>
+          </>
         )}
       </header>
       {message && (
@@ -758,12 +823,12 @@ export default function EnterpriseWorkspace() {
       {!workspace.id ? (
         <section className="border border-ui-border bg-ui-surface p-8">
           <h2 className="font-serif text-2xl text-ui-heading">
-            Start with a durable launch plan
+            Start your onboarding plan
           </h2>
           <p className="mt-3 max-w-2xl text-sm leading-6 text-ui-muted">
-            Progress is saved for your team across sessions. Research is opt-in.
-            Assign stages to existing members; administrators retain final
-            sign-off. No external systems are changed.
+            Ten required answers across five steps. Research is optional,
+            progress is saved, and an administrator reviews the final plan. No
+            external systems are changed.
           </p>
           <button
             className="btn btn-primary mt-5"
@@ -784,7 +849,7 @@ export default function EnterpriseWorkspace() {
               }
             }}
           >
-            {busy ? 'Creating…' : 'Create enterprise launch plan'}
+            {busy ? 'Creating…' : 'Start onboarding'}
           </button>
           {!workspace.canManage && (
             <p className="mt-3 text-sm">
@@ -794,102 +859,72 @@ export default function EnterpriseWorkspace() {
         </section>
       ) : (
         <>
-          {assisted && (
-            <div className="flex flex-wrap items-center justify-between gap-4 border border-ui-accent/30 bg-ui-accent/5 p-5">
-              <div>
-                <p className="text-sm font-semibold text-ui-heading">
-                  Next useful action: {workspace.nextAction}
-                </p>
-                <p className="mt-1 text-xs text-ui-muted">
-                  Mark reads the saved plan, helps fill gaps, and asks for
-                  confirmation before changes.
-                </p>
-              </div>
-              <button
-                type="button"
-                className="btn btn-primary btn-sm"
-                onClick={() =>
-                  void askMark(workspace.team).catch((e) =>
-                    setMessage(e.message)
-                  )
-                }
-              >
-                <SparklesIcon className="h-4 w-4" />
-                Continue with Mark
-              </button>
-            </div>
-          )}
-          <div className="grid items-start gap-5 lg:grid-cols-[260px_minmax(0,1fr)]">
-            <nav
-              className="border border-ui-border bg-ui-surface p-3"
-              aria-label="Readiness stages"
-            >
-              <ol className="space-y-1">
-                {workspace.steps.map((s, i) => (
-                  <li key={s.id}>
-                    <button
-                      type="button"
-                      className={`flex w-full items-start gap-3 p-3 text-left text-sm ${selected === s.id ? 'bg-ui-accent/10 text-ui-heading' : 'text-ui-muted hover:bg-ui-canvas'}`}
-                      aria-current={selected === s.id ? 'step' : undefined}
-                      onClick={() => {
-                        if (draftDirty && s.id !== selected) {
-                          setMessage(
-                            'Save or discard your current draft before switching stages.'
-                          );
-                          return;
-                        }
-                        setSelected(s.id);
-                        setMessage('');
-                      }}
-                    >
-                      {s.state === 'complete' ? (
-                        <CheckCircleIcon className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" />
-                      ) : s.state === 'blocked' ? (
-                        <LockClosedIcon className="mt-0.5 h-5 w-5 shrink-0" />
-                      ) : (
-                        <span className="w-5 shrink-0 text-center font-semibold">
-                          {i + 1}
-                        </span>
-                      )}
-                      <span>
-                        <span className="block font-medium">{s.title}</span>
-                        <span className="mt-0.5 block text-[11px]">
-                          {s.ownerId
-                            ? workspace.members.find((m) => m.id === s.ownerId)
-                                ?.name
-                            : s.owner}{' '}
-                          · {s.state}
-                        </span>
+          <nav
+            aria-label="Onboarding steps"
+            className="border border-ui-border bg-ui-surface p-2"
+          >
+            <ol className="grid grid-cols-2 gap-1 sm:grid-cols-5">
+              {workspace.steps.map((s, i) => (
+                <li key={s.id}>
+                  <button
+                    type="button"
+                    className={`flex h-full w-full items-start gap-2 p-3 text-left text-sm ${stage.id === s.id ? 'bg-ui-accent/10 text-ui-heading' : 'text-ui-muted hover:bg-ui-canvas'}`}
+                    aria-current={stage.id === s.id ? 'step' : undefined}
+                    onClick={() => navigate(s.id)}
+                  >
+                    {s.state === 'complete' ? (
+                      <CheckCircleIcon className="h-5 w-5 shrink-0 text-emerald-600" />
+                    ) : s.state === 'blocked' ? (
+                      <LockClosedIcon className="h-5 w-5 shrink-0" />
+                    ) : (
+                      <span className="w-5 shrink-0 text-center font-semibold">
+                        {i + 1}
                       </span>
-                    </button>
-                  </li>
-                ))}
-              </ol>
-            </nav>
-            <div className="min-w-0 space-y-5">
-              {selected === 'research' && (
-                <ResearchPanel
-                  workspace={workspace}
-                  change={change}
-                  reportError={setMessage}
-                />
-              )}
-              <StageEditor
-                onDirtyChange={setDraftDirty}
-                key={stage.id}
-                stage={stage}
-                workspace={workspace}
-                change={change}
-                assisted={assisted}
-                reportError={setMessage}
-              />
-            </div>
-          </div>
+                    )}
+                    <span className="font-medium">{s.title}</span>
+                  </button>
+                </li>
+              ))}
+            </ol>
+          </nav>
+          {!assisted && (
+            <p className="px-1 text-xs leading-5 text-ui-muted">
+              All five steps and Google research work here. Mark&apos;s new
+              onboarding tools are awaiting their Noodle Seed release.
+            </p>
+          )}
+          {stage.id === 'research' && (
+            <ResearchPanel
+              workspace={workspace}
+              change={change}
+              reportError={setMessage}
+            />
+          )}
+          {stage.id === 'launch' && <ReviewSummary workspace={workspace} />}
+          <StageEditor
+            key={stage.id}
+            stage={stage}
+            workspace={workspace}
+            change={change}
+            assisted={assisted}
+            reportError={setMessage}
+            onDirtyChange={setDraftDirty}
+            onContinue={() => {
+              setDraftDirty(false);
+              if (nextStage) setSelected(nextStage.id);
+            }}
+          />
           <section className="border border-ui-border bg-ui-surface p-5">
             <details>
               <summary className="cursor-pointer font-semibold text-ui-heading">
-                Activity & accountability · revision {workspace.version}
+                Saved activity & details
               </summary>
+              <p className="mt-3 text-xs text-ui-muted">
+                {workspace.metrics.manualFields} fields entered manually ·{' '}
+                {workspace.metrics.assistedFields} with assistance · revision{' '}
+                {workspace.version}. These are observed field counts, not a
+                time-saving benchmark.
+              </p>
               <ol className="mt-4 space-y-3">
                 {workspace.events.map((e) => (
                   <li

@@ -908,7 +908,8 @@
                       "choices": {
                         "type": "array",
                         "items": { "type": "string" }
-                      }
+                      },
+                      "optional": { "type": "boolean" }
                     },
                     "required": ["id", "label", "hint"]
                   }

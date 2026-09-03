@@ -17,7 +17,13 @@ export const stepIds = [
   'launch',
 ] as const;
 export type StepId = (typeof stepIds)[number];
-type Field = { id: string; label: string; hint: string; choices?: string[] };
+type Field = {
+  id: string;
+  label: string;
+  hint: string;
+  choices?: string[];
+  optional?: boolean;
+};
 type Step = {
   id: StepId;
   title: string;
@@ -34,368 +40,131 @@ const field = (
   choices?: string[]
 ): Field => ({ id, label, hint, ...(choices ? { choices } : {}) });
 
+// Keep the historical IDs in persisted state and API enums so old records remain readable.
+// Only these five stages are offered or writable in the simplified plan.
 export const enterpriseSteps: Step[] = [
   {
     id: 'organization',
-    title: 'Organization profile',
+    title: 'Company',
     owner: 'Project owner',
-    description: 'Establish the organization this readiness plan covers.',
+    description:
+      'Tell us who you are onboarding. Industry and location can be added from reviewed research later.',
     dependsOn: [],
     fields: [
       field('companyName', 'Company name', 'The organization being onboarded.'),
       field(
         'companyDomain',
         'Public company domain',
-        'A public business domain, for example example.com. No internal addresses.'
-      ),
-      field('industry', 'Industry', 'Your primary business sector.'),
-      field(
-        'headquarters',
-        'Headquarters / operating regions',
-        'Business locations, not personal addresses.'
+        'For example example.com. No internal addresses.'
       ),
       field('employees', 'Team size', 'Approximate number of people in scope.'),
+      {
+        ...field('industry', 'Industry', 'Your primary business sector.'),
+        optional: true,
+      },
+      {
+        ...field(
+          'headquarters',
+          'Headquarters / operating regions',
+          'Business locations, not personal addresses.'
+        ),
+        optional: true,
+      },
     ],
   },
   {
     id: 'outcomes',
-    title: 'Outcomes & launch target',
-    owner: 'Business sponsor',
-    description:
-      'Agree what success looks like before configuring the product.',
-    dependsOn: ['organization'],
+    title: 'Goals',
+    owner: 'Project owner',
+    description: 'Pick the first useful outcome and a target date.',
+    dependsOn: [],
     fields: [
       field(
         'useCases',
-        'Priority use cases',
-        'Which two or three workflows should improve?'
+        'First workflow',
+        'What is the first thing your team wants to improve?'
       ),
       field(
         'successMetric',
         'Success measure',
-        'A measurable result and how you will verify it.'
+        'How will you know it is working?'
       ),
       field(
         'targetDate',
-        'Target launch date',
-        'An agreed target, not a promise that all dependencies are ready.'
-      ),
-    ],
-  },
-  {
-    id: 'stakeholders',
-    title: 'Stakeholders & ownership',
-    owner: 'Project owner',
-    description:
-      'Make cross-functional responsibilities explicit. Assign each stage to an existing team member.',
-    dependsOn: ['organization'],
-    fields: [
-      field(
-        'sponsor',
-        'Business sponsor',
-        'Role or team accountable for the outcome.'
-      ),
-      field(
-        'itOwner',
-        'IT owner',
-        'Team responsible for identity and integrations.'
-      ),
-      field(
-        'securityOwner',
-        'Security / privacy owner',
-        'Team reviewing data and access.'
-      ),
-      field(
-        'dataOwner',
-        'Data owner',
-        'Team accountable for migration quality.'
-      ),
-    ],
-  },
-  {
-    id: 'research',
-    title: 'Company & market context',
-    owner: 'Project owner',
-    description:
-      'Use cited public research or customer-supplied context. Research never establishes compliance or eligibility.',
-    dependsOn: ['organization'],
-    fields: [
-      field(
-        'companySummary',
-        'Company summary',
-        'Review the company description and its evidence.'
-      ),
-      field(
-        'competitors',
-        'Competitive context',
-        'Relevant competitors, or explain why this is not needed.'
-      ),
-      field(
-        'customerSegments',
-        'Customer segments',
-        'Publicly supported segments, not private customer lists.'
-      ),
-      field(
-        'researchCaveats',
-        'Evidence / unknowns',
-        'Sources, uncertainty, conflicting information, or a reason to use customer-provided context instead.'
-      ),
-    ],
-  },
-  {
-    id: 'security',
-    title: 'Security review',
-    owner: 'Security',
-    description:
-      'Record your actual review. This workspace does not issue security certifications.',
-    dependsOn: ['stakeholders'],
-    fields: [
-      field(
-        'assuranceEvidence',
-        'Assurance evidence',
-        'Document reference and revision reviewed, or a documented exception.'
-      ),
-      field(
-        'accessReview',
-        'Access review',
-        'Who reviewed least privilege and administrative access?'
-      ),
-      field(
-        'incidentContact',
-        'Incident escalation route',
-        'A team channel or operational route; do not enter secrets.'
-      ),
-      field(
-        'securityDecision',
-        'Review outcome',
-        'Record the accountable reviewer’s decision.',
-        ['Approved for pilot', 'Approved with documented exceptions']
-      ),
-    ],
-  },
-  {
-    id: 'privacy',
-    title: 'Privacy & data handling',
-    owner: 'Privacy',
-    description: 'Agree data handling with your accountable reviewer.',
-    dependsOn: ['security'],
-    fields: [
-      field(
-        'dataClasses',
-        'Data classes',
-        'Categories only. Do not upload personal records.'
-      ),
-      field(
-        'retentionDays',
-        'Retention policy',
-        'Retention duration and deletion procedure.'
-      ),
-      field(
-        'residency',
-        'Residency requirements',
-        'Required geography and any approved exceptions.'
-      ),
-      field(
-        'privacyDecision',
-        'Privacy approval evidence',
-        'Approval reference, reviewer, and date.'
+        'Target date',
+        'Your intended start date, not a verified production cutover.'
       ),
     ],
   },
   {
     id: 'access',
-    title: 'Identity & permissions',
-    owner: 'IT',
+    title: 'Basic setup',
+    owner: 'Project owner',
     description:
-      'Document and verify setup in the identity system. Saving this plan does not configure SSO or SCIM.',
-    dependsOn: ['stakeholders'],
+      'Choose how people will sign in and who needs access. This records your choices; it does not configure external systems.',
+    dependsOn: [],
     fields: [
       field(
         'identityProvider',
-        'Identity provider',
-        'Your chosen provider or an approved password-based pilot.'
-      ),
-      field(
-        'provisioning',
-        'Provisioning method',
-        'How accounts are created and removed.'
+        'Sign-in approach',
+        'Your identity provider, or password-based access for a pilot.'
       ),
       field(
         'roleModel',
-        'Role mapping',
-        'Map administrators, managers, and end users.'
-      ),
-      field(
-        'accessEvidence',
-        'Access-test evidence',
-        'Record a real login and deprovisioning test or a documented pilot exception.'
+        'Who needs access?',
+        'For example: two administrators and the pilot team.'
       ),
     ],
   },
   {
-    id: 'integrations',
-    title: 'Integration readiness',
-    owner: 'IT',
-    description:
-      'Record systems, permissions, and connection tests; no third-party connection is created here.',
-    dependsOn: ['access'],
-    fields: [
-      field(
-        'systems',
-        'Systems in scope',
-        'Required systems, or explicitly state none for the pilot.'
-      ),
-      field(
-        'permissionScope',
-        'Approved permissions',
-        'Minimum scopes and data access.'
-      ),
-      field(
-        'integrationEvidence',
-        'Connection-test evidence',
-        'Record actual test results or an approved exception.'
-      ),
-    ],
-  },
-  {
-    id: 'migration',
-    title: 'Data mapping & migration',
-    owner: 'Data',
-    description:
-      'Plan the migration and record sample validation. This does not import customer records.',
-    dependsOn: ['privacy', 'integrations'],
-    fields: [
-      field(
-        'sourceSystems',
-        'Source inventory',
-        'Data sources, volumes, and owners, or no migration required.'
-      ),
-      field(
-        'fieldMapping',
-        'Field mapping',
-        'Required source-to-target mappings.'
-      ),
-      field(
-        'validationRules',
-        'Validation evidence',
-        'Record checks for required values, duplicates, and sample results.'
-      ),
-      field(
-        'rollbackPlan',
-        'Rollback / recovery',
-        'How the owner will reverse or repair the migration.'
-      ),
-    ],
-  },
-  {
-    id: 'policy',
-    title: 'Operating model',
-    owner: 'Business operations',
-    description: 'Agree how the service will be operated after launch.',
-    dependsOn: ['outcomes'],
-    fields: [
-      field(
-        'operatingPolicy',
-        'Operating policy',
-        'Approval rules and applicable business policies.'
-      ),
-      field('supportOwner', 'Support owner', 'The accountable support team.'),
-      field(
-        'escalationPath',
-        'Escalation path',
-        'Response targets and escalation ownership.'
-      ),
-    ],
-  },
-  {
-    id: 'pilot',
-    title: 'Pilot & acceptance',
+    id: 'research',
+    title: 'Optional research',
     owner: 'Project owner',
-    description: 'A real pilot outcome is needed before readiness approval.',
-    dependsOn: ['migration', 'policy'],
-    fields: [
-      field(
-        'pilotCohort',
-        'Pilot cohort',
-        'Teams and size; avoid personal data.'
-      ),
-      field(
-        'acceptanceCriteria',
-        'Acceptance criteria',
-        'Observable tests tied to the success measure.'
-      ),
-      field(
-        'pilotEvidence',
-        'Pilot results',
-        'Actual outcomes, unresolved issues, and approved exceptions.'
-      ),
-    ],
-  },
-  {
-    id: 'enablement',
-    title: 'Training & support handoff',
-    owner: 'Customer success',
-    description: 'Prepare the people who will use and support the product.',
-    dependsOn: ['policy'],
-    fields: [
-      field('trainingPlan', 'Training plan', 'Roles, materials, and sessions.'),
-      field(
-        'supportHandoff',
-        'Support handoff',
-        'Runbooks and escalation recipients.'
-      ),
-      field(
-        'supportEvidence',
-        'Handoff evidence',
-        'Record readiness acknowledgement from the receiving team.'
-      ),
-    ],
-  },
-  {
-    id: 'approval',
-    title: 'Readiness sign-off',
-    owner: 'Administrator',
     description:
-      'An owner or administrator reviews all completed evidence and remaining exceptions.',
-    dependsOn: ['research', 'pilot', 'enablement'],
-    adminOnly: true,
+      'Review public company context, add your own notes, or continue without research. No AI call is required.',
+    dependsOn: [],
     fields: [
-      field(
-        'approvalSummary',
-        'Approval rationale',
-        'Summarize the evidence, accepted exceptions, and accountable decision.'
-      ),
+      {
+        ...field(
+          'companySummary',
+          'Company context',
+          'A short reviewed summary, if useful.'
+        ),
+        optional: true,
+      },
+      {
+        ...field(
+          'customerSegments',
+          'Customers / audience',
+          'Publicly supported segments, not private customer lists.'
+        ),
+        optional: true,
+      },
     ],
   },
   {
     id: 'launch',
-    title: 'Launch handoff',
+    title: 'Review & finish',
     owner: 'Administrator',
     description:
-      'Approve this documented readiness plan. External systems and production cutover remain the accountable teams’ responsibility.',
-    dependsOn: ['approval'],
+      'Review the saved choices and approve this onboarding plan. Security, legal review, migration, and production cutover remain separate work.',
+    dependsOn: ['organization', 'outcomes', 'access', 'research'],
     adminOnly: true,
     fields: [
       field(
-        'launchDate',
-        'Agreed handoff date',
-        'The agreed operational handoff date.'
-      ),
-      field(
         'launchOwner',
-        'Launch owner',
-        'Team accountable for actual production cutover.'
+        'Onboarding owner',
+        'The person or team responsible for the next step.'
       ),
       field(
         'acknowledgement',
-        'Readiness boundary',
-        'Confirm what this action does.',
+        'Confirm the plan',
+        'Approve only after reviewing the saved information.',
         ['Approve readiness plan; external cutover is separately verified']
       ),
     ],
   },
 ];
-
 export const stepStateSchema = z.object({
   values: z.record(z.string().max(2000)),
   origins: z.record(z.enum(['manual', 'assistant', 'research'])),
@@ -413,7 +182,9 @@ export const stepStateSchema = z.object({
   ownerId: z.string().nullable(),
 });
 export const journeyStateSchema = z.object({
+  planVersion: z.union([z.literal(1), z.literal(2)]).default(1),
   steps: z.record(stepStateSchema),
+  previousSteps: z.record(stepStateSchema).optional(),
 });
 export type JourneyState = z.infer<typeof journeyStateSchema>;
 export const sourceSchema = z.object({
@@ -500,6 +271,7 @@ export const enterpriseWorkspaceSchema = z.object({
           label: z.string(),
           hint: z.string(),
           choices: z.array(z.string()).optional(),
+          optional: z.boolean().optional(),
         })
       ),
       values: z.record(z.string()),
@@ -557,6 +329,7 @@ export type EnterpriseWorkspace = z.infer<typeof enterpriseWorkspaceSchema>;
 
 export function initialJourney(companyName: string): JourneyState {
   return journeyStateSchema.parse({
+    planVersion: 2,
     steps: Object.fromEntries(
       stepIds.map((id) => [
         id,
@@ -569,6 +342,32 @@ export function initialJourney(companyName: string): JourneyState {
       ])
     ),
   });
+}
+
+// Upgrade on read without a database write; persist atomically with the next
+// authorized change. Preserve the full old snapshot, including attestations.
+export function currentJourney(value: unknown): JourneyState {
+  const state = journeyStateSchema.parse(value);
+  if (state.planVersion === 2) return state;
+  const next: JourneyState = {
+    ...state,
+    planVersion: 2,
+    steps: JSON.parse(JSON.stringify(state.steps)),
+    previousSteps: state.previousSteps ?? state.steps,
+  };
+  for (const step of enterpriseSteps) {
+    next.steps[step.id] ??= initialJourney('').steps[step.id];
+    next.steps[step.id].completedAt = null;
+  }
+  return next;
+}
+
+export function isCurrentField(stepId: string, fieldId: string) {
+  return Boolean(
+    enterpriseSteps
+      .find((s) => s.id === stepId)
+      ?.fields.some((f) => f.id === fieldId)
+  );
 }
 
 export function descendants(id: StepId): StepId[] {
@@ -587,7 +386,8 @@ export function descendants(id: StepId): StepId[] {
 }
 
 export function validateStepValues(id: StepId, values: Record<string, string>) {
-  const step = enterpriseSteps.find((s) => s.id === id)!;
+  const step = enterpriseSteps.find((s) => s.id === id);
+  if (!step) throw new Error('This stage is not part of the five-stage plan');
   const clean: Record<string, string> = {};
   for (const [key, raw] of Object.entries(values)) {
     const definition = step.fields.find((f) => f.id === key);
@@ -614,7 +414,7 @@ export function applyStepCommand(
   admin: boolean,
   now: string
 ): JourneyState {
-  const next: JourneyState = JSON.parse(JSON.stringify(state));
+  const next: JourneyState = JSON.parse(JSON.stringify(currentJourney(state)));
   const step = enterpriseSteps.find((s) => s.id === command.stepId);
   if (!step) throw new Error('Choose a valid stage');
   if (step.adminOnly && !admin)
@@ -639,7 +439,9 @@ export function applyStepCommand(
     if (command.action === 'complete-step') {
       if (step.dependsOn.some((id) => !next.steps[id].completedAt))
         throw new Error('Complete the prerequisite stages first');
-      const missing = step.fields.filter((f) => !current.values[f.id]?.trim());
+      const missing = step.fields.filter(
+        (f) => !f.optional && !current.values[f.id]?.trim()
+      );
       if (missing.length)
         throw new Error(
           `Complete these fields: ${missing.map((f) => f.label).join(', ')}`
@@ -648,5 +450,18 @@ export function applyStepCommand(
     }
   }
   for (const id of descendants(step.id)) next.steps[id].completedAt = null;
+  if (
+    step.id === 'organization' &&
+    ['companyName', 'companyDomain'].some(
+      (id) =>
+        next.steps.organization.values[id] !==
+        state.steps.organization.values[id]
+    )
+  ) {
+    // A different organization needs fresh review of every saved choice.
+    for (const active of enterpriseSteps) {
+      if (active.id !== step.id) next.steps[active.id].completedAt = null;
+    }
+  }
   return next;
 }
