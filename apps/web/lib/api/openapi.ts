@@ -4,6 +4,7 @@ import {
   extendZodWithOpenApi,
 } from '@asteasolutions/zod-to-openapi';
 import { z } from 'zod';
+import { enterpriseAssistantWorkspaceSchema } from '../enterprise-assistant';
 import {
   enterpriseCommandSchema,
   enterpriseWorkspaceSchema,
@@ -1291,7 +1292,7 @@ for (const method of ['get', 'post'] as const) {
           .literal('assistant')
           .optional()
           .describe(
-            'Omit raw report text from model context; complete evidence remains on the website.'
+            'Return the strict MCP workspace projection without raw reports or web-only metadata; complete evidence remains on the website.'
           ),
       }),
       ...(method === 'post'
@@ -1308,7 +1309,14 @@ for (const method of ['get', 'post'] as const) {
       200: {
         description: 'Authoritative enterprise-readiness workspace',
         content: json(
-          data(enterpriseWorkspaceSchema.openapi('EnterpriseWorkspace'))
+          data(
+            z.union([
+              enterpriseWorkspaceSchema.openapi('EnterpriseWorkspace'),
+              enterpriseAssistantWorkspaceSchema.openapi(
+                'EnterpriseAssistantWorkspace'
+              ),
+            ])
+          )
         ),
       },
       ...problemResponses,
