@@ -84,7 +84,7 @@ jobs:
         run: |
           IMAGE_URI="${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/${ARTIFACT_REPOSITORY}/${IMAGE_NAME}:${GITHUB_SHA}"
           # NEXT_PUBLIC_* is inlined at build time — enable the embedded assistant widget in the image.
-          docker build --build-arg NEXT_PUBLIC_ASSISTANT_ENABLED=true -t "${IMAGE_URI}" apps/web
+          docker build --build-arg NEXT_PUBLIC_ASSISTANT_ENABLED=true --build-arg NEXT_PUBLIC_ENTERPRISE_ASSISTANT_ENABLED=true -t "${IMAGE_URI}" apps/web
           docker push "${IMAGE_URI}"
           echo "IMAGE_URI=${IMAGE_URI}" >> "${GITHUB_ENV}"
 

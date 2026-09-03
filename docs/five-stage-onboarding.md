@@ -40,11 +40,15 @@ introduced. The initial five-stage rollout left the assistant release pending.
 The subsequent [September 3 client update](noodle-preflight-recovery-2026-09-03.md)
 published assistant v32 successfully after engineering's preflight repair.
 
-Direct Mark entry points on this page are off by default. Enable
-`NEXT_PUBLIC_ENTERPRISE_ASSISTANT_ENABLED=true` at web build time only after the matching
-Noodle release is published and the live onboarding journey has been verified. The
-normal assistant elsewhere in the app is unchanged. All forms and Google research
-remain usable while this flag is off.
+Direct Mark entry points are enabled in the production build with
+`NEXT_PUBLIC_ENTERPRISE_ASSISTANT_ENABLED=true`, following successful live read,
+widget-rendering, runtime-confirmation, and saved-draft checks against assistant
+v32 and browser client 1.35.0. Choose a step and use **Work through this with Mark**;
+Mark receives the current team/stage and reads the saved plan first. The same forms
+remain available, and research still requires separate consent.
+
+The flag remains available as a build-time rollout control. Omitting it hides the
+direct entry points without disabling the manual forms or Google research.
 
 ## Verification
 
