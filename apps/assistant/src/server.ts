@@ -7,7 +7,7 @@ import {
   embeddedAssistant,
   file,
   knowledge,
-  openAICompatible,
+  noodleManaged,
   publicWebsite,
   secret,
   server,
@@ -151,11 +151,7 @@ export default server(
       audience: 'tivmark-api-prod',
     }),
     assistant: embeddedAssistant({
-      model: openAICompatible({
-        baseUrl: variable('ASSISTANT_MODEL_BASE_URL'),
-        model: variable('ASSISTANT_MODEL'),
-        apiKey: secret('ASSISTANT_MODEL_API_KEY'),
-      }),
+      model: noodleManaged(),
       // One assistant, two front doors. The same brand, model, and tool set project onto
       // the marketing site and the signed-in product; the surface decides who may open a
       // session and what they can reach.
