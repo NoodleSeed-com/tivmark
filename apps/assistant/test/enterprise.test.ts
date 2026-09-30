@@ -40,9 +40,11 @@ describe('enterprise onboarding contract', () => {
       enterpriseCommand.parse({ action: 'create', version: 0 }).source
     ).toBe('assistant');
   });
-  it('declares a focused workflow without changing the assistant model provider', async () => {
+  it('declares a focused workflow with the Noodle-managed assistant model', async () => {
     const manifest = await app.toManifest();
     expect(JSON.stringify(manifest)).toContain('enterprise_readiness');
-    expect(JSON.stringify(manifest)).toContain('ASSISTANT_MODEL_BASE_URL');
+    expect(manifest.server.assistant?.model).toEqual({
+      kind: 'noodle-managed',
+    });
   });
 });
